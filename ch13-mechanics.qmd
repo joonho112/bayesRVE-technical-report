@@ -10,7 +10,7 @@ This chapter examines the internal mechanics of Cholesky Calibration Correction 
 #| echo: false
 #| message: false
 #| warning: false
-R <- readRDS("../201_real-data-v060/v060_results.rds")
+R <- readRDS("data/v060_results.rds")
 library(ggplot2)
 library(dplyr)
 library(tidyr)

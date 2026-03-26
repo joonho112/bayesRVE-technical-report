@@ -440,8 +440,8 @@ window.Quarto = {
 
 <section id="sec-sandwich-impl" class="level1" data-number="11">
 <h1 data-number="11"><span class="header-section-number">11</span> Sandwich Implementation</h1>
-<p>This chapter traces the implementation of the cluster-robust sandwich variance estimator in <code>bayesRVE</code>, covering the full pipeline from S3 dispatch through HC0 computation, CR2 bias correction, and Satterthwaite degrees of freedom. The theoretical foundations appear in <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>; here we show how each formula translates into working R code inside <code>bayesRVE/R/sandwich.R</code>.</p>
-<p>The implementation serves two roles. First, the HC0 and scalar-corrected sandwich provide a fast classical benchmark for CCC calibration targets (<a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>). Second, the CR2 sandwich with Satterthwaite degrees of freedom constitutes the Three-Layer Calibration target—the gold standard against which CCC inference is validated.</p>
+<p>This chapter traces the implementation of the cluster-robust sandwich variance estimator in <code>bayesRVE</code>, covering the full pipeline from S3 dispatch through HC0 computation, CR2 bias correction, and Satterthwaite degrees of freedom. The theoretical foundations appear in <a href="ch03-sandwich.html" class="quarto-xref"><span>Chapter 6</span></a>; here we show how each formula translates into working R code inside <code>bayesRVE/R/sandwich.R</code>.</p>
+<p>The implementation serves two roles. First, the HC0 and scalar-corrected sandwich provide a fast classical benchmark for CCC calibration targets (<a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a>). Second, the CR2 sandwich with Satterthwaite degrees of freedom constitutes the Three-Layer Calibration target—the gold standard against which CCC inference is validated.</p>
 <section id="sec-sw-dispatch" class="level2" data-number="11.1">
 <h2 data-number="11.1" class="anchored" data-anchor-id="sec-sw-dispatch"><span class="header-section-number">11.1</span> Entry Points and Dispatch Logic</h2>
 <p>The sandwich module exposes a single S3 generic:</p>
@@ -469,7 +469,7 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><code>"CR2"</code></td>
-<td style="text-align: left;"><span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> CR2 adjustment matrices + Satterthwaite df (default since v0.5.0)</td>
+<td style="text-align: left;"><span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="references.html#ref-bell2002" role="doc-biblioref">2002</a>)</span> CR2 adjustment matrices + Satterthwaite df (default since v0.5.0)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><code>"scalar"</code></td>
@@ -528,7 +528,7 @@ s_j^{(\tau^2)} = -\frac{1}{2v_j} + \frac{r_j^2}{2v_j^2}
 <p><span class="math display">\[
 \mathbf{V}_\text{HC0} = \mathbf{H}_\text{post}^{-1}\,\mathbf{M}\,\mathbf{H}_\text{post}^{-1}
 \]</span></p>
-<p>The beta-block is extracted as <span class="math inline">\(\mathbf{V}_\beta = \mathbf{V}_\text{HC0}[1{:}K,\; 1{:}K]\)</span>. A positive-definiteness check is performed on <span class="math inline">\(\mathbf{V}_\beta\)</span>; if it fails, the beta-block CCC is skipped (no <code>nearPD</code> correction is ever applied—see <a href="#sec-sw-safeguards" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sw-safeguards</span></a>).</p>
+<p>The beta-block is extracted as <span class="math inline">\(\mathbf{V}_\beta = \mathbf{V}_\text{HC0}[1{:}K,\; 1{:}K]\)</span>. A positive-definiteness check is performed on <span class="math inline">\(\mathbf{V}_\beta\)</span>; if it fails, the beta-block CCC is skipped (no <code>nearPD</code> correction is ever applied—see <a href="#sec-sw-safeguards" class="quarto-xref"><span>Section 11.6</span></a>).</p>
 </section>
 <section id="observation-level-path" class="level3" data-number="11.2.2">
 <h3 data-number="11.2.2" class="anchored" data-anchor-id="observation-level-path"><span class="header-section-number">11.2.2</span> Observation-Level Path</h3>
@@ -581,7 +581,7 @@ c_\beta = \frac{J}{J - p_\text{eff}}, \qquad \mathbf{V}_\text{scalar} = c_\beta 
 <li><strong>Variance–variance:</strong> <span class="math inline">\(H_{\tau^2,\tau^2} = \tfrac{1}{2}\sum_j n_j^2 / c_j^2\)</span>; <span class="math inline">\(H_{\omega^2,\omega^2} = \tfrac{1}{2}\sum_j [(n_j{-}1)/a_j^2 + 1/c_j^2]\)</span>; <span class="math inline">\(H_{\tau^2,\omega^2} = \tfrac{1}{2}\sum_j n_j/c_j^2\)</span>.</li>
 <li><strong>Beta–variance cross-blocks:</strong> identically zero under expected information.</li>
 </ul>
-<p>The stabilized prior Hessian adds diagonal precision: <span class="math inline">\(1/\sigma_\beta^2\)</span> for each beta coefficient, and ridge-capped entries <span class="math inline">\(\min(1/(2\hat\tau^4),\, 10^6)\)</span> and <span class="math inline">\(\min(1/(2\hat\omega^4),\, 10^6)\)</span> for the variance components (see the analogous CE ridge in <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>). If the resulting <span class="math inline">\(\mathbf{H}_\text{post}\)</span> is not positive definite despite expected information, a <code>nearPD</code> correction is applied—the only location in the sandwich module where this fallback is used, justified because the bread (unlike <span class="math inline">\(\mathbf{V}_{\text{CR2}}\)</span>) is an auxiliary quantity whose slight perturbation does not mask a diagnostic signal (see also <a href="#sec-sw-safeguards" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sw-safeguards</span></a>).</p>
+<p>The stabilized prior Hessian adds diagonal precision: <span class="math inline">\(1/\sigma_\beta^2\)</span> for each beta coefficient, and ridge-capped entries <span class="math inline">\(\min(1/(2\hat\tau^4),\, 10^6)\)</span> and <span class="math inline">\(\min(1/(2\hat\omega^4),\, 10^6)\)</span> for the variance components (see the analogous CE ridge in <a href="ch03-sandwich.html" class="quarto-xref"><span>Chapter 6</span></a>). If the resulting <span class="math inline">\(\mathbf{H}_\text{post}\)</span> is not positive definite despite expected information, a <code>nearPD</code> correction is applied—the only location in the sandwich module where this fallback is used, justified because the bread (unlike <span class="math inline">\(\mathbf{V}_{\text{CR2}}\)</span>) is an auxiliary quantity whose slight perturbation does not mask a diagnostic signal (see also <a href="#sec-sw-safeguards" class="quarto-xref"><span>Section 11.6</span></a>).</p>
 </section>
 <section id="che-cr2-upgrade" class="level3" data-number="11.3.3">
 <h3 data-number="11.3.3" class="anchored" data-anchor-id="che-cr2-upgrade"><span class="header-section-number">11.3.3</span> CHE CR2 Upgrade</h3>
@@ -679,7 +679,7 @@ c_\beta = \frac{J}{J - p_\text{eff}}, \qquad \mathbf{V}_\text{scalar} = c_\beta 
 </section>
 <section id="step-a.2b-cr2-adjustment-matrices-decision-d16" class="level3" data-number="11.5.3">
 <h3 data-number="11.5.3" class="anchored" data-anchor-id="step-a.2b-cr2-adjustment-matrices-decision-d16"><span class="header-section-number">11.5.3</span> Step A.2b: CR2 Adjustment Matrices (Decision D16)</h3>
-<p>The function <code>.compute_cr2_adjustments()</code> computes the <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> adjustment matrices <span class="math inline">\(\mathbf{A}_j\)</span> using the <span class="math inline">\(\mathbf{W}^{1/2}\)</span> symmetrization approach (Decision D16).</p>
+<p>The function <code>.compute_cr2_adjustments()</code> computes the <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="references.html#ref-bell2002" role="doc-biblioref">2002</a>)</span> adjustment matrices <span class="math inline">\(\mathbf{A}_j\)</span> using the <span class="math inline">\(\mathbf{W}^{1/2}\)</span> symmetrization approach (Decision D16).</p>
 <p>For the study-level or singleton case, the adjustment is a scalar:</p>
 <p><span class="math display">\[
 A_j = (1 - h_j)^{-1/2}
@@ -705,7 +705,7 @@ A_j = (1 - h_j)^{-1/2}
 </section>
 <section id="step-b.1-satterthwaite-degrees-of-freedom-decision-d17" class="level3" data-number="11.5.5">
 <h3 data-number="11.5.5" class="anchored" data-anchor-id="step-b.1-satterthwaite-degrees-of-freedom-decision-d17"><span class="header-section-number">11.5.5</span> Step B.1: Satterthwaite Degrees of Freedom (Decision D17)</h3>
-<p>The function <code>.satterthwaite_df()</code> computes per-coefficient degrees of freedom using the trace formula from <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> and <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>.</p>
+<p>The function <code>.satterthwaite_df()</code> computes per-coefficient degrees of freedom using the trace formula from <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="references.html#ref-bell2002" role="doc-biblioref">2002</a>)</span> and <span class="citation" data-cites="tipton2015">Tipton (<a href="references.html#ref-tipton2015" role="doc-biblioref">2015</a>)</span>.</p>
 <p>For each coefficient <span class="math inline">\(k\)</span>, define the <span class="math inline">\(J \times J\)</span> matrix <span class="math inline">\(\mathbf{P}_k\)</span> with elements:</p>
 <p><span class="math display">\[
 P_{k,ii} = \mathbf{g}_{ik}'\,\mathbf{W}_i^{-1}\,\mathbf{g}_{ik} - \mathbf{g}_{ik}'\,\mathbf{X}_i\,\mathbf{Q}\,\mathbf{X}_i'\,\mathbf{g}_{ik}
@@ -724,12 +724,12 @@ P_{k,ij} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\,\mathbf{Q}\,(\mathbf{X}_j'\mathbf{g
 <ol type="1">
 <li>Computation failure (singular <span class="math inline">\(\mathbf{W}_j\)</span>): df set to <code>NA</code>, replaced by naive <span class="math inline">\(\max(J - K, 1)\)</span>.</li>
 <li><span class="math inline">\(\text{df}_k &lt; 1\)</span>: Replaced by naive df with a warning.</li>
-<li><span class="math inline">\(\text{df}_k &lt; 4\)</span>: Retained but flagged following <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>, who showed that <span class="math inline">\(t\)</span>-based inference is unreliable below this threshold.</li>
+<li><span class="math inline">\(\text{df}_k &lt; 4\)</span>: Retained but flagged following <span class="citation" data-cites="tipton2015">Tipton (<a href="references.html#ref-tipton2015" role="doc-biblioref">2015</a>)</span>, who showed that <span class="math inline">\(t\)</span>-based inference is unreliable below this threshold.</li>
 </ol>
 </section>
 <section id="decision-d25-plug-in-parity" class="level3" data-number="11.5.6">
 <h3 data-number="11.5.6" class="anchored" data-anchor-id="decision-d25-plug-in-parity"><span class="header-section-number">11.5.6</span> Decision D25: Plug-In Parity</h3>
-<p>The plug-in parity test (Decision D25) validates the CR2 linear algebra by injecting REML estimates of <span class="math inline">\(\hat\tau^2\)</span> (and <span class="math inline">\(\hat\omega^2\)</span> for CHE) into the bayesRVE sandwich pipeline and comparing the resulting V_CR2 against <code>clubSandwich::vcovCR()</code> <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> applied to a <code>metafor::rma.mv()</code> <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> fit. Agreement at <span class="math inline">\(10^{-6}\)</span> tolerance isolates the linear algebra from MCMC noise, confirming that the Woodbury, CR2, and Satterthwaite implementations exactly match the reference. This test is a cornerstone of the verification strategy (<a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a>).</p>
+<p>The plug-in parity test (Decision D25) validates the CR2 linear algebra by injecting REML estimates of <span class="math inline">\(\hat\tau^2\)</span> (and <span class="math inline">\(\hat\omega^2\)</span> for CHE) into the bayesRVE sandwich pipeline and comparing the resulting V_CR2 against <code>clubSandwich::vcovCR()</code> <span class="citation" data-cites="pustejovsky2022">(<a href="references.html#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> applied to a <code>metafor::rma.mv()</code> <span class="citation" data-cites="viechtbauer2010">(<a href="references.html#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> fit. Agreement at <span class="math inline">\(10^{-6}\)</span> tolerance isolates the linear algebra from MCMC noise, confirming that the Woodbury, CR2, and Satterthwaite implementations exactly match the reference. This test is a cornerstone of the verification strategy (<a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a>).</p>
 </section>
 </section>
 <section id="sec-sw-safeguards" class="level2" data-number="11.6">
@@ -834,7 +834,7 @@ Table&nbsp;11.1: Design decisions affecting the sandwich variance estimation mod
 <tr class="even">
 <td style="text-align: left;">D17</td>
 <td style="text-align: left;">Satterthwaite df via <span class="math inline">\(P_k\)</span> trace formula</td>
-<td style="text-align: left;">Deterministic, matches <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span></td>
+<td style="text-align: left;">Deterministic, matches <span class="citation" data-cites="tipton2015">Tipton (<a href="references.html#ref-tipton2015" role="doc-biblioref">2015</a>)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">D20</td>
@@ -865,7 +865,7 @@ Table&nbsp;11.1: Design decisions affecting the sandwich variance estimation mod
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
 <div id="ref-bell2002" class="csl-entry" role="listitem">
 Bell, R. M., &amp; McCaffrey, D. F. (2002). Bias reduction in standard errors for linear regression with multi-stage samples. <em>Survey Methodology</em>, <em>28</em>(2), 169–181.
 </div>

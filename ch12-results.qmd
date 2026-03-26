@@ -22,7 +22,7 @@ library(tidyr)
 library(patchwork)
 library(ggrepel)
 
-R <- readRDS("../201_real-data-v060/v060_results.rds")
+R <- readRDS("data/v060_results.rds")
 
 theme_brve <- theme_minimal(base_size = 13) +
   theme(

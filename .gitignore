@@ -8,6 +8,12 @@
 .RData
 .Rproj.user
 
+# Large data files
+data/
+
 # OS
 .DS_Store
 Thumbs.db
+
+/.quarto/
+**/*.quarto_ipynb

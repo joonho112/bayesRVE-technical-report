@@ -6,10 +6,8 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="JoonHo Lee">
-<meta name="dcterms.date" content="2026-03-26">
 
-<title>bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<title>Appendix E — References – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -61,7 +59,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
-  margin-bottom: 0em;
 }
 .hanging-indent div.csl-entry {
   margin-left:2em;
@@ -87,7 +84,7 @@ div.csl-indent {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./ch00-notation.html" rel="next">
+<link href="./app-d-reproducibility.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
@@ -127,35 +124,6 @@ div.csl-indent {
   }
 }</script>
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
 
 </head>
 
@@ -168,7 +136,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./app-a-proofs.html">Appendices</a></li><li class="breadcrumb-item"><a href="./references.html"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -195,7 +163,7 @@ window.Quarto = {
     <ul class="list-unstyled mt-1">
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
   </div>
 </li>
@@ -351,7 +319,7 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./references.html" class="sidebar-item-text sidebar-link">
+  <a href="./references.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
   </div>
 </li>
@@ -362,47 +330,22 @@ window.Quarto = {
 </nav>
 <div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active">
-    <h2 id="toc-title">Table of contents</h2>
-   
-  <ul>
-  <li><a href="#the-gap-between-bayesian-and-robust-inference" id="toc-the-gap-between-bayesian-and-robust-inference" class="nav-link active" data-scroll-target="#the-gap-between-bayesian-and-robust-inference">The Gap Between Bayesian and Robust Inference</a></li>
-  <li><a href="#purpose-and-scope" id="toc-purpose-and-scope" class="nav-link" data-scroll-target="#purpose-and-scope">Purpose and Scope</a></li>
-  <li><a href="#three-layer-calibration" id="toc-three-layer-calibration" class="nav-link" data-scroll-target="#three-layer-calibration">Three-Layer Calibration</a></li>
-  <li><a href="#what-this-report-demonstrates" id="toc-what-this-report-demonstrates" class="nav-link" data-scroll-target="#what-this-report-demonstrates">What This Report Demonstrates</a></li>
-  <li><a href="#how-to-read-this-report" id="toc-how-to-read-this-report" class="nav-link" data-scroll-target="#how-to-read-this-report">How to Read This Report</a></li>
-  <li><a href="#scope-boundaries" id="toc-scope-boundaries" class="nav-link" data-scroll-target="#scope-boundaries">Scope Boundaries</a></li>
-  <li><a href="#software-and-reproducibility" id="toc-software-and-reproducibility" class="nav-link" data-scroll-target="#software-and-reproducibility">Software and Reproducibility</a></li>
-  </ul>
-</nav>
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+        
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default">
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./app-a-proofs.html">Appendices</a></li><li class="breadcrumb-item"><a href="./references.html"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></a></li></ol></nav>
 <div class="quarto-title">
-<div class="quarto-title-block"><div><h1 class="title">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
-<p class="subtitle lead">Technical Report — Theory, Implementation, and Empirical Validation</p>
+<div class="quarto-title-block"><div><h1 class="title">Appendix E — References</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
 </div>
 
 
 
 <div class="quarto-title-meta">
 
-    <div>
-    <div class="quarto-title-meta-heading">Author</div>
-    <div class="quarto-title-meta-contents">
-             <p>JoonHo Lee </p>
-          </div>
-  </div>
     
-    <div>
-    <div class="quarto-title-meta-heading">Published</div>
-    <div class="quarto-title-meta-contents">
-      <p class="date">March 26, 2026</p>
-    </div>
-  </div>
   
     
   </div>
@@ -412,132 +355,131 @@ window.Quarto = {
 </header>
 
 
-<section id="the-gap-between-bayesian-and-robust-inference" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="the-gap-between-bayesian-and-robust-inference">The Gap Between Bayesian and Robust Inference</h2>
-<p>Applied researchers increasingly turn to Bayesian methods for meta-analysis with dependent effect sizes. Bayesian hierarchical models offer natural handling of complex dependence structures, coherent uncertainty propagation through variance components, and direct probability statements about quantities of interest. Yet these advantages rest on the assumption that the working model is correctly specified—an assumption that is rarely defensible when effect sizes are statistically dependent within studies.</p>
-<p>Frequentist meta-analysts have long addressed this vulnerability through robust variance estimation (RVE). The CR2 sandwich estimator, combined with Satterthwaite degrees of freedom, provides confidence intervals that maintain nominal coverage regardless of the true within-study correlation structure. However, the resulting inference sacrifices the Bayesian advantages of shrinkage estimation and probabilistic interpretation.</p>
-<p>The fundamental tension, then, is between two desirable properties: the shrinkage and probabilistic coherence of Bayesian point estimation, and the misspecification-robust coverage guarantees of sandwich-based inference. This report develops and validates <strong>Cholesky Calibration Correction</strong> (CCC) as a principled resolution of this tension.</p>
-</section>
-<section id="purpose-and-scope" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="purpose-and-scope">Purpose and Scope</h2>
-<p>This report provides a self-contained account of the theory, implementation, and empirical validation of the <strong>bayesRVE</strong> R package (version 0.6.0), which implements CCC for Bayesian meta-analysis with dependent effect sizes. The intended audience includes methodologists working at the intersection of Bayesian computation and robust variance estimation, as well as applied researchers seeking calibrated inference from multi-level meta-analytic models.</p>
-<p>The CCC transformation takes the form <span id="eq-ccc-preface"><span class="math display">\[
-\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}),
-\tag{1}\]</span></span> where <span class="math inline">\(\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})\)</span> is the Cholesky factor of the posterior covariance, <span class="math inline">\(\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})\)</span> is the Cholesky factor of the CR2 sandwich variance, and <span class="math inline">\(\hat{\boldsymbol{\psi}}\)</span> is the posterior mean. This affine map preserves the posterior mean as the point estimate while replacing the model-dependent posterior spread with a misspecification-robust alternative.</p>
-</section>
-<section id="three-layer-calibration" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="three-layer-calibration">Three-Layer Calibration</h2>
-<p>The bayesRVE package implements a three-layer calibration framework:</p>
-<ul>
-<li><p><strong>Layer 1 (Location).</strong> The posterior mean <span class="math inline">\(\hat{\boldsymbol{\beta}} = \mathbb{E}[\boldsymbol{\beta} \mid \mathbf{y}]\)</span> serves as the point estimate. For both correlated-effects (CE) and correlated-hierarchical-effects (CHE) models, the posterior mean incorporates partial pooling across studies, yielding shrinkage estimates that borrow strength from the ensemble.</p></li>
-<li><p><strong>Layer 2 (Spread).</strong> CCC transforms the posterior draws so that <span class="math inline">\(\text{Cov}(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}\)</span> exactly. The posterior spread is recalibrated from model-dependent to sandwich-robust, while the posterior mean is preserved as an algebraic identity (<a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a>, Theorem 1).</p></li>
-<li><p><strong>Layer 3 (Tail behavior).</strong> Satterthwaite degrees of freedom <span class="math inline">\(\text{df}_k\)</span>, computed from the CR2 adjustment matrices, determine the reference distribution for each coefficient. The resulting <strong>CCC-<span class="math inline">\(t\)</span> intervals</strong>, <span class="math display">\[
-\hat{\beta}_k \pm t_{\alpha/2,\, \text{df}_k} \cdot \text{SD}(\beta_k^*),
-\]</span> are Bayesian in their point estimate, sandwich-robust in their width, and small-sample corrected in their tail behavior.</p></li>
-</ul>
-</section>
-<section id="what-this-report-demonstrates" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="what-this-report-demonstrates">What This Report Demonstrates</h2>
-<p>The principal claims, developed across the thirteen chapters that follow, are:</p>
-<ol type="1">
-<li><p><strong>Exact covariance alignment.</strong> CCC is an affine transformation whose empirical covariance matrix exactly equals the CR2 sandwich variance matrix (Theorem 2, <a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a>). This result is verified numerically at machine precision on synthetic data.</p></li>
-<li><p><strong>Generality across working models.</strong> Three-Layer Calibration applies to both the CE model (<span class="math inline">\(\tau^2\)</span> only) and the CHE model (<span class="math inline">\(\tau^2 + \omega^2\)</span>). The CHE extension requires only the substitution <span class="math inline">\(\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2\)</span> into the weight matrices; no new mathematical machinery is needed (<a href="ch02-models.html" class="quarto-xref"><span>Chapter 4</span></a>).</p></li>
-<li><p><strong>Plug-in parity with established software.</strong> When REML variance components are injected into the bayesRVE CR2 machinery, the resulting sandwich variance matches the clubSandwich package to a tolerance of <span class="math inline">\(10^{-6}\)</span>, isolating the linear algebra from MCMC sampling noise (<a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a>).</p></li>
-<li><p><strong>Real-data validation.</strong> On the <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="references.html#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> dataset (<span class="math inline">\(J = 107\)</span> studies, <span class="math inline">\(N = 1{,}198\)</span> effect sizes), the ratio of CCC posterior standard deviation to CR2 standard error is approximately 1.0 across all moderator categories, for both CE and CHE models (<a href="ch12-results.html#sec-results" class="quarto-xref"><span>Section 14.2</span></a>).</p></li>
-<li><p><strong>Comprehensive automated testing.</strong> The bayesRVE test suite comprises 2,701+ expectations across 39 test files, covering algebraic identities on synthetic data, MCMC-based integration tests, edge cases, and backward compatibility guarantees (<a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a>).</p></li>
-</ol>
-</section>
-<section id="how-to-read-this-report" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="how-to-read-this-report">How to Read This Report</h2>
-<p>The chapters support several reading strategies:</p>
-<table class="caption-top table">
-<caption>Reading routes through the report.</caption>
-<colgroup>
-<col style="width: 15%">
-<col style="width: 15%">
-<col style="width: 50%">
-<col style="width: 12%">
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Route</th>
-<th style="text-align: left;">Chapters</th>
-<th style="text-align: left;">Focus</th>
-<th style="text-align: left;">Est. Time</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;"><strong>Theory</strong></td>
-<td style="text-align: left;">1–5</td>
-<td style="text-align: left;">Statistical foundations: models, sandwich, CCC, operating envelope</td>
-<td style="text-align: left;">3–4 hours</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong>Code audit</strong></td>
-<td style="text-align: left;">6–10</td>
-<td style="text-align: left;">Software architecture, Stan models, <code>sandwich()</code>, <code>ccc()</code>, verification</td>
-<td style="text-align: left;">4–5 hours</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;"><strong>Empirical</strong></td>
-<td style="text-align: left;">11–13</td>
-<td style="text-align: left;">TSL15 application: design, results, CCC mechanics and limitations</td>
-<td style="text-align: left;">2–3 hours</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"><strong>Quick overview</strong></td>
-<td style="text-align: left;">Preface + 1 + 12</td>
-<td style="text-align: left;">Problem statement, architecture, main results</td>
-<td style="text-align: left;">1 hour</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;"><strong>Complete</strong></td>
-<td style="text-align: left;">All</td>
-<td style="text-align: left;">Full theory + implementation + validation</td>
-<td style="text-align: left;">8–10 hours</td>
-</tr>
-</tbody>
-</table>
-<p><strong>For the theoretically inclined reader,</strong> Chapters 1 through 5 develop the statistical foundations without reference to the software. <strong>For the code reviewer,</strong> Chapters 6 through 10 document the package internals with cross-references to specific source files. <strong>For the empirically minded reader,</strong> Chapters 11 through 13 present the real-data application and its implications.</p>
-</section>
-<section id="scope-boundaries" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="scope-boundaries">Scope Boundaries</h2>
-<p><strong>In scope:</strong></p>
-<ul>
-<li>Mathematical foundations: CE and CHE models, CR2 sandwich variance, CCC transformation, Satterthwaite degrees of freedom</li>
-<li>Software realization: Stan models, R package architecture, object contracts, S3 method semantics</li>
-<li>Empirical validation: <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="references.html#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> dataset, five-estimator comparison</li>
-<li>Verification: algebraic identity tests, plug-in parity benchmarks, cross-software interoperability</li>
-</ul>
-<p><strong>Out of scope (deferred to future work):</strong></p>
-<ul>
-<li>Comprehensive Monte Carlo simulation study (planned for v0.7.0)</li>
-<li>Multi-parameter Wald and F tests for joint hypotheses</li>
-<li>Multivariate and network meta-analysis extensions</li>
-<li>CRAN submission (installation currently requires the development version from GitHub)</li>
-<li>Prior sensitivity analysis across alternative variance component priors</li>
-</ul>
-</section>
-<section id="software-and-reproducibility" class="level2 unnumbered">
-<h2 class="unnumbered anchored" data-anchor-id="software-and-reproducibility">Software and Reproducibility</h2>
-<ul>
-<li><strong>bayesRVE</strong> version 0.6.0 (development version, <a href="https://github.com/joonho112/bayesRVE" class="uri">https://github.com/joonho112/bayesRVE</a>)</li>
-<li><strong>R</strong> version 4.5.1</li>
-<li><strong>Stan</strong> via the <strong>cmdstanr</strong> backend (<span class="math inline">\(\geq\)</span> 0.8.0)</li>
-<li><strong>Key dependencies:</strong> metafor (<span class="math inline">\(\geq\)</span> 4.0), clubSandwich (<span class="math inline">\(\geq\)</span> 0.5.10, in Suggests), posterior (<span class="math inline">\(\geq\)</span> 1.4.0)</li>
-</ul>
-<p>All numerical results can be reproduced by installing bayesRVE and executing the code blocks embedded in each chapter. Reproducibility details are collected in Appendix D.</p>
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-bell2002" class="csl-entry" role="listitem">
+Bell, R. M., &amp; McCaffrey, D. F. (2002). Bias reduction in standard
+errors for linear regression with multi-stage samples. <em>Survey
+Methodology</em>, <em>28</em>(2), 169–181.
+</div>
+<div id="ref-carpenter2017" class="csl-entry" role="listitem">
+Carpenter, B., Gelman, A., Hoffman, M. D., Lee, D., Goodrich, B.,
+Betancourt, M., Brubaker, M., Guo, J., Li, P., &amp; Riddell, A. (2017).
+<span>S</span>tan: A probabilistic programming language. <em>Journal of
+Statistical Software</em>, <em>76</em>(1), 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>
+</div>
+<div id="ref-cheung2014" class="csl-entry" role="listitem">
+Cheung, M. W.-L. (2014). Modeling dependent effect sizes with
+three-level meta-analyses: A structural equation modeling approach.
+<em>Psychological Methods</em>, <em>19</em>(2), 211–229. <a href="https://doi.org/10.1037/a0032968">https://doi.org/10.1037/a0032968</a>
+</div>
+<div id="ref-gelman2006" class="csl-entry" role="listitem">
+Gelman, A. (2006). Prior distributions for variance parameters in
+hierarchical models (comment on article by <span>Browne</span> and
+<span>Draper</span>). <em>Bayesian Analysis</em>, <em>1</em>(3),
+515–534. <a href="https://doi.org/10.1214/06-BA117A">https://doi.org/10.1214/06-BA117A</a>
+</div>
+<div id="ref-giordano2024" class="csl-entry" role="listitem">
+Giordano, R., &amp; Broderick, T. (2024). <em>The <span>B</span>ayesian
+infinitesimal jackknife for variance</em>. <a href="https://arxiv.org/abs/2305.06466">https://arxiv.org/abs/2305.06466</a>
+</div>
+<div id="ref-hedges2010" class="csl-entry" role="listitem">
+Hedges, L. V., Tipton, E., &amp; Johnson, M. C. (2010). Robust variance
+estimation in meta-regression with dependent effect size estimates.
+<em>Research Synthesis Methods</em>, <em>1</em>(1), 39–65. <a href="https://doi.org/10.1002/jrsm.5">https://doi.org/10.1002/jrsm.5</a>
+</div>
+<div id="ref-imbens2016" class="csl-entry" role="listitem">
+Imbens, G. W., &amp; Kolesár, M. (2016). Robust standard errors in small
+samples: Some practical advice. <em>Review of Economics and
+Statistics</em>, <em>98</em>(4), 701–712. <a href="https://doi.org/10.1162/REST_a_00552">https://doi.org/10.1162/REST_a_00552</a>
+</div>
+<div id="ref-leonnovelo2019" class="csl-entry" role="listitem">
+León-Novelo, L. G., &amp; Savitsky, T. D. (2019). Fully
+<span>B</span>ayesian estimation under informative sampling with
+unattenuated dependence. <em>Electronic Journal of Statistics</em>,
+<em>13</em>(1), 1608–1645. <a href="https://doi.org/10.1214/19-EJS1538">https://doi.org/10.1214/19-EJS1538</a>
+</div>
+<div id="ref-little2006" class="csl-entry" role="listitem">
+Little, R. J. (2006). Calibrated <span>B</span>ayes: A
+<span>B</span>ayes/<span>F</span>requentist roadmap. <em>The American
+Statistician</em>, <em>60</em>(3), 213–223. <a href="https://doi.org/10.1198/000313006X117837">https://doi.org/10.1198/000313006X117837</a>
+</div>
+<div id="ref-little2012" class="csl-entry" role="listitem">
+Little, R. J. (2012). Calibrated <span>B</span>ayes, an alternative
+inferential paradigm for official statistics. <em>Journal of Official
+Statistics</em>, <em>28</em>(3), 309–334.
+</div>
+<div id="ref-mathai1992" class="csl-entry" role="listitem">
+Mathai, A. M., &amp; Provost, S. B. (1992). <em>Quadratic forms in
+random variables: Theory and applications</em>. Marcel Dekker.
+</div>
+<div id="ref-neyman1948" class="csl-entry" role="listitem">
+Neyman, J., &amp; Scott, E. L. (1948). Consistent estimates based on
+partially consistent observations. <em>Econometrica</em>,
+<em>16</em>(1), 1–32. <a href="https://doi.org/10.2307/1914288">https://doi.org/10.2307/1914288</a>
+</div>
+<div id="ref-polson2012" class="csl-entry" role="listitem">
+Polson, N. G., &amp; Scott, J. G. (2012). On the
+half-<span>C</span>auchy prior for a global scale parameter.
+<em>Bayesian Analysis</em>, <em>7</em>(4), 887–902. <a href="https://doi.org/10.1214/12-BA730">https://doi.org/10.1214/12-BA730</a>
+</div>
+<div id="ref-pustejovsky2018" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2018). Small-sample methods for
+cluster-robust variance estimation and hypothesis testing in fixed
+effects models. <em>Journal of Business &amp; Economic Statistics</em>,
+<em>36</em>(4), 672–683. <a href="https://doi.org/10.1080/07350015.2016.1247004">https://doi.org/10.1080/07350015.2016.1247004</a>
+</div>
+<div id="ref-pustejovsky2022" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2022). Meta-analysis with robust
+variance estimation: Expanding the range of working models.
+<em>Prevention Science</em>, <em>23</em>(3), 425–438. <a href="https://doi.org/10.1007/s11121-021-01246-3">https://doi.org/10.1007/s11121-021-01246-3</a>
+</div>
+<div id="ref-rubin1984" class="csl-entry" role="listitem">
+Rubin, D. B. (1984). Bayesianly justifiable and relevant frequency
+calculations for the applied statistician. <em>The Annals of
+Statistics</em>, <em>12</em>(4), 1151–1172. <a href="https://doi.org/10.1214/aos/1176346785">https://doi.org/10.1214/aos/1176346785</a>
+</div>
+<div id="ref-satterthwaite1946" class="csl-entry" role="listitem">
+Satterthwaite, F. E. (1946). An approximate distribution of estimates of
+variance components. <em>Biometrics Bulletin</em>, <em>2</em>(6),
+110–114. <a href="https://doi.org/10.2307/3002019">https://doi.org/10.2307/3002019</a>
+</div>
+<div id="ref-tannersmith2015" class="csl-entry" role="listitem">
+Tanner-Smith, E. E., &amp; Lipsey, M. W. (2015). Brief alcohol
+interventions for adolescents and young adults: A systematic review and
+meta-analysis. <em>Journal of Substance Abuse Treatment</em>,
+<em>51</em>, 1–18. <a href="https://doi.org/10.1016/j.jsat.2014.09.001">https://doi.org/10.1016/j.jsat.2014.09.001</a>
+</div>
+<div id="ref-tipton2015" class="csl-entry" role="listitem">
+Tipton, E. (2015). Small sample adjustments for robust variance
+estimation with meta-regression. <em>Psychological Methods</em>,
+<em>20</em>(3), 375–393. <a href="https://doi.org/10.1037/met0000011">https://doi.org/10.1037/met0000011</a>
+</div>
+<div id="ref-tipton2015b" class="csl-entry" role="listitem">
+Tipton, E., &amp; Pustejovsky, J. E. (2015). Small-sample adjustments
+for tests of moderators and model fit using robust variance estimation
+in meta-regression. <em>Journal of Educational and Behavioral
+Statistics</em>, <em>40</em>(6), 604–634. <a href="https://doi.org/10.3102/1076998615606099">https://doi.org/10.3102/1076998615606099</a>
+</div>
+<div id="ref-vandennoortgate2013" class="csl-entry" role="listitem">
+Van den Noortgate, W., López-López, J. A., Marín-Martínez, F., &amp;
+Viechtbauer, W. (2013). Three-level meta-analysis of dependent effect
+sizes. <em>Behavior Research Methods</em>, <em>45</em>(2), 576–594. <a href="https://doi.org/10.3758/s13428-012-0261-6">https://doi.org/10.3758/s13428-012-0261-6</a>
+</div>
+<div id="ref-viechtbauer2010" class="csl-entry" role="listitem">
+Viechtbauer, W. (2010). Conducting meta-analyses in <span>R</span> with
+the <strong>metafor</strong> package. <em>Journal of Statistical
+Software</em>, <em>36</em>(3), 1–48. <a href="https://doi.org/10.18637/jss.v036.i03">https://doi.org/10.18637/jss.v036.i03</a>
+</div>
+<div id="ref-williams2020" class="csl-entry" role="listitem">
+Williams, M. R., &amp; Savitsky, T. D. (2021). Uncertainty estimation
+for pseudo-<span>B</span>ayesian inference under complex sampling.
+<em>International Statistical Review</em>, <em>89</em>(1), 72–107. <a href="https://doi.org/10.1111/insr.12376">https://doi.org/10.1111/insr.12376</a>
+</div>
+</div>
 
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
-<div id="ref-tannersmith2015" class="csl-entry" role="listitem">
-Tanner-Smith, E. E., &amp; Lipsey, M. W. (2015). Brief alcohol interventions for adolescents and young adults: A systematic review and meta-analysis. <em>Journal of Substance Abuse Treatment</em>, <em>51</em>, 1–18. <a href="https://doi.org/10.1016/j.jsat.2014.09.001">https://doi.org/10.1016/j.jsat.2014.09.001</a>
-</div>
-</div>
-</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
@@ -993,111 +935,19 @@ Tanner-Smith, E. E., &amp; Lipsey, M. W. (2015). Brief alcohol interventions for
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
+      <a href="./app-d-reproducibility.html" class="pagination-link" aria-label="Reproducibility">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span>
+      </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./ch00-notation.html" class="pagination-link" aria-label="Notation, Acronyms, and Object Map">
-        <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span> <i class="bi bi-arrow-right-short"></i>
-      </a>
   </div>
 </nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Preface"</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "References"</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Gap Between Bayesian and Robust Inference {.unnumbered}</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>Applied researchers increasingly turn to Bayesian methods for meta-analysis with dependent effect sizes. Bayesian hierarchical models offer natural handling of complex dependence structures, coherent uncertainty propagation through variance components, and direct probability statements about quantities of interest. Yet these advantages rest on the assumption that the working model is correctly specified---an assumption that is rarely defensible when effect sizes are statistically dependent within studies.</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>Frequentist meta-analysts have long addressed this vulnerability through robust variance estimation (RVE). The CR2 sandwich estimator, combined with Satterthwaite degrees of freedom, provides confidence intervals that maintain nominal coverage regardless of the true within-study correlation structure. However, the resulting inference sacrifices the Bayesian advantages of shrinkage estimation and probabilistic interpretation.</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>The fundamental tension, then, is between two desirable properties: the shrinkage and probabilistic coherence of Bayesian point estimation, and the misspecification-robust coverage guarantees of sandwich-based inference. This report develops and validates **Cholesky Calibration Correction** (CCC) as a principled resolution of this tension.</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">## Purpose and Scope {.unnumbered}</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>This report provides a self-contained account of the theory, implementation, and empirical validation of the **bayesRVE** R package (version 0.6.0), which implements CCC for Bayesian meta-analysis with dependent effect sizes. The intended audience includes methodologists working at the intersection of Bayesian computation and robust variance estimation, as well as applied researchers seeking calibrated inference from multi-level meta-analytic models.</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>The CCC transformation takes the form</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}),</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>$$ {#eq-ccc-preface}</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>where $\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})$ is the Cholesky factor of the posterior covariance, $\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})$ is the Cholesky factor of the CR2 sandwich variance, and $\hat{\boldsymbol{\psi}}$ is the posterior mean. This affine map preserves the posterior mean as the point estimate while replacing the model-dependent posterior spread with a misspecification-robust alternative.</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="fu">## Three-Layer Calibration {.unnumbered}</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>The bayesRVE package implements a three-layer calibration framework:</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Layer 1 (Location).** The posterior mean $\hat{\boldsymbol{\beta}} = \mathbb{E}<span class="co">[</span><span class="ot">\boldsymbol{\beta} \mid \mathbf{y}</span><span class="co">]</span>$ serves as the point estimate. For both correlated-effects (CE) and correlated-hierarchical-effects (CHE) models, the posterior mean incorporates partial pooling across studies, yielding shrinkage estimates that borrow strength from the ensemble.</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Layer 2 (Spread).** CCC transforms the posterior draws so that $\text{Cov}(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}$ exactly. The posterior spread is recalibrated from model-dependent to sandwich-robust, while the posterior mean is preserved as an algebraic identity (@sec-ccc, Theorem 1).</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Layer 3 (Tail behavior).** Satterthwaite degrees of freedom $\text{df}_k$, computed from the CR2 adjustment matrices, determine the reference distribution for each coefficient. The resulting **CCC-$t$ intervals**,</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>\hat{\beta}_k \pm t_{\alpha/2,\, \text{df}_k} \cdot \text{SD}(\beta_k^*),</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>are Bayesian in their point estimate, sandwich-robust in their width, and small-sample corrected in their tail behavior.</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">## What This Report Demonstrates {.unnumbered}</span></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>The principal claims, developed across the thirteen chapters that follow, are:</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Exact covariance alignment.** CCC is an affine transformation whose empirical covariance matrix exactly equals the CR2 sandwich variance matrix (Theorem 2, @sec-ccc). This result is verified numerically at machine precision on synthetic data.</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Generality across working models.** Three-Layer Calibration applies to both the CE model ($\tau^2$ only) and the CHE model ($\tau^2 + \omega^2$). The CHE extension requires only the substitution $\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2$ into the weight matrices; no new mathematical machinery is needed (@sec-models).</span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Plug-in parity with established software.** When REML variance components are injected into the bayesRVE CR2 machinery, the resulting sandwich variance matches the clubSandwich package to a tolerance of $10^{-6}$, isolating the linear algebra from MCMC sampling noise (@sec-verification).</span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Real-data validation.** On the @tannersmith2015 dataset ($J = 107$ studies, $N = 1{,}198$ effect sizes), the ratio of CCC posterior standard deviation to CR2 standard error is approximately 1.0 across all moderator categories, for both CE and CHE models (@sec-results).</span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Comprehensive automated testing.** The bayesRVE test suite comprises 2,701+ expectations across 39 test files, covering algebraic identities on synthetic data, MCMC-based integration tests, edge cases, and backward compatibility guarantees (@sec-verification).</span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## How to Read This Report {.unnumbered}</span></span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>The chapters support several reading strategies:</span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Route <span class="pp">|</span> Chapters <span class="pp">|</span> Focus <span class="pp">|</span> Est. Time <span class="pp">|</span></span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="pp">|:------|:---------|:------|:----------|</span></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Theory** <span class="pp">|</span> 1--5 <span class="pp">|</span> Statistical foundations: models, sandwich, CCC, operating envelope <span class="pp">|</span> 3--4 hours <span class="pp">|</span></span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Code audit** <span class="pp">|</span> 6--10 <span class="pp">|</span> Software architecture, Stan models, <span class="in">`sandwich()`</span>, <span class="in">`ccc()`</span>, verification <span class="pp">|</span> 4--5 hours <span class="pp">|</span></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Empirical** <span class="pp">|</span> 11--13 <span class="pp">|</span> TSL15 application: design, results, CCC mechanics and limitations <span class="pp">|</span> 2--3 hours <span class="pp">|</span></span>
-<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Quick overview** <span class="pp">|</span> Preface + 1 + 12 <span class="pp">|</span> Problem statement, architecture, main results <span class="pp">|</span> 1 hour <span class="pp">|</span></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Complete** <span class="pp">|</span> All <span class="pp">|</span> Full theory + implementation + validation <span class="pp">|</span> 8--10 hours <span class="pp">|</span></span>
-<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>: Reading routes through the report. {tbl-colwidths="<span class="co">[</span><span class="ot">15,15,50,12</span><span class="co">]</span>"}</span>
-<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>**For the theoretically inclined reader,** Chapters 1 through 5 develop the statistical foundations without reference to the software. **For the code reviewer,** Chapters 6 through 10 document the package internals with cross-references to specific source files. **For the empirically minded reader,** Chapters 11 through 13 present the real-data application and its implications.</span>
-<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a><span class="fu">## Scope Boundaries {.unnumbered}</span></span>
-<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>**In scope:**</span>
-<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Mathematical foundations: CE and CHE models, CR2 sandwich variance, CCC transformation, Satterthwaite degrees of freedom</span>
-<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Software realization: Stan models, R package architecture, object contracts, S3 method semantics</span>
-<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Empirical validation: @tannersmith2015 dataset, five-estimator comparison</span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Verification: algebraic identity tests, plug-in parity benchmarks, cross-software interoperability</span>
-<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>**Out of scope (deferred to future work):**</span>
-<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Comprehensive Monte Carlo simulation study (planned for v0.7.0)</span>
-<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Multi-parameter Wald and F tests for joint hypotheses</span>
-<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Multivariate and network meta-analysis extensions</span>
-<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>CRAN submission (installation currently requires the development version from GitHub)</span>
-<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Prior sensitivity analysis across alternative variance component priors</span>
-<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a><span class="fu">## Software and Reproducibility {.unnumbered}</span></span>
-<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**bayesRVE** version 0.6.0 (development version, <span class="ot">&lt;https://github.com/joonho112/bayesRVE&gt;</span>)</span>
-<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**R** version 4.5.1</span>
-<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Stan** via the **cmdstanr** backend ($\geq$ 0.8.0)</span>
-<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Key dependencies:** metafor ($\geq$ 4.0), clubSandwich ($\geq$ 0.5.10, in Suggests), posterior ($\geq$ 1.4.0)</span>
-<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a>All numerical results can be reproduced by installing bayesRVE and executing the code blocks embedded in each chapter. Reproducibility details are collected in Appendix D.</span>
-<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>::: {#refs}</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>:::</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

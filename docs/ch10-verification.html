@@ -430,7 +430,7 @@ window.Quarto = {
 <p>The test suite comprises 2,701 passing assertions organized into five tiers of increasing realism: algebraic invariants on synthetic data (Tier 0), known-answer benchmarks against closed-form solutions (Tier 1), parity benchmarks against external software (Tier 2), live-fit integration tests (Tier 3), and full-pipeline acceptance gates.</p>
 <section id="sec-verification" class="level2" data-number="12.1">
 <h2 data-number="12.1" class="anchored" data-anchor-id="sec-verification"><span class="header-section-number">12.1</span> Theorem-to-Code Verification Map</h2>
-<p><a href="#tbl-verify-map" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-verify-map</span></a> provides a comprehensive mapping from every verifiable mathematical property to its implementation site, the test that exercises it, and the evidence level achieved. Each row answers three questions: <em>where</em> is the property implemented, <em>how</em> is it tested, and <em>how tight</em> is the tolerance?</p>
+<p><a href="#tbl-verify-map" class="quarto-xref">Table&nbsp;<span>12.1</span></a> provides a comprehensive mapping from every verifiable mathematical property to its implementation site, the test that exercises it, and the evidence level achieved. Each row answers three questions: <em>where</em> is the property implemented, <em>how</em> is it tested, and <em>how tight</em> is the tolerance?</p>
 <div id="tbl-verify-map" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verify-map-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -743,11 +743,11 @@ Table&nbsp;12.2: The <code>.verify_ccc()</code> six-point verification suite.
 </section>
 <section id="tier-1-d25-plug-in-parity" class="level3" data-number="12.3.2">
 <h3 data-number="12.3.2" class="anchored" data-anchor-id="tier-1-d25-plug-in-parity"><span class="header-section-number">12.3.2</span> Tier 1: D25 plug-in parity</h3>
-<p>Decision D25 mandates that when REML point estimates of <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> are injected into bayesRVE’s CR2 helpers, the resulting <span class="math inline">\(V_{\mathrm{CR2}}\)</span> must match clubSandwich’s <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> output at <span class="math inline">\(10^{-6}\)</span> tolerance. This isolates the linear algebra from MCMC noise and serves as the strongest available external cross-validation.</p>
+<p>Decision D25 mandates that when REML point estimates of <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> are injected into bayesRVE’s CR2 helpers, the resulting <span class="math inline">\(V_{\mathrm{CR2}}\)</span> must match clubSandwich’s <span class="citation" data-cites="pustejovsky2022">(<a href="references.html#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> output at <span class="math inline">\(10^{-6}\)</span> tolerance. This isolates the linear algebra from MCMC noise and serves as the strongest available external cross-validation.</p>
 <p>The D25 test protocol:</p>
 <ol type="1">
 <li>Generate synthetic data with constant <span class="math inline">\(v_{ij}\)</span> within each study (ensuring <span class="math inline">\(\bar{s}_j^2 = v_{ij}\)</span> exactly, eliminating the averaging discrepancy).</li>
-<li>Fit a CHE model in metafor <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> (<code>rma.mv</code> with <code>~ 1 | studyid/obsid</code>, REML).</li>
+<li>Fit a CHE model in metafor <span class="citation" data-cites="viechtbauer2010">(<a href="references.html#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> (<code>rma.mv</code> with <code>~ 1 | studyid/obsid</code>, REML).</li>
 <li>Extract <span class="math inline">\(\hat\tau^2_{\mathrm{REML}}\)</span>, <span class="math inline">\(\hat\omega^2_{\mathrm{REML}}\)</span>, and <span class="math inline">\(\hat{\boldsymbol{\beta}}_{\mathrm{REML}}\)</span>.</li>
 <li>Compute clubSandwich’s <span class="math inline">\(V_{\mathrm{CR2}}\)</span> and Satterthwaite df as the reference.</li>
 <li>Inject the same REML estimates into bayesRVE’s internal helpers (<code>.compute_wls_bread()</code>, <code>.compute_cr2_adjustments()</code>, <code>.compute_vcr2()</code>, <code>.satterthwaite_df()</code>).</li>
@@ -902,7 +902,7 @@ Table&nbsp;12.4: Gate 1 reduction assertions. G1-01 through G1-09 traverse the f
 </section>
 <section id="sec-verify-interop" class="level2" data-number="12.5">
 <h2 data-number="12.5" class="anchored" data-anchor-id="sec-verify-interop"><span class="header-section-number">12.5</span> Interoperability with metafor and clubSandwich</h2>
-<p>bayesRVE provides two utilities for bridging with the frequentist meta-analysis ecosystem, specifically metafor <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> and clubSandwich <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span>.</p>
+<p>bayesRVE provides two utilities for bridging with the frequentist meta-analysis ecosystem, specifically metafor <span class="citation" data-cites="viechtbauer2010">(<a href="references.html#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> and clubSandwich <span class="citation" data-cites="pustejovsky2022">(<a href="references.html#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span>.</p>
 <section id="compare_with_cr2" class="level3" data-number="12.5.1">
 <h3 data-number="12.5.1" class="anchored" data-anchor-id="compare_with_cr2"><span class="header-section-number">12.5.1</span> <code>compare_with_cr2()</code></h3>
 <p>This diagnostic function fits the same data with <code>metafor::rma.mv()</code> (REML) and computes <code>clubSandwich::vcovCR()</code> (CR2), then produces a side-by-side comparison of standard errors. The output includes:</p>
@@ -927,12 +927,12 @@ Table&nbsp;12.4: Gate 1 reduction assertions. G1-01 through G1-09 traverse the f
 <li><p><strong>Variance averaging.</strong> bayesRVE uses <span class="math inline">\(\bar{s}_j^2\)</span>; metafor uses individual <span class="math inline">\(v_{ij}\)</span>. This matters when <span class="math inline">\(v_{ij}\)</span> varies substantially within studies.</p></li>
 <li><p><strong>CR2 adjustment matrices.</strong> The <span class="math inline">\(A_j\)</span> matrices depend on the hat matrix, which in turn depends on the weights. Different <span class="math inline">\(\hat\tau^2\)</span> values produce different <span class="math inline">\(A_j\)</span>.</p></li>
 </ol>
-<p>The D25 plug-in parity test (<a href="#sec-verify-parity" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verify-parity</span></a>) eliminates sources 1 and 3 by injecting REML values, confirming that the remaining discrepancy is zero to <span class="math inline">\(10^{-6}\)</span>. This isolates source 2 as the sole contributor to live-fit differences, and source 2 vanishes when <span class="math inline">\(v_{ij}\)</span> is constant within studies.</p>
+<p>The D25 plug-in parity test (<a href="#sec-verify-parity" class="quarto-xref"><span>Section 12.3</span></a>) eliminates sources 1 and 3 by injecting REML values, confirming that the remaining discrepancy is zero to <span class="math inline">\(10^{-6}\)</span>. This isolates source 2 as the sole contributor to live-fit differences, and source 2 vanishes when <span class="math inline">\(v_{ij}\)</span> is constant within studies.</p>
 </section>
 </section>
 <section id="sec-verify-acceptance" class="level2" data-number="12.6">
 <h2 data-number="12.6" class="anchored" data-anchor-id="sec-verify-acceptance"><span class="header-section-number">12.6</span> Acceptance Criteria</h2>
-<p>Every bayesRVE release must satisfy the following gates before merging. <a href="#tbl-acceptance" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-acceptance</span></a> summarizes the status as of v0.6.0.</p>
+<p>Every bayesRVE release must satisfy the following gates before merging. <a href="#tbl-acceptance" class="quarto-xref">Table&nbsp;<span>12.5</span></a> summarizes the status as of v0.6.0.</p>
 <div id="tbl-acceptance" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-acceptance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -1159,7 +1159,7 @@ Table&nbsp;12.7: sim3 coverage summary at the 95% nominal level.
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
 <div id="ref-pustejovsky2022" class="csl-entry" role="listitem">
 Pustejovsky, J. E., &amp; Tipton, E. (2022). Meta-analysis with robust variance estimation: Expanding the range of working models. <em>Prevention Science</em>, <em>23</em>(3), 425–438. <a href="https://doi.org/10.1007/s11121-021-01246-3">https://doi.org/10.1007/s11121-021-01246-3</a>
 </div>

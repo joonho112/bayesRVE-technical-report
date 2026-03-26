@@ -437,7 +437,7 @@ window.Quarto = {
 <p>The package comprises 16 R source files, 3 Stan model files, and supporting infrastructure. The files are grouped into four functional layers.</p>
 <section id="core-pipeline" class="level3" data-number="8.1.1">
 <h3 data-number="8.1.1" class="anchored" data-anchor-id="core-pipeline"><span class="header-section-number">8.1.1</span> Core Pipeline</h3>
-<p>These three files implement the statistical pipeline described in <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a> and <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>.</p>
+<p>These three files implement the statistical pipeline described in <a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a> and <a href="ch03-sandwich.html" class="quarto-xref"><span>Chapter 6</span></a>.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 50%">
@@ -565,14 +565,14 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><code>metafor-interop.R</code></td>
-<td style="text-align: left;">Bridges bayesRVE with the metafor <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> + clubSandwich <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> ecosystem. <code>compare_with_cr2()</code> runs a side-by-side comparison of bayesRVE sandwich SEs vs.&nbsp;frequentist CR2 SEs. <code>from_metafor()</code> extracts data from a fitted <code>rma.mv</code> object into the format expected by <code>bm_fit()</code>. Both metafor and clubSandwich are Suggests-only.</td>
+<td style="text-align: left;">Bridges bayesRVE with the metafor <span class="citation" data-cites="viechtbauer2010">(<a href="references.html#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> + clubSandwich <span class="citation" data-cites="pustejovsky2022">(<a href="references.html#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> ecosystem. <code>compare_with_cr2()</code> runs a side-by-side comparison of bayesRVE sandwich SEs vs.&nbsp;frequentist CR2 SEs. <code>from_metafor()</code> extracts data from a fitted <code>rma.mv</code> object into the format expected by <code>bm_fit()</code>. Both metafor and clubSandwich are Suggests-only.</td>
 </tr>
 </tbody>
 </table>
 </section>
 <section id="stan-models" class="level3" data-number="8.1.5">
 <h3 data-number="8.1.5" class="anchored" data-anchor-id="stan-models"><span class="header-section-number">8.1.5</span> Stan Models</h3>
-<p>Three Stan <span class="citation" data-cites="carpenter2017">(<a href="#ref-carpenter2017" role="doc-biblioref">Carpenter et al., 2017</a>)</span> programs reside in <code>inst/stan/</code>:</p>
+<p>Three Stan <span class="citation" data-cites="carpenter2017">(<a href="references.html#ref-carpenter2017" role="doc-biblioref">Carpenter et al., 2017</a>)</span> programs reside in <code>inst/stan/</code>:</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 26%">
@@ -1340,7 +1340,7 @@ bm_diagnose(cal) → CCC calibration diagnostics</code></pre>
 </tr>
 </tbody>
 </table>
-<p><strong>Mathematical invariants.</strong> Centering preservation (Theorem 1, <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>): <span class="math inline">\(\bar\beta^* = \bar\beta\)</span> (CCC preserves the posterior mean). Exact covariance matching (Theorem 2, <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>): <span class="math inline">\(\text{Cov}(\beta^*_{1:K}) = V_{\text{sand,marg}}\)</span> exactly for any <span class="math inline">\(S\)</span>. Frobenius diagnostic: <span class="math inline">\(\|A_\beta - I_K\|_F\)</span> quantifies calibration magnitude; values near zero indicate the posterior already approximates the sandwich. <span class="math inline">\(R_k\)</span> interpretation: <span class="math inline">\(R_k = \text{SD}(\beta_k^*) / \text{SD}(\beta_k)\)</span> gives per-coefficient variance inflation (<span class="math inline">\(R_k &gt; 1\)</span>) or deflation (<span class="math inline">\(R_k &lt; 1\)</span>).</p>
+<p><strong>Mathematical invariants.</strong> Centering preservation (Theorem 1, <a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a>): <span class="math inline">\(\bar\beta^* = \bar\beta\)</span> (CCC preserves the posterior mean). Exact covariance matching (Theorem 2, <a href="ch04-ccc.html#sec-ccc" class="quarto-xref"><span>Section 6.1</span></a>): <span class="math inline">\(\text{Cov}(\beta^*_{1:K}) = V_{\text{sand,marg}}\)</span> exactly for any <span class="math inline">\(S\)</span>. Frobenius diagnostic: <span class="math inline">\(\|A_\beta - I_K\|_F\)</span> quantifies calibration magnitude; values near zero indicate the posterior already approximates the sandwich. <span class="math inline">\(R_k\)</span> interpretation: <span class="math inline">\(R_k = \text{SD}(\beta_k^*) / \text{SD}(\beta_k)\)</span> gives per-coefficient variance inflation (<span class="math inline">\(R_k &gt; 1\)</span>) or deflation (<span class="math inline">\(R_k &lt; 1\)</span>).</p>
 <p><strong>CHE-specific invariants.</strong> When <code>model = "che"</code>, the theta columns of <code>draws_star</code> and <code>draws_orig</code> are zero matrices (dummy compatibility layer), <code>r_theta</code> is a zero vector, and <code>tau_diag</code> is NULL. The <code>model</code> field enables downstream methods to suppress theta-related output and select the appropriate provenance check.</p>
 </section>
 </section>
@@ -1494,7 +1494,7 @@ bm_diagnose(cal) → CCC calibration diagnostics</code></pre>
 </section>
 <section id="stan-model-compilation-and-caching" class="level3" data-number="8.5.5">
 <h3 data-number="8.5.5" class="anchored" data-anchor-id="stan-model-compilation-and-caching"><span class="header-section-number">8.5.5</span> Stan Model Compilation and Caching</h3>
-<p>Stan model management is handled by <code>stan-cache.R</code> with a two-tier architecture described in <a href="#sec-envelope" class="quarto-xref"><span class="quarto-unresolved-ref">sec-envelope</span></a>:</p>
+<p>Stan model management is handled by <code>stan-cache.R</code> with a two-tier architecture described in <a href="ch05-envelope.html" class="quarto-xref"><span>Chapter 8</span></a>:</p>
 <ul>
 <li><strong>Tier 1 (Session cache).</strong> Compiled <code>CmdStanModel</code> objects are stored in the <code>.bm_cache</code> environment (defined in <code>bayesRVE-package.R</code>). Subsequent calls to <code>bm_compile()</code> or <code>bm_fit()</code> within the same session retrieve the in-memory object without disk access.</li>
 <li><strong>Tier 2 (Disk cache).</strong> Compiled Stan executables are stored in <code>tools::R_user_dir("bayesRVE", "cache")</code> alongside MD5 hashes of the <code>.stan</code> source files. If the hash matches, the pre-compiled executable is loaded; if not, recompilation is triggered. A file-based lock mechanism prevents race conditions when multiple R sessions compile simultaneously.</li>
@@ -1562,7 +1562,7 @@ bm_diagnose(cal) → CCC calibration diagnostics</code></pre>
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
 <div id="ref-carpenter2017" class="csl-entry" role="listitem">
 Carpenter, B., Gelman, A., Hoffman, M. D., Lee, D., Goodrich, B., Betancourt, M., Brubaker, M., Guo, J., Li, P., &amp; Riddell, A. (2017). <span>S</span>tan: A probabilistic programming language. <em>Journal of Statistical Software</em>, <em>76</em>(1), 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>
 </div>

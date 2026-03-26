@@ -469,7 +469,7 @@ window.Quarto = {
 \mathbf{A} = L_2 \, L_1^{-1},
 \tag{6.2}\]</span></span></p>
 <p>with <span class="math inline">\(L_1 = \operatorname{chol}(\hat{\Sigma}_{\text{MCMC}})\)</span> and <span class="math inline">\(L_2 = \operatorname{chol}(\mathbf{V}_{\text{target}})\)</span> denoting lower-triangular Cholesky factors of the MCMC covariance and target covariance, respectively.</p>
-<p>In bayesRVE, <span class="math inline">\(\mathbf{V}_{\text{target}}\)</span> is the CR2 sandwich variance estimator from <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>, making CCC the mechanism that bridges Bayesian posterior inference and frequentist robust variance estimation.</p>
+<p>In bayesRVE, <span class="math inline">\(\mathbf{V}_{\text{target}}\)</span> is the CR2 sandwich variance estimator from <a href="ch03-sandwich.html" class="quarto-xref"><span>Chapter 6</span></a>, making CCC the mechanism that bridges Bayesian posterior inference and frequentist robust variance estimation.</p>
 </section>
 <section id="sec-ccc-geometry" class="level3" data-number="6.1.2">
 <h3 data-number="6.1.2" class="anchored" data-anchor-id="sec-ccc-geometry"><span class="header-section-number">6.1.2</span> Geometric Interpretation</h3>
@@ -493,7 +493,7 @@ window.Quarto = {
 <p><span id="eq-ccc-scalar"><span class="math display">\[
 \psi^{*(s)} = \hat{\psi} + r\,(\psi^{(s)} - \hat{\psi}), \quad r = \sqrt{\frac{V_{\text{target}}}{\hat{\Sigma}_{\text{MCMC}}}}
 \tag{6.3}\]</span></span></p>
-<p>Here <span class="math inline">\(r &gt; 1\)</span> means the posterior is too narrow (CCC widens), <span class="math inline">\(r &lt; 1\)</span> means too wide (CCC narrows), and <span class="math inline">\(r = 1\)</span> is identity. This scalar form is precisely the operation applied to each <span class="math inline">\(\theta_j\)</span> in the theta-block diagonal rescaling (<a href="#sec-ccc-theta" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc-theta</span></a>).</p>
+<p>Here <span class="math inline">\(r &gt; 1\)</span> means the posterior is too narrow (CCC widens), <span class="math inline">\(r &lt; 1\)</span> means too wide (CCC narrows), and <span class="math inline">\(r = 1\)</span> is identity. This scalar form is precisely the operation applied to each <span class="math inline">\(\theta_j\)</span> in the theta-block diagonal rescaling (<a href="#sec-ccc-theta" class="quarto-xref"><span>Section 6.5</span></a>).</p>
 <p>Note the relationship to the diagnostic ratio <span class="math inline">\(R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)\)</span> reported by bayesRVE: in the scalar case, <span class="math inline">\(R_k = r\)</span> exactly. In the multivariate case (<span class="math inline">\(K &gt; 1\)</span>), <span class="math inline">\(R_k\)</span> is the marginal SD ratio for coefficient <span class="math inline">\(k\)</span>, which reflects the combined effect of the <span class="math inline">\(K \times K\)</span> Cholesky transformation including cross-coefficient correlations.</p>
 </section>
 </section>
@@ -506,7 +506,7 @@ window.Quarto = {
 <p><span id="eq-ccc-center"><span class="math display">\[
 \bar{\psi}^* \;=\; \frac{1}{S}\sum_{s=1}^{S} \psi^{*(s)} \;=\; \hat{\psi}.
 \tag{6.4}\]</span></span></p>
-<p><em>Proof.</em> By linearity of the sample mean and <a href="#eq-ccc-general" class="quarto-xref">Equation&nbsp;<span class="quarto-unresolved-ref">eq-ccc-general</span></a>:</p>
+<p><em>Proof.</em> By linearity of the sample mean and <a href="#eq-ccc-general" class="quarto-xref">Equation&nbsp;<span>6.1</span></a>:</p>
 <p><span class="math display">\[
 \bar{\psi}^* = \frac{1}{S}\sum_{s=1}^{S}\left[\hat{\psi} + \mathbf{A}(\psi^{(s)} - \hat{\psi})\right] = \hat{\psi} + \mathbf{A}\!\left(\frac{1}{S}\sum_{s=1}^{S}\psi^{(s)} - \hat{\psi}\right) = \hat{\psi} + \mathbf{A}\cdot\mathbf{0} = \hat{\psi}.
 \]</span></p>
@@ -516,7 +516,7 @@ window.Quarto = {
 <h4 data-number="6.2.1.1" class="anchored" data-anchor-id="sec-ccc-thm1-verify"><span class="header-section-number">6.2.1.1</span> Verification</h4>
 <p>The <code>.verify_ccc()</code> function checks Theorem 1 as verification V1: it computes</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mean_dev <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(<span class="fu">colMeans</span>(draws_star) <span class="sc">-</span> center))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>and asserts <code>mean_dev &lt; 1e-6</code>. Because center preservation is an exact algebraic identity under posterior-mean centering, deviations exceeding this threshold indicate an implementation bug, and <code>.verify_ccc()</code> raises an error (not a warning). In all 2,701 passing tests at v0.6.0, this check passes with deviations at the level of <span class="math inline">\(10^{-14}\)</span> to <span class="math inline">\(10^{-12}\)</span>, consistent with IEEE 754 double-precision arithmetic. See <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a> for full benchmark results.</p>
+<p>and asserts <code>mean_dev &lt; 1e-6</code>. Because center preservation is an exact algebraic identity under posterior-mean centering, deviations exceeding this threshold indicate an implementation bug, and <code>.verify_ccc()</code> raises an error (not a warning). In all 2,701 passing tests at v0.6.0, this check passes with deviations at the level of <span class="math inline">\(10^{-14}\)</span> to <span class="math inline">\(10^{-12}\)</span>, consistent with IEEE 754 double-precision arithmetic. See <a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a> for full benchmark results.</p>
 </section>
 </section>
 <section id="theorem-2-exact-covariance-matching" class="level3" data-number="6.2.2">
@@ -542,7 +542,7 @@ window.Quarto = {
 <li><strong>V2 (diagonal):</strong> For each <span class="math inline">\(k\)</span>, the ratio <span class="math inline">\(\operatorname{Var}(\beta_k^*) / [\mathbf{V}_{\text{sand,marg}}]_{kk}\)</span> is computed and checked to be within 5% of unity.</li>
 <li><strong>V4 (full covariance, <span class="math inline">\(K \geq 2\)</span>):</strong> The relative Frobenius norm <span class="math inline">\(\|\operatorname{Cov}(\boldsymbol{\beta}^*) - \mathbf{V}_{\text{sand,marg}}\|_F / \|\mathbf{V}_{\text{sand,marg}}\|_F\)</span> is checked against a 5% tolerance.</li>
 </ul>
-<p>Because CCC uses the sample covariance of the draws to construct <span class="math inline">\(L_1\)</span>, the algebraic identity guarantees that these checks pass to machine precision for the beta-block (typically deviations of order <span class="math inline">\(10^{-13}\)</span>). The 5% tolerance is set conservatively to accommodate the theta-block, where near-zero MCMC variances can introduce numerical noise. See <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a> for full benchmark results.</p>
+<p>Because CCC uses the sample covariance of the draws to construct <span class="math inline">\(L_1\)</span>, the algebraic identity guarantees that these checks pass to machine precision for the beta-block (typically deviations of order <span class="math inline">\(10^{-13}\)</span>). The 5% tolerance is set conservatively to accommodate the theta-block, where near-zero MCMC variances can introduce numerical noise. See <a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a> for full benchmark results.</p>
 </section>
 </section>
 <section id="theorem-3-identity-under-correct-specification" class="level3" data-number="6.2.3">
@@ -560,7 +560,7 @@ window.Quarto = {
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># =&gt; A_beta should be identity, frob_norm should be 0</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">expect_equal</span>(obj<span class="sc">$</span>frobenius_norm, <span class="dv">0</span>, <span class="at">tolerance =</span> <span class="fl">1e-10</span>)</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">expect_equal</span>(obj<span class="sc">$</span>draws_star, obj<span class="sc">$</span>draws_orig, <span class="at">tolerance =</span> <span class="fl">1e-10</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The identity is confirmed to machine precision (<span class="math inline">\(\|\mathbf{A} - \mathbf{I}\|_F &lt; 10^{-12}\)</span>). This is the Tier 0 algebraic gate that must pass before any MCMC-based benchmarks proceed. See <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a> for full benchmark results.</p>
+<p>The identity is confirmed to machine precision (<span class="math inline">\(\|\mathbf{A} - \mathbf{I}\|_F &lt; 10^{-12}\)</span>). This is the Tier 0 algebraic gate that must pass before any MCMC-based benchmarks proceed. See <a href="ch10-verification.html#sec-verification" class="quarto-xref"><span>Section 12.1</span></a> for full benchmark results.</p>
 </section>
 </section>
 </section>
@@ -573,7 +573,7 @@ window.Quarto = {
 \mathbf{M}_{\text{full}} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j^\top, \quad \mathbf{s}_j \in \mathbb{R}^{K+J},
 \]</span></p>
 <p>so <span class="math inline">\(\operatorname{rank}(\mathbf{M}_{\text{full}}) \leq J &lt; K + J = d\)</span> for any <span class="math inline">\(K \geq 1\)</span>. The full-joint sandwich is therefore structurally singular, and its Cholesky factorization does not exist. Full-joint CCC is mathematically impossible.</p>
-<p>This rank deficiency is not a finite-sample artifact but an algebraic consequence of the incidental parameters structure: each study <span class="math inline">\(j\)</span> contributes exactly one independent observation unit (one score vector <span class="math inline">\(\mathbf{s}_j\)</span>) to the meat, but the parameter vector has <span class="math inline">\(K + J\)</span> components. This is the sandwich-variance manifestation of the <span class="citation" data-cites="neyman1948">Neyman &amp; Scott (<a href="#ref-neyman1948" role="doc-biblioref">1948</a>)</span> incidental parameters problem.</p>
+<p>This rank deficiency is not a finite-sample artifact but an algebraic consequence of the incidental parameters structure: each study <span class="math inline">\(j\)</span> contributes exactly one independent observation unit (one score vector <span class="math inline">\(\mathbf{s}_j\)</span>) to the meat, but the parameter vector has <span class="math inline">\(K + J\)</span> components. This is the sandwich-variance manifestation of the <span class="citation" data-cites="neyman1948">Neyman &amp; Scott (<a href="references.html#ref-neyman1948" role="doc-biblioref">1948</a>)</span> incidental parameters problem.</p>
 <p>Applying <code>nearPD()</code> to the singular sandwich to force positive definiteness is explicitly rejected as an anti-pattern. Such an approach inflates eigenvalues artificially, breaking the exact covariance matching property of Theorem 2 and conferring false precision.</p>
 </section>
 <section id="block-diagonal-target" class="level3" data-number="6.3.2">
@@ -582,7 +582,7 @@ window.Quarto = {
 <p><span id="eq-ccc-target"><span class="math display">\[
 \mathbf{V}_{\text{CCC}} = \begin{pmatrix} \mathbf{V}_{\text{CCC}}^{(\beta)} &amp; \mathbf{0}_{K \times J} \\ \mathbf{0}_{J \times K} &amp; \mathbf{V}_{\text{CCC}}^{(\theta)} \end{pmatrix}
 \tag{6.7}\]</span></span></p>
-<p>The <strong>beta-block</strong> <span class="math inline">\(\mathbf{V}_{\text{CCC}}^{(\beta)} = \mathbf{V}_{\text{sand,marg}}^{(\beta)}\)</span> is the <span class="math inline">\(K \times K\)</span> marginal sandwich from <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>, a full (generally non-diagonal) matrix that captures the correlation structure among fixed effects. The <strong>theta-block</strong> <span class="math inline">\(\mathbf{V}_{\text{CCC}}^{(\theta)} = \operatorname{diag}(V_{\text{sand,cond}}^{(\theta_1)}, \ldots, V_{\text{sand,cond}}^{(\theta_J)})\)</span> is a diagonal matrix of per-study conditional sandwich variances. The <strong>cross-block</strong> is zero — not as a statistical claim that <span class="math inline">\(\beta\)</span>-<span class="math inline">\(\theta\)</span> covariance is zero, but as a design decision that cross-block covariance is not targeted by CCC.</p>
+<p>The <strong>beta-block</strong> <span class="math inline">\(\mathbf{V}_{\text{CCC}}^{(\beta)} = \mathbf{V}_{\text{sand,marg}}^{(\beta)}\)</span> is the <span class="math inline">\(K \times K\)</span> marginal sandwich from <a href="ch03-sandwich.html" class="quarto-xref"><span>Chapter 6</span></a>, a full (generally non-diagonal) matrix that captures the correlation structure among fixed effects. The <strong>theta-block</strong> <span class="math inline">\(\mathbf{V}_{\text{CCC}}^{(\theta)} = \operatorname{diag}(V_{\text{sand,cond}}^{(\theta_1)}, \ldots, V_{\text{sand,cond}}^{(\theta_J)})\)</span> is a diagonal matrix of per-study conditional sandwich variances. The <strong>cross-block</strong> is zero — not as a statistical claim that <span class="math inline">\(\beta\)</span>-<span class="math inline">\(\theta\)</span> covariance is zero, but as a design decision that cross-block covariance is not targeted by CCC.</p>
 <p>This blockwise structure is justified on three grounds:</p>
 <ol type="1">
 <li><strong>Different inferential targets.</strong> <span class="math inline">\(\boldsymbol{\beta}\)</span> are population-level parameters and <span class="math inline">\(\boldsymbol{\theta}\)</span> are study-specific random effects, answering different research questions.</li>
@@ -639,7 +639,7 @@ L_1^{(\beta)} = \operatorname{chol}(\hat{\Sigma}_{\text{MCMC}}^{(\beta)}), \quad
 <h2 data-number="6.5" class="anchored" data-anchor-id="sec-ccc-theta"><span class="header-section-number">6.5</span> Theta-Block CCC Algorithm</h2>
 <section id="diagonal-rescaling" class="level3" data-number="6.5.1">
 <h3 data-number="6.5.1" class="anchored" data-anchor-id="diagonal-rescaling"><span class="header-section-number">6.5.1</span> Diagonal Rescaling</h3>
-<p>Because the conditional sandwich target <span class="math inline">\(\mathbf{V}_{\text{sand,cond}}^{(\theta)}\)</span> is itself diagonal—reflecting the conditional independence of <span class="math inline">\(\theta_j\)</span> given <span class="math inline">\(\boldsymbol{\beta}\)</span> and <span class="math inline">\(\tau^2\)</span> in the working model—the theta-block CCC reduces to <span class="math inline">\(J\)</span> independent scalar rescalings, each an instance of <a href="#eq-ccc-scalar" class="quarto-xref">Equation&nbsp;<span class="quarto-unresolved-ref">eq-ccc-scalar</span></a>:</p>
+<p>Because the conditional sandwich target <span class="math inline">\(\mathbf{V}_{\text{sand,cond}}^{(\theta)}\)</span> is itself diagonal—reflecting the conditional independence of <span class="math inline">\(\theta_j\)</span> given <span class="math inline">\(\boldsymbol{\beta}\)</span> and <span class="math inline">\(\tau^2\)</span> in the working model—the theta-block CCC reduces to <span class="math inline">\(J\)</span> independent scalar rescalings, each an instance of <a href="#eq-ccc-scalar" class="quarto-xref">Equation&nbsp;<span>6.3</span></a>:</p>
 <p><span id="eq-ccc-theta-apply"><span class="math display">\[
 \theta_j^{*(s)} = \hat{\theta}_j + r_j(\theta_j^{(s)} - \hat{\theta}_j), \quad r_j = \sqrt{\frac{V_{\text{sand,cond}}^{(\theta_j)}}{\hat{\Sigma}_{\text{MCMC},jj}^{(\theta)}}}, \quad j = 1, \ldots, J.
 \tag{6.11}\]</span></span></p>
@@ -825,7 +825,7 @@ Full blockwise CCC target V_CCC:</code></pre>
 <li>CCC-q interval: <span class="math inline">\(0.15 \pm 1.960 \times 0.028 = (0.095, 0.205)\)</span></li>
 </ul>
 <p>The difference is now substantial: CCC-t is 24.9% wider than CCC-q. The half-width grows from 0.055 (CCC-q) to 0.069 (CCC-t), reflecting the heavier tails of <span class="math inline">\(t(6)\)</span>. This is precisely the regime where Layer 3 matters most — few studies means high sandwich estimation uncertainty, and the <span class="math inline">\(t\)</span> reference distribution prevents under-coverage.</p>
-<p>Simulation results in <a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a> confirm this pattern empirically: CCC-q shows under-coverage (91–94%) at <span class="math inline">\(J \leq 20\)</span>, while CCC-t maintains nominal 95% coverage (94.5–95.3%) across all conditions in sim3.</p>
+<p>Simulation results in <a href="ch12-results.html#sec-results" class="quarto-xref"><span>Section 14.2</span></a> confirm this pattern empirically: CCC-q shows under-coverage (91–94%) at <span class="math inline">\(J \leq 20\)</span>, while CCC-t maintains nominal 95% coverage (94.5–95.3%) across all conditions in sim3.</p>
 </section>
 <section id="implementation-in-confint.bm_ccc" class="level3" data-number="6.7.3">
 <h3 data-number="6.7.3" class="anchored" data-anchor-id="implementation-in-confint.bm_ccc"><span class="header-section-number">6.7.3</span> Implementation in <code>confint.bm_ccc()</code></h3>
@@ -1021,12 +1021,12 @@ Table&nbsp;6.2: Comparison of standard Bayesian and CCC-calibrated Bayesian infe
 <li><strong>From the frequentist side:</strong> Sandwich-robust standard errors that do not depend on correct specification of the within-study correlation structure, small-sample corrections via CR2, and appropriate degrees of freedom via Satterthwaite.</li>
 </ul>
 <p>CCC does not choose between Bayesian and frequentist inference. It recalibrates the Bayesian posterior so that its spread matches the frequentist sandwich standard error, then uses the frequentist <span class="math inline">\(t\)</span>-distribution for interval construction. The result is a posterior distribution whose marginal credible intervals have correct frequentist coverage under working-model misspecification.</p>
-<p>This hybrid property is not unconditional: it requires the four coverage conditions (BvM regularity, sandwich consistency, positive definiteness, and adequate degrees of freedom) detailed in <a href="#sec-envelope" class="quarto-xref"><span class="quarto-unresolved-ref">sec-envelope</span></a>. When these conditions are satisfied, CCC-t delivers coverage rates empirically indistinguishable from the gold-standard CR2 intervals, as demonstrated in <a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a>. The sim3 comprehensive simulation (24 conditions, 11,600 fits) confirms CCC-t coverage of 94.5–95.3% across all conditions, matching CR2 coverage of 94.8–95.3%.</p>
+<p>This hybrid property is not unconditional: it requires the four coverage conditions (BvM regularity, sandwich consistency, positive definiteness, and adequate degrees of freedom) detailed in <a href="ch05-envelope.html" class="quarto-xref"><span>Chapter 8</span></a>. When these conditions are satisfied, CCC-t delivers coverage rates empirically indistinguishable from the gold-standard CR2 intervals, as demonstrated in <a href="ch12-results.html#sec-results" class="quarto-xref"><span>Section 14.2</span></a>. The sim3 comprehensive simulation (24 conditions, 11,600 fits) confirms CCC-t coverage of 94.5–95.3% across all conditions, matching CR2 coverage of 94.8–95.3%.</p>
 
 
 <!-- -->
 
-<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
 <div id="ref-neyman1948" class="csl-entry" role="listitem">
 Neyman, J., &amp; Scott, E. L. (1948). Consistent estimates based on partially consistent observations. <em>Econometrica</em>, <em>16</em>(1), 1–32. <a href="https://doi.org/10.2307/1914288">https://doi.org/10.2307/1914288</a>
 </div>
