@@ -1,0 +1,397 @@
+---
+title: "Real-Data Validation: Experimental Design"
+---
+
+This chapter documents the experimental design of the real-data validation study
+used to evaluate bayesRVE's Three-Layer Calibration against established
+frequentist robust variance estimation methods. The validation uses a
+well-characterized meta-analytic dataset that has served as a benchmark in the
+RVE literature, enabling direct comparison against published results.
+
+## The @tannersmith2015 Dataset {#sec-tsl15-design}
+
+### Overview
+
+The validation dataset comes from the meta-analysis by @tannersmith2015, which synthesized evidence on the effectiveness of brief alcohol
+interventions for adolescents and young adults. This dataset was subsequently
+reanalyzed by @pustejovsky2022 as a primary showcase for robust
+variance estimation methods in meta-analysis with dependent effect sizes, making
+it an ideal benchmark for evaluating bayesRVE.
+
+### Data Dimensions
+
+After applying the inclusion filters from @pustejovsky2022---removing
+observations with missing values on `percoll`, `attrition_all`, or `permale`---the
+analytic sample comprises:
+
+| Dimension | Value |
+|:----------|:------|
+| Total effect sizes ($N$) | 1,198 |
+| Independent studies ($J$) | 107 |
+| Effect size metric | Standardized mean difference (Hedges' $g$) |
+| Sampling variances | Reported or estimated via standard formulas |
+| Effect sizes per study | 1 to 45 (median approximately 5) |
+
+A note on study counts: the original @tannersmith2015 publication
+reports a larger sample. The $J = 107$ figure reflects the analytic subset after
+the @pustejovsky2022 filtering criteria are applied and studies with
+missing covariate data are excluded. In the model design matrix, some sources
+report $J = 117$ unique study clusters because certain studies contribute effect
+sizes across multiple dependent variable categories, creating additional effective
+clusters in the cross-classified structure.
+
+### Dependency Structure
+
+The dataset exhibits substantial within-study dependence: individual studies
+contribute between 1 and 45 effect sizes, arising because a single intervention
+trial can measure multiple outcomes (e.g., frequency of use, quantity of use,
+peak consumption) at multiple follow-up time points. This dependence structure
+makes robust variance estimation essential for valid statistical inference, as
+standard methods that assume independence would understate uncertainty.
+
+### Rationale for Dataset Selection
+
+The @tannersmith2015 dataset was selected for the following reasons:
+
+1. **Large number of studies.** With $J = 107$ independent studies, the dataset
+   falls well within bayesRVE's operating envelope ($J_{\min} = \max(8, 2K + 2)$;
+   see @sec-envelope) for all moderator specifications considered, ensuring that
+   CR2 corrections and Satterthwaite degrees of freedom are well-identified.
+
+2. **Heterogeneous cluster sizes.** The range of 1 to 45 effect sizes per study
+   exercises the sandwich estimator across a variety of cluster configurations,
+   from singletons to large clusters.
+
+3. **Established benchmark.** Published results from @pustejovsky2022
+   using robumeta and clubSandwich provide a ground truth against which bayesRVE
+   output can be directly compared.
+
+4. **Substantive moderators.** The dataset includes both categorical moderators
+   (dependent variable category, control type) and continuous covariates, enabling
+   validation of bayesRVE's CCC machinery under realistic meta-regression
+   specifications with $K > 1$ predictors.
+
+
+## Model Specifications {#sec-tsl15-models}
+
+Two moderator specifications are fit to the dataset, each using a cell-means
+parameterization (no intercept term, no reference category). This
+parameterization directly estimates the conditional mean effect size for each
+category level, facilitating interpretable comparisons across all groups.
+
+### DV Category Model
+
+The DV Category model estimates mean effect sizes for six outcome categories,
+adjusted for five continuous covariates:
+
+$$
+g_{ij} = \sum_{k=1}^{6} \beta_k \cdot \mathbb{1}[\text{DV}_{ij} = k]
+       + \beta_7 \cdot \text{postwks\_c}_{ij}
+       + \beta_8 \cdot \text{postwks\_long}_{ij}
+       + \beta_9 \cdot \text{percoll\_c}_{ij}
+       + \beta_{10} \cdot \text{permale\_c}_{ij}
+       + \beta_{11} \cdot \text{attrition\_c}_{ij}
+       + u_j + \varepsilon_{ij}
+$$
+
+The six DV categories are:
+
+1. BAC (blood alcohol concentration)
+2. Combined measures
+3. Frequency of heavy use
+4. Frequency of use
+5. Peak consumption
+6. Quantity of use
+
+This yields $K = 11$ total regression coefficients (6 category indicators + 5
+covariates).
+
+### Control Type Model
+
+The Control Type model replaces the DV category indicators with four control-type
+indicators, using the same five continuous covariates:
+
+$$
+g_{ij} = \sum_{k=1}^{4} \gamma_k \cdot \mathbb{1}[\text{Ctype}_{ij} = k]
+       + \gamma_5 \cdot \text{postwks\_c}_{ij}
+       + \gamma_6 \cdot \text{postwks\_long}_{ij}
+       + \gamma_7 \cdot \text{percoll\_c}_{ij}
+       + \gamma_8 \cdot \text{permale\_c}_{ij}
+       + \gamma_9 \cdot \text{attrition\_c}_{ij}
+       + u_j + \varepsilon_{ij}
+$$
+
+This yields $K = 9$ total regression coefficients (4 control-type indicators + 5
+covariates).
+
+### Covariate Definitions
+
+All covariates are centered to improve MCMC sampling efficiency and
+interpretability:
+
+| Covariate | Definition | Centering |
+|:----------|:-----------|:----------|
+| `postwks_c` | Post-treatment follow-up (weeks), capped at 26 | Centered at 12 weeks |
+| `postwks_long` | Indicator for follow-up exceeding 26 weeks | Binary (0/1) |
+| `percoll_c` | Proportion of college-age participants | Centered at 1.0 |
+| `permale_c` | Proportion male in sample | Centered at 0.5 |
+| `attrition_c` | Overall attrition rate | Centered at sample median |
+
+### Random Effects Structure
+
+Each model specification is fit under two random-effects structures:
+
+- **CE (Correlated Effects):** A single between-study random effect $u_j \sim N(0, \tau^2)$, inducing within-study correlation $\rho = \tau^2/(\bar{s}_j^2 + \tau^2)$ structurally through the compound-symmetric covariance. In bayesRVE, $\rho_{\text{work}} = 0$ during MCMC (D5); $\rho$ enters only at the sandwich stage.
+
+- **CHE (Correlated-Hierarchical Effects):** Two random effects---a between-study component $u_j \sim N(0, \tau^2)$ and a within-study component $w_{ij} \sim N(0, \omega^2)$---so that $\text{Var}(g_{ij}) = v_{ij} + \omega^2 + \tau^2$.
+
+In R formula syntax:
+
+```r
+# CE model
+bm_fit(es | se(V) ~ 0 + dv_cat + postwks_c + postwks_long +
+       percoll_c + permale_c + attrition_c,
+       data = TSL15, study = ~ studyid, model = "ce")
+
+# CHE model
+bm_fit(es | se(V) ~ 0 + dv_cat + postwks_c + postwks_long +
+       percoll_c + permale_c + attrition_c,
+       data = TSL15, study = ~ studyid, model = "che")
+```
+
+This yields $2 \times 2 = 4$ bayesRVE model fits per moderator specification
+(CE/CHE crossed with DV/Control Type), plus the three frequentist baselines per
+specification, for a total of 14 fitted models.
+
+
+## Analysis Settings {#sec-tsl15-settings}
+
+### MCMC Configuration
+
+All bayesRVE models use the following MCMC settings:
+
+| Parameter | Value | Rationale |
+|:----------|:------|:----------|
+| Chains | 4 | Standard for convergence assessment via $\hat{R}$ and split-$\hat{R}$ |
+| Warmup iterations | 2,000 | Sufficient for NUTS adaptation (step size, mass matrix) |
+| Sampling iterations | 2,000 | Yields $S = 8{,}000$ total posterior draws |
+| Random seed | 20260324 | Exact reproducibility across reruns |
+| `adapt_delta` | 0.95 | Conservative target acceptance rate for meta-analysis models |
+| `max_treedepth` | 12 | Standard upper bound on leapfrog trajectory length |
+
+The total of $S = 8{,}000$ posterior draws provides adequate effective sample
+sizes for all parameters of interest given the relatively low dimensionality of
+the models ($K \leq 11$ regression coefficients plus 1--2 variance components).
+
+### Sandwich and Calibration Settings
+
+| Parameter | Value | Rationale |
+|:----------|:------|:----------|
+| Working correlation ($\rho$) | 0.6 | Recommended by @pustejovsky2022 for social science meta-analyses; sandwich estimator is consistent regardless of $\rho$ choice |
+| Small-sample correction | CR2 | Default (Decision D12); bias-reducing leverage adjustment |
+| Degrees of freedom | Satterthwaite | Default (Decision D13); accounts for estimation uncertainty in variance components |
+| Covariance imputation | `metafor::impute_covariance_matrix()` with `smooth_vi = TRUE` [@viechtbauer2010] | Constructs $V$ matrix assuming equicorrelation within studies at $\rho = 0.6$ |
+
+### Prior Distributions
+
+| Parameter | Prior | Rationale |
+|:----------|:------|:----------|
+| $\beta_k$ (regression coefficients) | $N(0, 10)$ | Weakly informative for standardized mean differences; prior SD of 10 is effectively flat on the SMD scale |
+| $\tau$ (between-study SD) | Half-Cauchy$(0, 0.5)$ | Standard weakly informative prior for heterogeneity in social science; allows substantial heterogeneity while mildly regularizing |
+| $\omega$ (within-study SD, CHE only) | Half-Cauchy$(0, 0.5)$ | Same specification as $\tau$; symmetric treatment of variance components |
+
+```r
+# CE prior specification
+prior_ce <- bm_prior(beta = normal(0, 10), tau = half_cauchy(0, 0.5))
+
+# CHE prior specification
+prior_che <- bm_prior(beta = normal(0, 10),
+                      tau = half_cauchy(0, 0.5),
+                      omega = half_cauchy(0, 0.5))
+```
+
+The choice of Half-Cauchy(0, 0.5) for variance component priors follows the
+recommendations of @gelman2006 and @polson2012 for hierarchical models. The scale
+parameter of 0.5 is appropriate for standardized effect sizes where heterogeneity
+SDs rarely exceed 0.5 in most substantive domains, while the heavy tails of the
+Cauchy distribution allow the data to dominate when heterogeneity is larger.
+
+
+## Comparator Estimators {#sec-tsl15-comparators}
+
+The validation compares five estimators that span the frequentist and Bayesian
+approaches to meta-analysis with dependent effect sizes. Each estimator pair is
+chosen to isolate specific sources of variation in the comparison.
+
+### Estimator Summary
+
+| Estimator | Package | Model | Variance Estimation | df Method | Role |
+|:----------|:--------|:------|:-------------------|:----------|:-----|
+| CE robumeta | `robumeta::robu` | CE working model | CR2 [@tipton2015] | Satterthwaite | Published baseline |
+| CE metafor | `metafor::rma.mv` | CE ($\tau^2$ only) | CR2 via `clubSandwich` | Satterthwaite | Fair CE comparison |
+| CHE metafor | `metafor::rma.mv` | CHE ($\tau^2 + \omega^2$) | CR2 via `clubSandwich` | Satterthwaite | Fair CHE comparison |
+| bayesRVE CE | `bayesRVE::bm_fit` | CE ($\tau^2$ only) | CCC with CR2 target | Satterthwaite | This package (CE) |
+| bayesRVE CHE | `bayesRVE::bm_fit` | CHE ($\tau^2 + \omega^2$) | CCC with CR2 target | Satterthwaite | This package (CHE) |
+
+### Estimator Descriptions
+
+**CE robumeta.** The `robumeta::robu` function implements the correlated-effects
+working model of @hedges2010, computing study-level
+aggregated effect sizes under an assumed equicorrelation $\rho$, then applying
+CR2 small-sample corrections following @tipton2015. This estimator serves as
+the published baseline, replicating the exact results reported in @pustejovsky2022. Because robumeta performs study-mean aggregation internally,
+its point estimates and standard errors may differ slightly from observation-level
+estimators.
+
+**CE metafor.** The `metafor::rma.mv` function [@viechtbauer2010] fits a single-$\tau^2$ random-effects
+model at the observation level using REML, with the imputed covariance matrix $V$
+incorporating the working correlation $\rho = 0.6$. CR2 standard errors and
+Satterthwaite degrees of freedom are obtained via the `clubSandwich` package.
+This estimator provides a fair comparison target for bayesRVE CE because both
+operate on the same data structure (observation-level, single random effect)
+and apply the same CR2 + Satterthwaite inference framework.
+
+**CHE metafor.** The `metafor::rma.mv` function with a two-level random structure
+(`~ 1 | studyid / esid`) fits the correlated-hierarchical effects model,
+estimating both $\tau^2$ (between-study) and $\omega^2$ (within-study)
+via REML. CR2 corrections and Satterthwaite degrees of freedom are again
+obtained via `clubSandwich`. This estimator is the fair comparison target
+for bayesRVE CHE.
+
+**bayesRVE CE.** The `bayesRVE::bm_fit` function with `model = "ce"` fits a
+Bayesian CE model via Stan [@carpenter2017] (NUTS sampler), estimating posterior distributions
+for all regression coefficients and $\tau$. The Cholesky Calibration Correction
+(CCC) maps posterior draws to have the CR2 sandwich covariance as their
+dispersion target. Satterthwaite degrees of freedom define the reference
+distribution for inference (Three-Layer Calibration: L1 = posterior mean,
+L2 = CR2 sandwich, L3 = Satterthwaite $t$).
+
+**bayesRVE CHE.** The `bayesRVE::bm_fit` function with `model = "che"` extends
+the CE model with a within-study variance component $\omega^2$. The CHE CCC
+computation uses $\hat{\omega}^2 = \text{mean}(\omega^{(s)2})$ (Decision D20)
+to construct the CR2 sandwich with Woodbury-based $W^{1/2}$ weights
+(Decision D24). This estimator is the primary new capability introduced in
+v0.6.0.
+
+### Comparison Logic
+
+The five-estimator design enables the following structured comparisons:
+
+1. **CE robumeta vs. CE metafor:** Quantifies the effect of study-mean
+   aggregation (robumeta) versus observation-level modeling (metafor) within
+   the CE framework. Differences in point estimates arise from the distinct
+   weighting schemes.
+
+2. **CE metafor vs. bayesRVE CE:** The primary validation comparison for CE
+   models. Both use observation-level data with a single random effect.
+   Differences reflect the Bayesian-vs-REML estimation and the CCC
+   calibration procedure. If CCC is working correctly, the CCC SD should
+   approximate the CR2 SE.
+
+3. **CHE metafor vs. bayesRVE CHE:** The primary validation comparison for
+   CHE models, introduced in v0.6.0. Both use two random effects. Agreement
+   validates that the CHE extension of CCC (omega-aware weights, Woodbury
+   $W^{1/2}$) produces calibrated inference.
+
+4. **CE vs. CHE (within estimator):** Reveals the effect of modeling
+   within-study heterogeneity. In the CE model, $\tau^2$ absorbs $\omega^2$,
+   producing larger between-study variance estimates. The CHE model decomposes
+   total heterogeneity, generally yielding similar or slightly different
+   standard errors depending on the relative magnitudes of $\tau^2$ and
+   $\omega^2$.
+
+
+## Reproducibility and Decision Rules {#sec-tsl15-decisions}
+
+### Single-Script Reproducibility
+
+The complete analysis---from data preparation through all 14 model fits to
+summary tables and figures---is contained in a single R script:
+
+```
+dev/log/201_real-data-v060/00_full_analysis.R
+```
+
+This script loads the raw dataset, applies all filters and transformations,
+fits all frequentist baselines and bayesRVE models, computes all comparison
+tables, and saves results to disk. No manual intervention or intermediate files
+are required. Given the fixed random seed (`SEED = 20260324`), all MCMC results
+are exactly reproducible on the same hardware and software configuration.
+
+### Pre-Specified Decision Rules
+
+All model specifications, MCMC settings, prior distributions, and evaluation
+criteria were fixed before running the bayesRVE models. Specifically:
+
+- The two moderator specifications (DV Category, Control Type) replicate
+  @pustejovsky2022 exactly.
+- The covariate centering scheme follows the original publication.
+- Prior distributions and MCMC settings were chosen based on general
+  recommendations in the literature, not tuned to the TSL15 data.
+- No post-hoc model selection, predictor selection, or prior adjustment
+  was performed.
+
+### Gate 3 Criterion
+
+The primary success criterion for the real-data validation is:
+
+$$
+R_{\text{SE},k} = \frac{\text{CCC SD}_k}{\text{CR2 SE}_k} \in [0.9, 1.1]
+\quad \text{for all DV category coefficients } k = 1, \ldots, 6
+$$
+
+This criterion is evaluated separately for CE and CHE models:
+
+- **CE:** CCC SD from bayesRVE CE vs. CR2 SE from metafor CE (via clubSandwich)
+- **CHE:** CCC SD from bayesRVE CHE vs. CR2 SE from metafor CHE (via clubSandwich)
+
+Gate 3 is defined exclusively for the six DV category coefficients ($k = 1, \ldots, 6$), which serve as intercepts in the DV-moderator specification and each draw information from a large number of contributing studies. Covariate coefficients (e.g., `percoll_c`, `permale_c`) are reported separately in @sec-mechanics-covariates and are *not* subject to the Gate 3 acceptance band; their CCC/CR2 ratios may fall outside [0.9, 1.1] due to lower effective cluster counts and Satterthwaite df.
+
+### Rationale for the [0.9, 1.1] Band
+
+The 10% tolerance band around unity accommodates two sources of
+discrepancy between the Bayesian CCC standard deviations and the frequentist
+CR2 standard errors:
+
+1. **Variance-component plug-in discrepancy (primary).** The CCC uses the
+   Bayesian posterior mean of variance components ($\tau^2$, $\omega^2$) as
+   plug-in estimates for the weight matrix $W$ and hence the bread matrix
+   ($X'WX$), while the frequentist CR2 uses REML estimates. Because the
+   posterior mean and REML estimate differ due to prior influence, the two
+   methods construct different $V_{\text{CR2}}$ targets. By Theorem 2, CCC
+   achieves its own $V_{\text{CR2}}$ exactly; the observed ratio $\neq 1$
+   reflects two different targets, not a calibration failure. This typically
+   contributes 1--5% discrepancy.
+
+2. **MCMC sampling noise (secondary).** Even with $S = 8{,}000$ posterior
+   draws, the sample covariance of the calibrated draws has finite Monte
+   Carlo error. For well-behaved posteriors, this contributes approximately
+   1--2% variation and is reducible by increasing $S$.
+
+A ratio of exactly 1.0 would indicate perfect calibration; the [0.9, 1.1] band
+reflects the practical precision achievable given these two sources of variation.
+This tolerance was established a priori based on experience from the simulation
+studies (sim3, 24 conditions $\times$ 500 replications), where CCC-$t$ coverage achieved 94.5--95.3% nominal
+95% coverage with SE ratios in this range.
+
+### Supplementary Diagnostics
+
+Beyond the primary Gate 3 criterion, the following diagnostics are examined:
+
+- **Shrinkage ratio $R_k$.** The ratio of CCC SD to raw posterior SD, quantifying
+  how much the calibration correction adjusts each coefficient's uncertainty.
+  Values below 1.0 indicate CCC shrinkage (the raw posterior is overestimating
+  uncertainty relative to the sandwich target); values above 1.0 indicate CCC
+  inflation.
+
+- **Satterthwaite df agreement.** The Satterthwaite degrees of freedom from
+  bayesRVE vs. those from clubSandwich, verifying that the independent
+  implementation (Decision D11) produces consistent results.
+
+- **Point estimate concordance.** Bayesian posterior means vs. REML point
+  estimates, confirming that prior influence on the location parameters is
+  minimal given the large sample size.
+
+- **Variance component comparison.** Bayesian posterior medians of $\tau$ and
+  $\omega$ vs. REML estimates, documenting the expected prior-induced
+  differences and the $\tau$-absorption phenomenon in CE models.

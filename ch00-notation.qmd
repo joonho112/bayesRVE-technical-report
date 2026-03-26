@@ -1,0 +1,289 @@
+---
+title: "Notation, Acronyms, and Object Map"
+---
+
+## Mathematical Notation {#sec-notation}
+
+This chapter collects every symbol used in the bayesRVE technical report.
+Symbols are grouped by topic and listed in order of first appearance.
+All vectors are column vectors unless transposed; all matrices use bold uppercase.
+
+### 1. Data and Indices
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $J$ | Number of studies | Total number of independent studies (clusters) in the meta-analysis | scalar | @sec-models |
+| $n_j$ | Study size | Number of effect sizes in study $j$, $j = 1, \ldots, J$ | scalar | @sec-models |
+| $N$ | Total observations | $N = \sum_{j=1}^{J} n_j$ | scalar | @sec-models |
+| $K$ | Number of fixed effects | Number of columns in the design matrix (including intercept) | scalar | @sec-models |
+| $y_{ij}$ | Effect size | Observed effect size $i$ in study $j$ | scalar | @sec-models |
+| $v_{ij}$ | Sampling variance | Known sampling variance of $y_{ij}$ | scalar | @sec-models |
+| $\mathbf{x}_{ij}$ | Predictor vector | Row of the design matrix for observation $ij$ | $K \times 1$ | @sec-models |
+| $\bar{y}_j$ | Study mean effect | $\bar{y}_j = n_j^{-1} \sum_{i=1}^{n_j} y_{ij}$ | scalar | @sec-ce-model |
+| $\bar{s}_j^2$ | Mean sampling variance | $\bar{s}_j^2 = n_j^{-1} \sum_{i=1}^{n_j} v_{ij}$ | scalar | @sec-ce-model |
+| $\bar{\mathbf{x}}_j$ | Study mean predictor | $\bar{\mathbf{x}}_j = n_j^{-1} \sum_{i=1}^{n_j} \mathbf{x}_{ij}$ | $K \times 1$ | @sec-ce-model |
+| $\mathbf{X}$ | Observation-level design matrix | Full design matrix with rows $\mathbf{x}_{ij}'$ | $N \times K$ | @sec-models |
+| $\mathbf{X}_j$ | Study-level design submatrix | Rows of $\mathbf{X}$ belonging to study $j$ | $n_j \times K$ | @sec-sandwich |
+| $\bar{\mathbf{X}}$ | Study mean design matrix | Matrix with rows $\bar{\mathbf{x}}_j'$, $j = 1, \ldots, J$ | $J \times K$ | @sec-ce-model |
+| $r_{ij}$ | Observation residual | $r_{ij} = y_{ij} - \mathbf{x}_{ij}'\hat{\boldsymbol{\beta}}$ (marginal; the conditional form $r_{ij}^{\mathrm{cond}} = y_{ij} - \mathbf{x}_{ij}'\boldsymbol{\beta} - \theta_j$ appears in @sec-ce-scores) | scalar | @sec-sandwich |
+| $\bar{r}_j$ | Study mean residual | $\bar{r}_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}$ | scalar | @sec-ce-model |
+| $\hat{\mathbf{e}}_j$ | WLS residual vector | $\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j \hat{\boldsymbol{\beta}}$ | $n_j \times 1$ | @sec-cr2 |
+| $\rho$ | Working correlation | Within-study working correlation: user-specified parameter for the sandwich estimator. In the CE model, $\rho_{\mathrm{work}} = 0$ during MCMC (D5); $\rho$ enters only at the sandwich stage. Distinct from the unknown true within-study correlation | scalar | @sec-sandwich |
+| $S$ | Number of MCMC draws | Total posterior draws $= \text{chains} \times \text{iter\_sampling}$ | scalar | @sec-ccc |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 2. Model Parameters
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $\boldsymbol{\beta}$ | Fixed effects | Population-average regression coefficients | $K \times 1$ | @sec-models |
+| $\hat{\boldsymbol{\beta}}$ | Posterior mean of $\boldsymbol{\beta}$ | $\hat{\boldsymbol{\beta}} = S^{-1}\sum_{s=1}^{S} \boldsymbol{\beta}^{(s)}$ | $K \times 1$ | @sec-sandwich |
+| $\theta_j$ | Study random effect | Study-specific deviation from $\mathbf{x}_j'\boldsymbol{\beta}$ (CE model) | scalar | @sec-models |
+| $\hat{\theta}_j$ | Posterior mean of $\theta_j$ | $\hat{\theta}_j = S^{-1}\sum_{s=1}^{S} \theta_j^{(s)}$ | scalar | @sec-sandwich |
+| $\tau$ | Between-study SD | Standard deviation of $\theta_j$ | scalar ($>0$) | @sec-models |
+| $\tau^2$ | Between-study variance | $\tau^2 = \mathrm{Var}(\theta_j)$ | scalar ($\geq 0$) | @sec-models |
+| $\hat{\tau}^2$ | Posterior mean of $\tau^2$ | $\hat{\tau}^2 = S^{-1}\sum_{s=1}^{S} (\tau^{(s)})^2$ | scalar | @sec-sandwich |
+| $\omega$ | Within-study SD (CHE) | Standard deviation of observation-level random effects (CHE model) | scalar ($>0$) | @sec-che-model |
+| $\omega^2$ | Within-study variance (CHE) | $\omega^2 = \mathrm{Var}(\epsilon_{ij} \mid \theta_j)$ beyond sampling error | scalar ($\geq 0$) | @sec-che-model |
+| $\hat{\omega}^2$ | Posterior mean of $\omega^2$ | $\hat{\omega}^2 = S^{-1}\sum_{s=1}^{S} (\omega^{(s)})^2$ (D20: Jensen-safe) | scalar | @sec-che-model |
+| $\boldsymbol{\phi}$ | CE marginal parameters | $\boldsymbol{\phi} = (\boldsymbol{\beta}', \tau^2)'$ | $(K\!+\!1) \times 1$ | @sec-ce-model |
+| $\hat{\boldsymbol{\phi}}$ | Posterior mean of $\boldsymbol{\phi}$ | $\hat{\boldsymbol{\phi}} = (\hat{\boldsymbol{\beta}}', \hat{\tau}^2)'$ | $(K\!+\!1) \times 1$ | @sec-ce-model |
+| $\boldsymbol{\psi}$ | Full parameter vector | CE: $(\boldsymbol{\beta}', \theta_1, \ldots, \theta_J)'$; CHE: $(\boldsymbol{\beta}', \tau, \omega)'$ | varies | @sec-ccc |
+| $\boldsymbol{\psi}^{(s)}$ | MCMC draw $s$ | Draw from posterior $p(\boldsymbol{\psi} \mid \mathbf{y})$ | varies | @sec-ccc |
+| $\boldsymbol{\psi}^{*(s)}$ | CCC-calibrated draw | Calibrated posterior draw (see @sec-ccc) | varies | @sec-ccc |
+| $\sigma_\beta$ | Prior SD for $\boldsymbol{\beta}$ | Hyperparameter: $\beta_k \sim \mathrm{N}(0, \sigma_\beta^2)$ | scalar | @sec-models |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 3. Variance and Covariance Matrices
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $v_j$ | Marginal variance of $\bar{y}_j$ | $v_j = \bar{s}_j^2 / n_j + \hat{\tau}^2$ (CE); $v_j = (\bar{s}_j^2 + \hat{\omega}^2)/n_j + \hat{\tau}^2$ (CHE) | scalar | @sec-ce-model |
+| $a_j$ | CHE within-study variance | $a_j = \bar{s}_j^2 + \hat{\omega}^2$ | scalar | @sec-che-model |
+| $c_j$ | CHE total variance factor | $c_j = a_j + n_j \hat{\tau}^2$ | scalar | @sec-che-model |
+| $\boldsymbol{\Sigma}_j$ | Working covariance of study $j$ | $\boldsymbol{\Sigma}_j = \bar{s}_j^2 \mathbf{I}_{n_j} + \hat{\tau}^2 \mathbf{1}\mathbf{1}'$ (CE); $\boldsymbol{\Sigma}_j = a_j \mathbf{I}_{n_j} + \hat{\tau}^2 \mathbf{1}\mathbf{1}'$ (CHE) | $n_j \times n_j$ | @sec-sandwich |
+| $\mathbf{W}_j$ | Weight matrix | $\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1}$, computed via Woodbury identity | $n_j \times n_j$ | @sec-cr2 |
+| $\mathbf{W}_j^{1/2}$ | Weight matrix square root | Symmetric positive-definite matrix s.t. $\mathbf{W}_j^{1/2}\mathbf{W}_j^{1/2} = \mathbf{W}_j$; analytical via rank-1 formula (D24) | $n_j \times n_j$ | @sec-cr2 |
+| $\mathbf{W}_j^{-1/2}$ | Inverse weight square root | $(\mathbf{W}_j^{1/2})^{-1}$ | $n_j \times n_j$ | @sec-cr2 |
+| $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}$ | MCMC posterior covariance | Sample covariance of posterior draws: $\operatorname{Cov}_S[\boldsymbol{\psi}^{(1)}, \ldots, \boldsymbol{\psi}^{(S)}]$; CCC uses only the beta-block $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)}$ ($K \times K$) | $(K\!+\!J) \times (K\!+\!J)$ | @sec-ccc |
+| $V_{\mathrm{HC0}}$ | Uncorrected sandwich (beta block) | HC0 sandwich estimator for $\boldsymbol{\beta}$: $\mathbf{H}^{-1}\mathbf{M}\mathbf{H}^{-1}$ restricted to rows/cols $1{:}K$ | $K \times K$ | @sec-sandwich |
+| $V_{\mathrm{CR2}}$ | CR2 bias-reduced sandwich | $V_{\mathrm{CR2}} = \mathbf{Q}\bigl(\sum_{j=1}^{J} \tilde{\mathbf{s}}_j \tilde{\mathbf{s}}_j'\bigr)\mathbf{Q}$ [@bell2002; @tipton2015] | $K \times K$ | @sec-cr2 |
+| $V_{\mathrm{sand}}$ | Sandwich variance (generic) | Context-dependent: $V_{\mathrm{CR2}}$ when `small_sample = "CR2"`, else $V_{\mathrm{HC0}}$ | $K \times K$ | @sec-sandwich |
+| $\mathbf{V}_{\mathrm{sand,full}}$ | Full marginal sandwich | Sandwich for $\boldsymbol{\phi} = (\boldsymbol{\beta}', \tau^2)'$ (CE) or $(\boldsymbol{\beta}', \tau^2, \omega^2)'$ (CHE) | $(K\!+\!1) \times (K\!+\!1)$ or $(K\!+\!2) \times (K\!+\!2)$ | @sec-sandwich |
+| $V_{\mathrm{sand,cond},j}$ | Conditional sandwich for $\theta_j$ | Per-study conditional sandwich: $V_j = u_j^2 / H_j^2$ (CE only) | scalar | @sec-sandwich |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 4. Sandwich Internals (Bread and Meat)
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $\mathbf{s}_j^{(\beta)}$ | Beta score for study $j$ | Likelihood score: $\mathbf{s}_j^{(\beta)} = \sum_i (r_{ij}/w_{ij})\,\mathbf{x}_{ij}$ (obs-level) or $(\bar{r}_j / v_j)\,\bar{\mathbf{x}}_j$ (study-level) | $K \times 1$ | @sec-sandwich |
+| $s_j^{(\tau^2)}$ | Tau-squared score for study $j$ | $s_j^{(\tau^2)} = -1/(2v_j) + \bar{r}_j^2/(2v_j^2)$ | scalar | @sec-sandwich |
+| $s_j^{(\omega^2)}$ | Omega-squared score (CHE) | Score for $\omega^2$ in the CHE marginal likelihood | scalar | @sec-che-model |
+| $\mathbf{S}$ | Score matrix | $\mathbf{S} = [\mathbf{s}_1, \ldots, \mathbf{s}_J]'$ where $\mathbf{s}_j = (\mathbf{s}_j^{(\beta)\prime}, s_j^{(\tau^2)}, \ldots)'$ | $J \times d$ | @sec-sandwich |
+| $\mathbf{M}$ | Meat matrix | $\mathbf{M} = \mathbf{S}'\mathbf{S} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j'$ (likelihood scores only; prior excluded) | $d \times d$ | @sec-sandwich |
+| $\mathbf{H}_{\mathrm{lik}}$ | Likelihood Hessian | $-\partial^2 \log p(\mathbf{y} \mid \boldsymbol{\phi}) / \partial \boldsymbol{\phi}\,\partial \boldsymbol{\phi}'$ (positive-definite convention) | $d \times d$ | @sec-sandwich |
+| $\mathbf{H}_{\mathrm{prior}}$ | Stabilized prior Hessian | $\mathrm{diag}(1/\sigma_\beta^2, \ldots, 1/\sigma_\beta^2, \,h_{\tau^2})$; the $\tau^2$ entry $h_{\tau^2}$ is a numerical ridge stabilizer (capped at $10^6$ when $\hat{\tau}^2 \approx 0$), not the exact prior second derivative | $d \times d$ | @sec-sandwich |
+| $\mathbf{H}_{\mathrm{post}}$ | Posterior Hessian (bread) | $\mathbf{H}_{\mathrm{post}} = \mathbf{H}_{\mathrm{lik}} + \mathbf{H}_{\mathrm{prior}}$ | $d \times d$ | @sec-sandwich |
+| $\mathbf{Q}$ | WLS bread | $\mathbf{Q} = (\mathbf{X}'\mathbf{W}\mathbf{X})^{-1} = \bigl(\sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{X}_j\bigr)^{-1}$ (fixed-effect WLS, D15) | $K \times K$ | @sec-cr2 |
+| $H_j$ | Conditional Hessian for $\theta_j$ | $H_j = n_j / \bar{s}_j^2 + 1/\hat{\tau}^2$ (CE) | scalar | @sec-sandwich |
+| $u_j$ | Conditional score for $\theta_j$ | $u_j = (n_j / \bar{s}_j^2)\,r_{\mathrm{cond},j}$ where $r_{\mathrm{cond},j} = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}} - \hat{\theta}_j$ | scalar | @sec-sandwich |
+| $d$ | Marginal parameter dimension | $d = K + 1$ (CE) or $d = K + 2$ (CHE) | scalar | @sec-sandwich |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 5. CCC Objects (Cholesky Calibration Correction)
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $L_1$ | MCMC Cholesky factor | $L_1 = \mathrm{chol}(\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC},\beta})$, lower-triangular | $K \times K$ | @sec-ccc |
+| $L_2$ | Sandwich Cholesky factor | $L_2 = \mathrm{chol}(V_{\mathrm{sand}})$, lower-triangular | $K \times K$ | @sec-ccc |
+| $\mathbf{A}_\beta$ | Beta-block CCC transformation | $\mathbf{A}_\beta = L_2 L_1^{-1}$ | $K \times K$ | @sec-ccc |
+| $\boldsymbol{\beta}^{*(s)}$ | CCC-calibrated beta draw | $\boldsymbol{\beta}^{*(s)} = \hat{\boldsymbol{\beta}} + \mathbf{A}_\beta(\boldsymbol{\beta}^{(s)} - \hat{\boldsymbol{\beta}})$ | $K \times 1$ | @sec-ccc |
+| $r_\theta^{(j)}$ | Theta rescaling factor | $r_\theta^{(j)} = \sqrt{V_{\mathrm{sand,cond},j} / \mathrm{Var}_{\mathrm{MCMC}}(\theta_j)}$ (CE only) | scalar | @sec-ccc |
+| $R_k$ | Per-parameter SD ratio | $R_k = \mathrm{SD}(\psi_k^{*}) / \mathrm{SD}(\psi_k)$ for parameter $k$ | scalar | @sec-ccc |
+| $\|\mathbf{A}_\beta - \mathbf{I}_K\|_F$ | Frobenius perturbation | Measures departure of CCC from identity (no calibration needed $\Rightarrow 0$) | scalar | @sec-ccc |
+| $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC},\beta}$ | Beta-block MCMC covariance | Sample covariance of $\boldsymbol{\beta}^{(1)}, \ldots, \boldsymbol{\beta}^{(S)}$ | $K \times K$ | @sec-ccc |
+| $\operatorname{Cov}_S(\cdot)$ | Sample covariance operator | $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = (S\!-\!1)^{-1}\sum_{s}(\boldsymbol{\beta}^{*(s)} - \bar{\boldsymbol{\beta}}^*)(\boldsymbol{\beta}^{*(s)} - \bar{\boldsymbol{\beta}}^*)'$ | context-dep. | @sec-ccc |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 6. Small-Sample Inference (CR2 and Satterthwaite)
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $\mathbf{A}_j$ | CR2 adjustment matrix | Bias-correction matrix s.t. $\mathrm{E}[\mathbf{A}_j \hat{\mathbf{e}}_j \hat{\mathbf{e}}_j' \mathbf{A}_j'] = \boldsymbol{\Sigma}_j$ | $n_j \times n_j$ | @sec-cr2 |
+| $\tilde{\mathbf{H}}_{jj}$ | Symmetrized hat block | $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j^{1/2}$ | $n_j \times n_j$ | @sec-cr2 |
+| $\tilde{\mathbf{A}}_j$ | Symmetrized CR2 adjustment | $\tilde{\mathbf{A}}_j = (\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj})^{-1/2}$ (eigendecomposition) | $n_j \times n_j$ | @sec-cr2 |
+| $\mathbf{H}_{jj}$ | Hat matrix block | $\mathbf{H}_{jj} = \mathbf{X}_j \mathbf{Q} \mathbf{X}_j' \mathbf{W}_j$ (not symmetric in general) | $n_j \times n_j$ | @sec-cr2 |
+| $h_j$ | Study leverage | $h_j = \bar{\mathbf{x}}_j' \mathbf{Q} \bar{\mathbf{x}}_j / v_j$ (study-level) or $\mathrm{tr}(\mathbf{H}_{jj})/n_j$ (obs-level) | scalar | @sec-cr2 |
+| $\tilde{\mathbf{e}}_j$ | CR2-adjusted residual | $\tilde{\mathbf{e}}_j = \mathbf{A}_j \hat{\mathbf{e}}_j$ | $n_j \times 1$ | @sec-cr2 |
+| $\tilde{\mathbf{s}}_j$ | CR2-adjusted score | $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\mathbf{W}_j \tilde{\mathbf{e}}_j = \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j$ | $K \times 1$ | @sec-cr2 |
+| $\mathbf{M}_{\mathrm{CR2}}$ | CR2 meat matrix | $\mathbf{M}_{\mathrm{CR2}} = \sum_{j=1}^{J} \tilde{\mathbf{s}}_j \tilde{\mathbf{s}}_j'$ | $K \times K$ | @sec-cr2 |
+| $\boldsymbol{\Lambda}_\beta$ | Beta prior precision | $\boldsymbol{\Lambda}_\beta = \mathrm{diag}(1/\sigma_\beta^2, \ldots, 1/\sigma_\beta^2)$ | $K \times K$ | @sec-sandwich |
+| $\mathbf{B}_\beta$ | Penalized precision | $\mathbf{B}_\beta = \bar{\mathbf{X}}'\mathbf{W}\bar{\mathbf{X}} + \boldsymbol{\Lambda}_\beta$ (Bayesian leverage computation) | $K \times K$ | @sec-sandwich |
+| $c_\beta$ | Scalar small-sample correction | $c_\beta = J / (J - p_{\mathrm{eff}})$ | scalar | @sec-sandwich |
+| $p_{\mathrm{eff}}$ | Effective parameters | $p_{\mathrm{eff}} = \sum_{j=1}^{J} h_j$ (sum of Bayesian leverages) | scalar | @sec-sandwich |
+| $w_j$ | Study weight | $w_j = 1/v_j$ (inverse marginal variance) | scalar | @sec-sandwich |
+| $J_{\min}$ | Operating envelope | $J_{\min} = \max(8,\, 2K + 2)$ (D7: minimum studies for sandwich) | scalar | @sec-sandwich |
+| $\mathrm{df}_k$ | Satterthwaite df | $\mathrm{df}_k = [\mathrm{tr}(\mathbf{P}_k)]^2 / \mathrm{tr}(\mathbf{P}_k^2)$ for coefficient $k$ | scalar | @sec-satterthwaite |
+| $\mathbf{P}_k$ | Satterthwaite $P$ matrix | $J \times J$ matrix with entries $P_{ij}$ depending on $\mathbf{g}_{jk}$ vectors (deterministic conditional on plug-in $\hat{\tau}^2, \hat{\omega}^2$) | $J \times J$ | @sec-satterthwaite |
+| $\mathbf{g}_{jk}$ | Satterthwaite $g$ vector | $\mathbf{g}_{jk} = \mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j\mathbf{Q}\mathbf{c}_k$ where $\mathbf{c}_k$ is column $k$ of $\mathbf{I}_K$ | $n_j \times 1$ | @sec-satterthwaite |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+### 7. Woodbury Identity Components
+
+| Symbol | Name | Definition | Dimensions | Introduced |
+|:-------|:-----|:-----------|:-----------|:-----------|
+| $\mathbf{I}_{n_j}$ | Identity matrix | $n_j \times n_j$ identity | $n_j \times n_j$ | @sec-sandwich |
+| $\mathbf{1}$ | Ones vector | Vector of ones, length $n_j$ | $n_j \times 1$ | @sec-sandwich |
+| $\mathbf{J}$ | Ones matrix | $\mathbf{J} = \mathbf{1}\mathbf{1}'$ | $n_j \times n_j$ | @sec-sandwich |
+| $\boldsymbol{\Sigma}_j^{-1}$ | Woodbury inverse | $\frac{1}{a_j}\mathbf{I}_{n_j} - \frac{\hat{\tau}^2}{a_j\, c_j}\mathbf{1}\mathbf{1}'$ where $a_j = \bar{s}_j^2 + \hat{\omega}^2$, $c_j = a_j + n_j \hat{\tau}^2$ | $n_j \times n_j$ | @sec-sandwich |
+
+: {tbl-colwidths="[12,18,42,12,16]"}
+
+
+## Acronyms and Abbreviations {#sec-acronyms}
+
+| Acronym | Full Expansion | First Occurrence |
+|:--------|:---------------|:-----------------|
+| bayesRVE | Bayesian Robust Variance Estimation | @sec-introduction |
+| CCC | Cholesky Calibration Correction | @sec-introduction |
+| CE | Correlated Effects (model with single $\tau^2$, $\rho_{\mathrm{work}} = 0$) | @sec-models |
+| CHE | Correlated-and-Hierarchical Effects (model with $\tau^2 + \omega^2$) | @sec-che-model |
+| CI | Confidence (or Credible) Interval | @sec-models |
+| CP | Centered Parameterization | @sec-models |
+| CR2 | Cluster-Robust type 2 (Bell--McCaffrey bias-reduced sandwich) | @sec-cr2 |
+| DER | Design-Effect Ratio: $V_{\mathrm{sand}} / \hat{\Sigma}_{\mathrm{MCMC}}$ | @sec-ccc |
+| df | Degrees of Freedom | @sec-cr2 |
+| E-BFMI | Expected Bayesian Fraction of Missing Information | @sec-models |
+| HC0 | Heteroskedasticity-Consistent type 0 (uncorrected sandwich) | @sec-sandwich |
+| HMC | Hamiltonian Monte Carlo | @sec-models |
+| LOC | Lines of Code | @sec-verification |
+| MCMC | Markov Chain Monte Carlo | @sec-models |
+| NCP | Non-Centered Parameterization | @sec-models |
+| NUTS | No-U-Turn Sampler | @sec-models |
+| PD | Positive Definite (matrix property) | @sec-ccc |
+| REML | Restricted Maximum Likelihood | @sec-cr2 |
+| RVE | Robust Variance Estimation | @sec-introduction |
+| S3 | S3 object-oriented dispatch system (R) | @sec-api |
+| SD | Standard Deviation | @sec-models |
+| SE | Standard Error | @sec-models |
+| TSL15 | @tannersmith2015 dataset | @sec-tsl15-design |
+| WLS | Weighted Least Squares | @sec-cr2 |
+
+: {tbl-colwidths="[12,60,28]"}
+
+
+## S3 Object Contract Map {#sec-s3-contracts}
+
+Complete S3 class contracts for all three pipeline objects are documented in @sec-arch-contracts. This section lists only the always-required field names enforced by the `.assert_*` validators in `validate.R`.
+
+**`bm_fit`** (validated by `.assert_bm_fit()`): `fit`, `stan_data`, `bm_data`, `formula`, `prior`, `param`, `K`, `J`, `model_name`, `call`, `elapsed`. The `model` field is set by all current constructors but is not in the validator's required list.
+
+**`bm_sandwich`** (validated by `.assert_bm_sandwich()`): `V_sand_marg`, `V_sand_cond`, `H_post`, `M`, `Sigma_MCMC`, `scores`, `rho`, `param_names`, `fingerprint`. Additional CR2 and Satterthwaite fields are validated conditionally when present.
+
+**`bm_ccc`** (validated by `.assert_bm_ccc()`): `draws_star`, `draws_orig`, `A_beta`, `r_theta`, `frobenius_norm`, `r_k`, `center_type`, `sandwich`, `K`, `J`.
+
+**`summary.bm_ccc`** (created by `summary.bm_ccc()` in `methods.R`): `beta`, `theta`, `diagnostics`, `der_decomposition`, `method`, `small_sample`, `c_beta`, `df_source`, `ci_method`, `level`, `center_type`, `K`, `J`, `S`, `model`.
+
+
+## Theorem and Decision Map {#sec-theorem-decision-map}
+
+### Theorems
+
+The three core CCC theorems are stated and proved in @sec-ccc-theorems (Ch. 4, `ch04-ccc.qmd`).
+
+| ID | Name | Statement Summary | Chapter |
+|:---|:-----|:------------------|:--------|
+| Theorem 1 | Center Preservation | CCC preserves the posterior mean exactly: $\bar{\boldsymbol{\psi}}^* = \hat{\boldsymbol{\psi}}$ | @sec-ccc-theorems |
+| Theorem 2 | Exact Covariance Matching | Calibrated draws have sample covariance exactly equal to the target: $\mathrm{Cov}(\boldsymbol{\psi}^*) = \mathbf{V}_{\mathrm{target}}$ | @sec-ccc-theorems |
+| Theorem 3 | Identity Under Correct Specification | When $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}} = \mathbf{V}_{\mathrm{target}}$, CCC is the identity: $\mathbf{A} = \mathbf{I}$ | @sec-ccc-theorems |
+
+: CCC theorem summary. {tbl-colwidths="[10,22,52,16]"}
+
+### Design Decisions (D1--D25)
+
+All finalized decisions are recorded in the project's configuration file and documented in @sec-decision-registry. This table provides a consolidated index.
+
+| ID | Name | One-Line Summary |
+|:---|:-----|:-----------------|
+| D1 | Package name | Package `bayesRVE`; all exported functions prefixed `bm_` |
+| D2 | Blockwise hybrid CCC | Beta-block: full Cholesky (marginal sandwich target); Theta-block: diagonal rescaling |
+| D3 | Default parameterization | NCP as default; CP as option |
+| D5 | Rho handling | $\rho$ handled inside `sandwich()`, not in `bm_fit()` |
+| D6 | Within-study varying moderators | Supported in sandwich via observation-level infrastructure (v0.3.0) |
+| D7 | Operating envelope | $J_{\min} = \max(8,\, 2K{+}2)$; fallback logic when $J < J_{\min}$ |
+| D11 | Independent CR2 implementation | CR2 + Satterthwaite implemented without runtime dependency on clubSandwich |
+| D12 | CCC target | CCC target $= V_{\mathrm{CR2}}$ (not $V_{\mathrm{HC0}} \cdot c_\beta$) from v0.5.0 |
+| D13 | Default df and correction | `confint()` default df $=$ Satterthwaite; `sandwich()` default `small_sample = "CR2"` |
+| D20 | Jensen-safe omega plug-in | $\hat{\omega}^2 = \mathrm{mean}(\omega_{\mathrm{draws}}^2)$: posterior mean of variance, not square of mean |
+| D21 | CHE method cleanup | First-class deliverable: remove dummy theta from downstream methods |
+| D22 | Singleton warning | All singletons: "not identified"; $>$50% singletons: "weakly identified" |
+| D23 | sim4 deferred | Comprehensive CHE simulation deferred to future version |
+| D24 | Analytical $\mathbf{W}^{1/2}$ | Woodbury rank-1 formula for compound-symmetric weight matrices |
+| D25 | Plug-in parity test | Inject REML $\hat{\tau}^2 / \hat{\omega}^2$ into bayesRVE sandwich; match clubSandwich at $10^{-6}$ |
+
+: Design decision index. Decisions D4, D8--D10, D14--D19 are version-internal and omitted for brevity. {tbl-colwidths="[5,20,75]"}
+
+
+## Stan--R Object Correspondence {#sec-stan-map}
+
+### Stan Data Block {#sec-stan-data}
+
+Every variable in the Stan `data{}` block, its mathematical meaning, and its R source.
+
+| Stan Variable | Math Symbol | Type | R Source | Description |
+|:---|:---|:---|:---|:---|
+| `J` | $J$ | `int` | `bm_data$J` | Number of studies |
+| `N_total` | $N$ | `int` | `bm_data$N_total` | Total effect-size estimates |
+| `study_sizes` | $n_j$ | `int[J]` | `bm_data$n_j` | Per-study count |
+| `K` | $K$ | `int` | `bm_data$K` | Number of predictors |
+| `X` | $\mathbf{X}$ | `matrix[N,K]` | `model.matrix()` | Design matrix |
+| `y` | $\mathbf{y}$ | `vector[N]` | `bm_data$yi` | Observed effect sizes |
+| `s_bar_sq` | $\bar{s}_j^2$ | `vector[J]` | `bm_data$s_bar_j2` | Study-level mean sampling variance |
+| `V_obs` | $v_{ij}$ | `vector[N]` | `bm_data$vi` | Per-observation sampling variance |
+| `use_obs_V` | --- | `int{0,1}` | `!cluster_constant` | Obs-level scoring flag |
+| `prior_beta_mean` | $\mu_{\beta,0}$ | `real` | `prior$beta$mean` | Prior mean for $\beta$ |
+| `prior_beta_sd` | $\sigma_{\beta,0}$ | `real` | `prior$beta$sd` | Prior SD for $\beta$ |
+| `prior_tau_*` | $\nu_\tau, \mu_{\tau,0}, \sigma_{\tau,0}$ | `real` | `prior$tau$*` | Half-$t$ prior for $\tau$ |
+| `prior_omega_*` | $\nu_\omega, \mu_{\omega,0}, \sigma_{\omega,0}$ | `real` | `prior$omega$*` | Half-$t$ prior for $\omega$ (CHE only) |
+| `compute_scores` | --- | `int{0,1}` | `1L` (hard-coded) | Enable GQ score production |
+
+: Stan data block correspondence. {tbl-colwidths="[15,12,10,25,38]"}
+
+### Stan Parameters and Generated Quantities {#sec-stan-params}
+
+| Stan Name | Block | Model(s) | Math | Dims | R Extraction |
+|:---|:---|:---|:---|:---|:---|
+| `beta` | parameters | all | $\boldsymbol{\beta}$ | $K$ | `.extract_draws(fit, "beta")` |
+| `theta_raw` | parameters | CE-NCP | $\tilde\theta_j$ | $J$ | `fit$fit$draws("theta_raw")` |
+| `theta` | trans. params / params | CE | $\theta_j$ | $J$ | `.extract_draws(fit, "theta")` |
+| `tau` | parameters | all | $\tau$ | 1 | `.extract_draws(fit, "tau")` |
+| `omega` | parameters | CHE | $\omega$ | 1 | `.extract_draws(fit, "omega")` |
+| `score_beta` | gen. quantities | all | $\partial \ell_j / \partial \boldsymbol{\beta}$ | $J \times K$ | `fit$fit$draws("score_beta")` |
+| `score_theta` | gen. quantities | all | $\partial \ell_j / \partial \theta_j$ | $J$ | `fit$fit$draws("score_theta")` |
+| `log_lik_J` | gen. quantities | all | $\ell_j$ | $J$ | `fit$fit$draws("log_lik_J")` |
+| `y_rep` | gen. quantities | all | $y_{ij}^{\text{rep}}$ | $N$ | `fit$fit$draws("y_rep")` |
+| `ss_sum_r` | gen. quantities | CHE | $\sum_i r_{ij}$ | $J$ | CHE score helper |
+| `ss_sum_r2` | gen. quantities | CHE | $\sum_i r_{ij}^2$ | $J$ | CHE score helper |
+| `ss_a` | gen. quantities | CHE | $a_j$ | $J$ | Woodbury diagonal |
+| `ss_c` | gen. quantities | CHE | $c_j$ | $J$ | Woodbury compound |
+
+: Stan parameters and generated quantities. CHE `theta` returns zeros for API compatibility. {tbl-colwidths="[12,12,8,15,8,45]"}
+
+### Model-Specific Parameter Availability {#sec-param-avail}
+
+| Parameter | CE-NCP | CE-CP | CHE-NCP |
+|:---|:---:|:---:|:---:|
+| `beta` | $\checkmark$ | $\checkmark$ | $\checkmark$ |
+| `theta_raw` | $\checkmark$ | --- | --- |
+| `theta` | $\checkmark$ (transformed) | $\checkmark$ (direct) | --- (integrated out) |
+| `tau` | $\checkmark$ | $\checkmark$ | $\checkmark$ |
+| `omega` | --- | --- | $\checkmark$ |
+
+: Parameter availability by Stan model. The CHE model analytically marginalizes $\theta_j$.

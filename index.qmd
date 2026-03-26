@@ -1,0 +1,99 @@
+---
+title: "Preface"
+---
+
+## The Gap Between Bayesian and Robust Inference {.unnumbered}
+
+Applied researchers increasingly turn to Bayesian methods for meta-analysis with dependent effect sizes. Bayesian hierarchical models offer natural handling of complex dependence structures, coherent uncertainty propagation through variance components, and direct probability statements about quantities of interest. Yet these advantages rest on the assumption that the working model is correctly specified---an assumption that is rarely defensible when effect sizes are statistically dependent within studies.
+
+Frequentist meta-analysts have long addressed this vulnerability through robust variance estimation (RVE). The CR2 sandwich estimator, combined with Satterthwaite degrees of freedom, provides confidence intervals that maintain nominal coverage regardless of the true within-study correlation structure. However, the resulting inference sacrifices the Bayesian advantages of shrinkage estimation and probabilistic interpretation.
+
+The fundamental tension, then, is between two desirable properties: the shrinkage and probabilistic coherence of Bayesian point estimation, and the misspecification-robust coverage guarantees of sandwich-based inference. This report develops and validates **Cholesky Calibration Correction** (CCC) as a principled resolution of this tension.
+
+
+## Purpose and Scope {.unnumbered}
+
+This report provides a self-contained account of the theory, implementation, and empirical validation of the **bayesRVE** R package (version 0.6.0), which implements CCC for Bayesian meta-analysis with dependent effect sizes. The intended audience includes methodologists working at the intersection of Bayesian computation and robust variance estimation, as well as applied researchers seeking calibrated inference from multi-level meta-analytic models.
+
+The CCC transformation takes the form
+$$
+\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}),
+$$ {#eq-ccc-preface}
+where $\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})$ is the Cholesky factor of the posterior covariance, $\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})$ is the Cholesky factor of the CR2 sandwich variance, and $\hat{\boldsymbol{\psi}}$ is the posterior mean. This affine map preserves the posterior mean as the point estimate while replacing the model-dependent posterior spread with a misspecification-robust alternative.
+
+
+## Three-Layer Calibration {.unnumbered}
+
+The bayesRVE package implements a three-layer calibration framework:
+
+- **Layer 1 (Location).** The posterior mean $\hat{\boldsymbol{\beta}} = \mathbb{E}[\boldsymbol{\beta} \mid \mathbf{y}]$ serves as the point estimate. For both correlated-effects (CE) and correlated-hierarchical-effects (CHE) models, the posterior mean incorporates partial pooling across studies, yielding shrinkage estimates that borrow strength from the ensemble.
+
+- **Layer 2 (Spread).** CCC transforms the posterior draws so that $\text{Cov}(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}$ exactly. The posterior spread is recalibrated from model-dependent to sandwich-robust, while the posterior mean is preserved as an algebraic identity (@sec-ccc, Theorem 1).
+
+- **Layer 3 (Tail behavior).** Satterthwaite degrees of freedom $\text{df}_k$, computed from the CR2 adjustment matrices, determine the reference distribution for each coefficient. The resulting **CCC-$t$ intervals**,
+$$
+\hat{\beta}_k \pm t_{\alpha/2,\, \text{df}_k} \cdot \text{SD}(\beta_k^*),
+$$
+are Bayesian in their point estimate, sandwich-robust in their width, and small-sample corrected in their tail behavior.
+
+
+## What This Report Demonstrates {.unnumbered}
+
+The principal claims, developed across the thirteen chapters that follow, are:
+
+1. **Exact covariance alignment.** CCC is an affine transformation whose empirical covariance matrix exactly equals the CR2 sandwich variance matrix (Theorem 2, @sec-ccc). This result is verified numerically at machine precision on synthetic data.
+
+2. **Generality across working models.** Three-Layer Calibration applies to both the CE model ($\tau^2$ only) and the CHE model ($\tau^2 + \omega^2$). The CHE extension requires only the substitution $\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2$ into the weight matrices; no new mathematical machinery is needed (@sec-models).
+
+3. **Plug-in parity with established software.** When REML variance components are injected into the bayesRVE CR2 machinery, the resulting sandwich variance matches the clubSandwich package to a tolerance of $10^{-6}$, isolating the linear algebra from MCMC sampling noise (@sec-verification).
+
+4. **Real-data validation.** On the @tannersmith2015 dataset ($J = 107$ studies, $N = 1{,}198$ effect sizes), the ratio of CCC posterior standard deviation to CR2 standard error is approximately 1.0 across all moderator categories, for both CE and CHE models (@sec-results).
+
+5. **Comprehensive automated testing.** The bayesRVE test suite comprises 2,701+ expectations across 39 test files, covering algebraic identities on synthetic data, MCMC-based integration tests, edge cases, and backward compatibility guarantees (@sec-verification).
+
+
+## How to Read This Report {.unnumbered}
+
+The chapters support several reading strategies:
+
+| Route | Chapters | Focus | Est. Time |
+|:------|:---------|:------|:----------|
+| **Theory** | 1--5 | Statistical foundations: models, sandwich, CCC, operating envelope | 3--4 hours |
+| **Code audit** | 6--10 | Software architecture, Stan models, `sandwich()`, `ccc()`, verification | 4--5 hours |
+| **Empirical** | 11--13 | TSL15 application: design, results, CCC mechanics and limitations | 2--3 hours |
+| **Quick overview** | Preface + 1 + 12 | Problem statement, architecture, main results | 1 hour |
+| **Complete** | All | Full theory + implementation + validation | 8--10 hours |
+
+: Reading routes through the report. {tbl-colwidths="[15,15,50,12]"}
+
+**For the theoretically inclined reader,** Chapters 1 through 5 develop the statistical foundations without reference to the software. **For the code reviewer,** Chapters 6 through 10 document the package internals with cross-references to specific source files. **For the empirically minded reader,** Chapters 11 through 13 present the real-data application and its implications.
+
+
+## Scope Boundaries {.unnumbered}
+
+**In scope:**
+
+- Mathematical foundations: CE and CHE models, CR2 sandwich variance, CCC transformation, Satterthwaite degrees of freedom
+- Software realization: Stan models, R package architecture, object contracts, S3 method semantics
+- Empirical validation: @tannersmith2015 dataset, five-estimator comparison
+- Verification: algebraic identity tests, plug-in parity benchmarks, cross-software interoperability
+
+**Out of scope (deferred to future work):**
+
+- Comprehensive Monte Carlo simulation study (planned for v0.7.0)
+- Multi-parameter Wald and F tests for joint hypotheses
+- Multivariate and network meta-analysis extensions
+- CRAN submission (installation currently requires the development version from GitHub)
+- Prior sensitivity analysis across alternative variance component priors
+
+
+## Software and Reproducibility {.unnumbered}
+
+- **bayesRVE** version 0.6.0 (development version, <https://github.com/joonho112/bayesRVE>)
+- **R** version 4.5.1
+- **Stan** via the **cmdstanr** backend ($\geq$ 0.8.0)
+- **Key dependencies:** metafor ($\geq$ 4.0), clubSandwich ($\geq$ 0.5.10, in Suggests), posterior ($\geq$ 1.4.0)
+
+All numerical results can be reproduced by installing bayesRVE and executing the code blocks embedded in each chapter. Reproducibility details are collected in Appendix D.
+
+

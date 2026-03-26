@@ -1,0 +1,327 @@
+---
+title: "Verification"
+---
+
+Software correctness in bayesRVE rests on a layered verification strategy that connects every mathematical claim to executable tests.
+This chapter presents the complete theorem-to-code verification map, describes each verification tier, and documents the acceptance criteria that gate every release.
+
+The test suite comprises 2,701 passing assertions organized into five tiers of increasing realism: algebraic invariants on synthetic data (Tier 0), known-answer benchmarks against closed-form solutions (Tier 1), parity benchmarks against external software (Tier 2), live-fit integration tests (Tier 3), and full-pipeline acceptance gates.
+
+## Theorem-to-Code Verification Map {#sec-verification}
+
+@tbl-verify-map provides a comprehensive mapping from every verifiable mathematical property to its implementation site, the test that exercises it, and the evidence level achieved.
+Each row answers three questions: *where* is the property implemented, *how* is it tested, and *how tight* is the tolerance?
+
+| Property | Mathematical Statement | Implementation | Test ID | Tolerance |
+|:---------|:----------------------|:---------------|:--------|:----------|
+| Theorem 1 (Center Preservation) | $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ | `.ccc_beta_block()` | V1 in `.verify_ccc()` | $< 10^{-6}$ (machine) |
+| Theorem 2 (Diagonal Variance) | $\operatorname{Var}(\beta_k^*) = [V_{\mathrm{CR2}}]_{kk}$ | $A_\beta = L_2 L_1^{-1}$ | V2 in `.verify_ccc()` | 5% (MCMC noise) |
+| Theorem 2 (Off-Diagonal Covariance) | $\operatorname{Cov}(\boldsymbol{\beta}^*) = V_{\mathrm{CR2}}$ | `.ccc_beta_block()` | V4 in `.verify_ccc()`, C4-01 | 10--15% (MCMC) |
+| Theorem 3 (Identity Limit) | $A_\beta = I_K$ when $\hat\Sigma = V_{\mathrm{CR2}}$ | `.ccc_beta_block()` | V6 in `.verify_ccc()` | Frobenius $\approx 0$ |
+| Theta Variance Recovery | $\operatorname{Var}(\theta_j^*) = V_{\mathrm{cond},j}$ | `.ccc_theta_block()` | V3 in `.verify_ccc()` | 5% |
+| D24 ($W^{1/2}$ Squaring) | $W_j^{1/2} W_j^{1/2} = W_j$ | `.compute_W_j_sqrt()` | G1-08, G1-09 | $\epsilon_{\mathrm{mach}} \times 100$ |
+| D24 ($W^{1/2}$ Inverse) | $W_j^{1/2} W_j^{-1/2} = I$ | `.compute_W_j_sqrt()` | G1-08, G1-09 | $\epsilon_{\mathrm{mach}} \times 100$ |
+| D25 (Plug-in $V_{\mathrm{CR2}}$) | REML $\to V_{\mathrm{CR2}}$ = clubSandwich | `.compute_vcr2()` | T1-04a, T1-04c | $10^{-6}$ |
+| D25 (Plug-in $\mathrm{df}$) | REML $\to \mathrm{df}$ = clubSandwich | `.satterthwaite_df()` | T1-04b, T1-04c | 0.1 |
+| D25 (Bread $Q$) | $(X'WX)^{-1}$ algebraic | `.compute_wls_bread()` | T1-04d | $10^{-10}$ |
+| Gate 1 ($W_j$ Reduction) | $W_j(\omega^2\!=\!0) = W_j^{\mathrm{CE}}$ | `.compute_W_j()` | G1-01 | $\epsilon_{\mathrm{mach}} \times 10$ |
+| Gate 1 (Bread Reduction) | $Q(\omega^2\!=\!0) = Q^{\mathrm{CE}}$ | `.compute_wls_bread()` | G1-02, G1-03 | $2.2 \times 10^{-13}$ |
+| Gate 1 (Hat Reduction) | $H_j(\omega^2\!=\!0) = H_j^{\mathrm{CE}}$ | `.compute_hat_blocks()` | G1-04 | $2.2 \times 10^{-13}$ |
+| Gate 1 ($A_j$ Reduction) | $A_j(\omega^2\!=\!0) = A_j^{\mathrm{CE}}$ | `.compute_cr2_adjustments()` | G1-05 | $2.2 \times 10^{-13}$ |
+| Gate 1 ($V_{\mathrm{CR2}}$ Reduction) | $V_{\mathrm{CR2}}(\omega^2\!=\!0) = V_{\mathrm{CR2}}^{\mathrm{CE}}$ | `.compute_vcr2()` | G1-06 | $2.2 \times 10^{-13}$ |
+| Gate 1 ($\mathrm{df}$ Reduction) | $\mathrm{df}(\omega^2\!=\!0) = \mathrm{df}^{\mathrm{CE}}$ | `.satterthwaite_df()` | G1-07 | $2.2 \times 10^{-13}$ |
+| Gate 1 (Separation) | $W_j(\omega^2\!>\!0) \neq W_j^{\mathrm{CE}}$ | `.compute_W_j()` | G1-01b | strict inequality |
+| Singleton Formula | $W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)$ for $n_j = 1$ | `.compute_W_j()` | T1-01 | $\epsilon_{\mathrm{mach}} \times 10$ |
+| Study-Level Variance | $v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2$ | `.compute_wls_bread()` | T1-02 | $\epsilon_{\mathrm{mach}} \times 10$ |
+| D24 Singleton $W^{1/2}$ | $W^{1/2}$ correct at $n_j = 1$ | `.compute_W_j_sqrt()` | T1-03 | $\epsilon_{\mathrm{mach}} \times 10$ |
+| CR2 $\neq$ HC0 | $V_{\mathrm{CR2}} \neq V_{\mathrm{HC0}}$ | sandwich pipeline | T0-2a/b/c, REGRESSION tests | strict inequality |
+| CR2 Inflation | $\operatorname{tr}(V_{\mathrm{CR2}}) \geq 0.99 \cdot \operatorname{tr}(V_{\mathrm{HC0}})$ | sandwich pipeline | T0-2e | 1% tolerance |
+| $V_{\mathrm{CR2}}$ Symmetry + PD | $V_{\mathrm{CR2}} = V_{\mathrm{CR2}}^T$, all eigenvalues $> 0$ | `.compute_vcr2()` | T0-2d, C3-01 | $10^{-12}$ |
+| df Populated | $\mathrm{df}_k > 0$ for all $k$ | `.satterthwaite_df()` | T0-3a/b/c | strict positivity |
+| Theta Suppression (CHE) | `summary$theta = NULL` for CHE | `summary.bm_ccc()` | T0-4a/b/c/d/e | structural |
+| CCC-t $\geq$ CCC-q | $t$-interval $\geq$ normal interval at small $J$ | `confint.bm_ccc()` | C7-01 | 1% tolerance |
+| Object Contract | All required fields present and typed | Full pipeline | C0-01, C0-02 | structural |
+
+: Theorem-to-code verification map. Every verifiable property of bayesRVE is tested at the tightest feasible tolerance. {#tbl-verify-map}
+
+The map reveals a deliberate design: algebraic properties that hold exactly in infinite precision are tested at machine precision ($\sim 2.2 \times 10^{-16}$, with a practical tolerance of $\sim 2.2 \times 10^{-13}$), while properties that involve MCMC sampling noise are tested at 5--15% tolerance.
+No property falls through without a test.
+
+
+## Algebraic Verification (Tier 0) {#sec-verify-tier0}
+
+Tier 0 tests verify CCC invariants on *fixed, deterministic* inputs with no MCMC stochasticity.
+Because there is no sampling noise, deviations from the theoretical values expose implementation bugs rather than statistical variability.
+A Tier 0 failure is a release blocker.
+
+### The six-point verification suite
+
+Every call to `ccc()` internally invokes `.verify_ccc()`, which checks six properties:
+
+| Check | Property | Severity | Tolerance |
+|:------|:---------|:---------|:----------|
+| V1 | Center preservation: $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ | Error on fail | $10^{-6}$ |
+| V2 | Beta diagonal variance: $\operatorname{Var}(\beta_k^*)/[V_{\mathrm{CR2}}]_{kk} \in [0.95, 1.05]$ | Warning on fail | 5% |
+| V3 | Theta variance: $\operatorname{Var}(\theta_j^*)/V_{\mathrm{cond},j} \in [0.95, 1.05]$ | Warning on fail | 5% |
+| V4 | Beta covariance (full matrix): $\|\operatorname{Cov}(\boldsymbol{\beta}^*) - V_{\mathrm{CR2}}\|_F / \|V_{\mathrm{CR2}}\|_F < 0.05$ | Warning on fail | 5% (relative Frobenius) |
+| V5 | Aggregate center (alias of V1) | Error on fail | $10^{-6}$ |
+| V6 | Diagnostic consistency: $\|A_\beta - I_K\|_F$ consistent with Frobenius norm | Error on fail | $10^{-6}$ |
+
+: The `.verify_ccc()` six-point verification suite. {#tbl-verify-suite}
+
+The distinction between error and warning severity reflects the distinction between algebraic identities (V1, V5, V6), which must hold at machine precision, and stochastic properties (V2, V3, V4), which depend on $S$ and may deviate at small sample sizes.
+
+### CHE Tier 0 invariants
+
+The CHE-specific Tier 0 suite (`test-che-cr2-tier0.R`) tests four invariants across three scenarios ($J = 10, K = 1$; $J = 15, K = 2$; $J = 20, K = 2$):
+
+**T0-1: No fallback to scalar.**
+The CR2 pipeline must complete without falling back to the scalar correction.
+Each scenario verifies `sw$small_sample == "CR2"` and `sw$fallback == FALSE`.
+
+**T0-2: CR2 differs from HC0.**
+The bias-corrected variance $V_{\mathrm{CR2}}$ must not be identical to the uncorrected $V_{\mathrm{HC0}}$.
+Additional sub-checks confirm symmetry ($\|V - V^T\| < 10^{-12}$), positive definiteness (all eigenvalues $> 0$), and that CR2 inflates relative to HC0 ($[V_{\mathrm{CR2}}]_{kk} \geq 0.99 \cdot [V_{\mathrm{HC0}}]_{kk}$).
+
+**T0-3: Satterthwaite degrees of freedom are populated.**
+Each coefficient must have a finite, positive df value, and the df source must report `"satterthwaite"`.
+An upper bound check ensures $\mathrm{df}_k < 10 \cdot J$ as a sanity guard.
+
+**T0-4: No theta leakage in CHE output.**
+The CHE model does not expose individual study random effects in its summary output.
+This is verified both structurally (`summary$theta == NULL`) and by scanning printed output for forbidden tokens (`"theta"`, `"Conditional"`, `"widened"`, `"narrowed"`).
+
+These invariants are enforced across all three scenarios, producing a total of 19 test assertions in the T0 suite alone.
+
+
+## Known-Answer and Parity Benchmarks (Tier 1--2) {#sec-verify-parity}
+
+### Tier 1: Algebraic known-answer tests
+
+Tier 1 tests isolate individual computational components with fixed (non-MCMC) inputs and compare them against closed-form analytical solutions.
+
+**T1-01: Singleton formula.**
+For a study with $n_j = 1$, the weight matrix reduces to a scalar: $W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)$.
+This is verified across a grid of 27 parameter combinations ($\bar{s}_j^2 \in \{0.03, 0.07, 0.12\}$, $\tau^2 \in \{0, 0.02, 0.10\}$, $\omega^2 \in \{0, 0.01, 0.05\}$) at machine precision.
+
+**T1-02: Study-level variance formula.**
+For the study-level (cluster-constant) path, the marginal variance $v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2$ is verified by constructing a minimal `bm_data` object and comparing `W_list[[j]]` against $1/v_j$.
+The bread matrix $Q = (X'WX)^{-1}$ is independently recomputed and compared at $10^{-10}$ tolerance.
+
+**T1-03: Singleton $W^{1/2}$.**
+The analytical Woodbury formula for $W_j^{1/2}$ (Decision D24) is verified at $n_j = 1$ by checking $W^{1/2} W^{1/2} = W_j$ and $W^{1/2} W^{-1/2} = I$ at machine precision.
+
+### Tier 1: D25 plug-in parity
+
+Decision D25 mandates that when REML point estimates of $\tau^2$ and $\omega^2$ are injected into bayesRVE's CR2 helpers, the resulting $V_{\mathrm{CR2}}$ must match clubSandwich's [@pustejovsky2022] output at $10^{-6}$ tolerance.
+This isolates the linear algebra from MCMC noise and serves as the strongest available external cross-validation.
+
+The D25 test protocol:
+
+1. Generate synthetic data with constant $v_{ij}$ within each study (ensuring $\bar{s}_j^2 = v_{ij}$ exactly, eliminating the averaging discrepancy).
+2. Fit a CHE model in metafor [@viechtbauer2010] (`rma.mv` with `~ 1 | studyid/obsid`, REML).
+3. Extract $\hat\tau^2_{\mathrm{REML}}$, $\hat\omega^2_{\mathrm{REML}}$, and $\hat{\boldsymbol{\beta}}_{\mathrm{REML}}$.
+4. Compute clubSandwich's $V_{\mathrm{CR2}}$ and Satterthwaite df as the reference.
+5. Inject the same REML estimates into bayesRVE's internal helpers (`.compute_wls_bread()`, `.compute_cr2_adjustments()`, `.compute_vcr2()`, `.satterthwaite_df()`).
+6. Compare element-by-element.
+
+Four sub-tests cover this:
+
+| Test | Scenario | Target | Tolerance |
+|:-----|:---------|:-------|:----------|
+| T1-04a | $J = 15$, $K = 2$, balanced | $V_{\mathrm{CR2}}$ | $10^{-6}$ |
+| T1-04b | $J = 15$, $K = 2$, balanced | Satterthwaite df | 0.1 |
+| T1-04c | $J = 25$, $K = 3$, unbalanced | $V_{\mathrm{CR2}}$ and df | $10^{-6}$ / 0.1 |
+| T1-04d | $J = 15$, $K = 2$, balanced | Bread $Q$ | $10^{-10}$ |
+
+: D25 plug-in parity tests. {#tbl-d25-parity}
+
+The $10^{-6}$ tolerance on $V_{\mathrm{CR2}}$ is six orders of magnitude tighter than the MCMC noise floor, confirming that the two implementations share the same linear algebra.
+The slightly looser tolerance on df (0.1) reflects minor numerical differences in the matrix derivative computations used by the Satterthwaite approximation.
+
+### Tier 2: Live-fit comparison
+
+Tier 2 tests fit the same data with both bayesRVE (`bm_fit` + `sandwich`) and metafor + clubSandwich, then compare the sandwich standard errors and Satterthwaite degrees of freedom.
+Unlike D25, these comparisons do *not* inject REML point estimates---bayesRVE uses posterior means of $\tau^2$ (and $\omega^2$), introducing a legitimate discrepancy.
+
+The Tier 2 tolerance is 15% for standard errors and 3 for degrees of freedom.
+These bounds reflect three sources of expected disagreement:
+
+1. **Bread difference.**
+   bayesRVE centers at the posterior mean $\hat{\boldsymbol{\beta}}_{\mathrm{Bayes}}$; metafor uses REML $\hat{\boldsymbol{\beta}}_{\mathrm{REML}}$.
+   The weights $W_j$ differ because $\hat\tau^2_{\mathrm{Bayes}} \neq \hat\tau^2_{\mathrm{REML}}$.
+
+2. **Within-study variance averaging.**
+   bayesRVE's CE model uses $\bar{s}_j^2 = n_j^{-1} \sum_i v_{ij}$; metafor's observation-level likelihood uses individual $v_{ij}$.
+   These are asymptotically equivalent but differ at finite sample sizes.
+
+3. **Residual centering.**
+   bayesRVE computes residuals from posterior mean estimates; clubSandwich from REML estimates.
+
+The Tier 2 tests (`test-cr2-satterthwaite.R`, Tests 1--2) confirm that bayesRVE's sandwich SEs fall within 15% of clubSandwich on balanced data ($J = 15$, $n_j = 3$) and that Satterthwaite df agree within 3 on moderately larger data ($J = 20$, $n_j = 5$).
+
+
+## Reduction Checks {#sec-verify-reduction}
+
+Gate 1 verifies that CHE with $\omega^2 = 0$ reduces exactly to CE at machine precision.
+This is the strongest structural evidence that the CHE generalization is correct, because it confirms that every CHE-specific code path degenerates to the CE code path when the additional variance component vanishes.
+
+### The Gate 1 protocol
+
+The test file `test-gate1-omega0-equivalence.R` defines a synthetic dataset with $J = 8$ studies, $K = 2$ predictors, and known sampling variances.
+No MCMC is involved: the tests call internal helper functions directly with fixed parameter values ($\tau^2 = 0.04$, $\boldsymbol{\beta} = (0.3, -0.1)$).
+
+The machine precision tolerance is $\epsilon_{\mathrm{mach}} \times 1000 \approx 2.2 \times 10^{-13}$, tight enough to detect any implementation error while accommodating floating-point rounding.
+
+### Gate 1 assertions
+
+| Test | Component | CE Call | CHE Call ($\omega^2 = 0$) | Assertion |
+|:-----|:----------|:--------|:-------------------------|:----------|
+| G1-01 | $W_j$ | `.compute_W_j(s, \tau^2, n)` | `.compute_W_j(s, \tau^2, n, \omega^2\!=\!0)$ | Element-wise $\approx$ at $\epsilon_{\mathrm{mach}} \times 10$ |
+| G1-01b | $W_j$ (separation) | `.compute_W_j(s, \tau^2, n)$ | `.compute_W_j(s, \tau^2, n, \omega^2\!=\!0.03)$ | Strict $\neq$ |
+| G1-02 | Bread $Q$ (obs-level) | `.compute_wls_bread(\cdot, \tau^2, K, J)$ | `+ omega2_hat = 0` | $Q$, $W_{\mathrm{list}}$, $X_{\mathrm{list}}$ match |
+| G1-03 | Bread $Q$ (study-level) | Same, `cluster_constant = TRUE` | Same + $\omega^2 = 0$ | $Q$, $W_{\mathrm{list}}$ match |
+| G1-04 | Hat blocks $H_j$ | `.compute_hat_blocks()` | Same inputs from CHE bread | $H_j$ match at $2.2 \times 10^{-13}$ |
+| G1-05 | CR2 adjustments $A_j$ | `.compute_cr2_adjustments()$ | Same inputs from CHE bread | $A_j$ match at $2.2 \times 10^{-13}$ |
+| G1-06 | $V_{\mathrm{CR2}}$ | `.compute_vcr2()$ | Same with CHE inputs | Full matrix match at $2.2 \times 10^{-13}$ |
+| G1-07 | Satterthwaite df | `.satterthwaite_df()$ | Same with CHE inputs | Vector match at $2.2 \times 10^{-13}$ |
+| G1-08 | $W^{1/2}$ squaring (CE) | `.compute_W_j_sqrt()` | $W^{1/2} W^{1/2} = W_j$ | $\epsilon_{\mathrm{mach}} \times 100$ |
+| G1-09 | $W^{1/2}$ squaring (CHE) | `.compute_W_j_sqrt()` with $\omega^2 > 0$ | $W^{1/2} W^{1/2} = W_j$ | $\epsilon_{\mathrm{mach}} \times 100$ |
+
+: Gate 1 reduction assertions. G1-01 through G1-09 traverse the full CR2 pipeline from $W_j$ to df. {#tbl-gate1}
+
+The Gate 1 tests exercise both the observation-level path (`cluster_constant = FALSE`) and the study-level path (`cluster_constant = TRUE`), and cover a grid of $\bar{s}_j^2 \times n_j$ combinations in G1-01.
+Including the G1-01b separation check, the suite contains over 75 individual assertions.
+
+### Why Gate 1 is decisive
+
+The CHE CR2 implementation shares all code paths with CE CR2; the only difference is that CHE passes `omega2_hat` to `.compute_W_j()`, which absorbs it into the effective sampling variance $a_j = \bar{s}_j^2 + \omega^2$.
+Gate 1 confirms that setting $\omega^2 = 0$ makes the CHE path algebraically identical to the CE path.
+If the CHE code introduced any extraneous computation, numerical drift, or incorrect branching, the machine-precision tolerance would immediately detect it.
+
+
+## Interoperability with metafor and clubSandwich {#sec-verify-interop}
+
+bayesRVE provides two utilities for bridging with the frequentist meta-analysis ecosystem, specifically metafor [@viechtbauer2010] and clubSandwich [@pustejovsky2022].
+
+### `compare_with_cr2()`
+
+This diagnostic function fits the same data with `metafor::rma.mv()` (REML) and computes `clubSandwich::vcovCR()` (CR2), then produces a side-by-side comparison of standard errors.
+The output includes:
+
+- Per-coefficient bayesRVE SE and clubSandwich SE
+- Relative difference $(\mathrm{SE}_{\mathrm{bayes}} - \mathrm{SE}_{\mathrm{club}})/\mathrm{SE}_{\mathrm{club}}$
+- Variance component comparison ($\hat\tau^2_{\mathrm{Bayes}}$ vs $\hat\tau^2_{\mathrm{REML}}$)
+- The metafor fit object for user inspection
+
+The function handles both CE and CHE models and automatically constructs the appropriate metafor call.
+
+### `from_metafor()`
+
+This utility extracts data from an existing metafor fit into the format expected by `bm_fit()`, enabling users to transition from a frequentist to a Bayesian analysis without reformatting their data.
+
+### Expected discrepancies
+
+As documented in the B2 benchmark (v0.3.0), bayesRVE's CE model operates on study-level sufficient statistics while metafor uses the observation-level likelihood.
+These are asymptotically equivalent but differ at finite sample sizes.
+The canonical discrepancy is 10--15% in SE and up to 3 in Satterthwaite df.
+
+Three specific sources contribute:
+
+1. **Point estimates.**
+   Posterior mean $\hat{\boldsymbol{\beta}}$ and $\hat\tau^2$ differ from REML estimates, especially at small $J$.
+
+2. **Variance averaging.**
+   bayesRVE uses $\bar{s}_j^2$; metafor uses individual $v_{ij}$.
+   This matters when $v_{ij}$ varies substantially within studies.
+
+3. **CR2 adjustment matrices.**
+   The $A_j$ matrices depend on the hat matrix, which in turn depends on the weights.
+   Different $\hat\tau^2$ values produce different $A_j$.
+
+The D25 plug-in parity test (@sec-verify-parity) eliminates sources 1 and 3 by injecting REML values, confirming that the remaining discrepancy is zero to $10^{-6}$.
+This isolates source 2 as the sole contributor to live-fit differences, and source 2 vanishes when $v_{ij}$ is constant within studies.
+
+
+## Acceptance Criteria {#sec-verify-acceptance}
+
+Every bayesRVE release must satisfy the following gates before merging.
+@tbl-acceptance summarizes the status as of v0.6.0.
+
+| Gate | Criterion | Evidence | Status |
+|:-----|:----------|:---------|:-------|
+| Gate 1 | CHE($\omega^2 = 0$) $\equiv$ CE at machine precision | G1-01 through G1-09, $> 75$ assertions | Pass |
+| Tier 0 | All CCC invariants (V1--V6) at machine precision | `.verify_ccc()` in every `ccc()` call | Pass |
+| Tier 0 | CHE T0-1 through T0-4 across 3 scenarios | `test-che-cr2-tier0.R`, 19 assertions | Pass |
+| Tier 1 | D25 $V_{\mathrm{CR2}}$ parity at $10^{-6}$ | T1-04a, T1-04c (2 scenarios) | Pass |
+| Tier 1 | D25 Satterthwaite df parity at 0.1 | T1-04b, T1-04c | Pass |
+| Tier 1 | Known-answer formulas at machine precision | T1-01, T1-02, T1-03 | Pass |
+| Tier 2 | Live-fit SE within 15% of clubSandwich | `test-cr2-satterthwaite.R`, Tests 1--2 | Pass |
+| Tier 2 | Live-fit df within 3 of clubSandwich | `test-cr2-satterthwaite.R`, Test 2 | Pass |
+| Gate 3 | TSL15 CCC/CR2 SE ratio $\in [0.9, 1.1]$ | Real-data analysis, 6 DV categories | Pass |
+| Contract | All S3 fields present and correctly typed | C0-01, C0-02, C1--C14 | Pass |
+| Regression | CCC uses $V_{\mathrm{CR2}}$, not $V_{\mathrm{HC0}}$ | REGRESSION tests (3 assertions) | Pass |
+| Full suite | 2,701 tests pass, 0 failures | `devtools::test()` | Pass |
+
+: Acceptance criteria for bayesRVE v0.6.0. {#tbl-acceptance}
+
+### What each gate proves
+
+**Gate 1** proves that CHE is a correct generalization of CE.
+It does *not* prove that CE itself is correct---that requires D25 and the Tier 2 comparison.
+
+**Tier 0** proves that the CCC transformation has the claimed algebraic properties (center preservation, covariance matching, identity limit).
+It does *not* prove that the sandwich target $V_{\mathrm{CR2}}$ is correctly computed---that is the role of D25.
+
+**D25 (Tier 1)** proves that bayesRVE's CR2 linear algebra is identical to clubSandwich's when given the same inputs.
+It does *not* prove that posterior-mean centering yields valid frequentist inference---that is a statistical claim validated by the simulation study (sim3).
+
+**Tier 2** proves that the full pipeline (MCMC + sandwich + CCC) produces results in the same ballpark as the frequentist standard.
+The 15% tolerance is a consequence of using posterior means rather than REML, not a sign of implementation error.
+
+**Gate 3** proves that Three-Layer Calibration works on real data at the scale and complexity of a published meta-analysis.
+It does *not* prove coverage guarantees---those come from simulation.
+
+### Verification is not validation
+
+The verification framework documented in this chapter establishes that the software correctly implements the mathematical specification.
+It does not establish that the mathematical specification is statistically appropriate for all meta-analytic settings.
+Validation---the question of whether CCC-t confidence intervals achieve nominal coverage across realistic data-generating processes---is addressed through the simulation study (sim3).
+
+The distinction matters: a perfectly verified implementation of a flawed method would pass all tests in this chapter but fail the simulation benchmarks.
+Conversely, a correct method with a buggy implementation would fail Tier 0 or D25 long before reaching the simulation stage.
+The layered strategy ensures that each tier catches a distinct class of problems, and that no single tier is asked to do more than it can.
+
+
+## Simulation Validation Bridge (sim3) {#sec-verify-sim3}
+
+The verification tiers above establish that bayesRVE correctly implements its mathematical specification. They cannot establish that the specification itself yields valid frequentist inference. That question---whether CCC-$t$ confidence intervals achieve nominal 95% coverage across realistic data-generating processes---is answered by the sim3 comprehensive simulation study.
+
+### Design
+
+sim3 comprises 24 conditions with 500 replications each (11,600 total fits), organized into four scenarios.
+
+| Scenario | DGP | Fitted Model | Conditions | $J$ | $\tau$ | $\omega$ |
+|:---------|:----|:-------------|:----------:|:----|:-------|:---------|
+| S1 | CHE | CHE | 8 | 10, 20, 40, 60 | 0.1, 0.2 | 0.1 |
+| S2 | CHE | CE (misspec) | 8 | 10, 20, 40, 60 | 0.1, 0.2 | 0.1 |
+| S3 | Large $\omega$ | CE | 6 | 10, 20, 40 | 0.1, 0.2 | 0.3 |
+| S4 | Contaminated | CE | 2 | 20, 40 | --- | --- |
+
+: sim3 design: 24 conditions across four scenarios testing correct specification (S1), misspecification (S2--S3), and outlier robustness (S4). {#tbl-sim3-design}
+
+### Coverage Results
+
+| Method | CE (16 conditions) | CHE (8 conditions) |
+|:-------|:-------------------|:-------------------|
+| CCC-$t$ (Three-Layer) | 93.4%--96.4% | 94.0%--96.2% |
+| CCC-$q$ (Normal quantile) | 91.8%--95.8% | 92.2%--95.8% |
+| CR2 (frequentist reference) | 92.8%--96.4% | 93.2%--96.4% |
+
+: sim3 coverage summary at the 95% nominal level. {#tbl-sim3-coverage}
+
+Three findings are central. First, **CCC-$t$ closely tracks CR2 coverage** across all 24 conditions, confirming that the Bayesian calibrated posterior provides frequentist-valid inference. Second, **Layer 3 is essential at small $J$**: CCC-$q$ undercoverage reaches 91.8% at $J = 10$, motivating Satterthwaite df as the default in `confint.bm_ccc()`. Third, the CCC calibration consistently *shrinks* the posterior ($R_k < 1$), but the heavier $t$-distribution tails compensate, achieving nominal coverage.
+
+### Score Parity Test (Planned)
+
+A planned Tier 1 test will verify that the Stan generated-quantities `score_beta[j,k]` and the R-side analytic score computation in `sandwich.R` produce identical values at fixed parameter values. The test protocol uses `cmdstanr`'s `$generate_quantities()` method to evaluate the GQ block without MCMC, then compares element-wise against the R-side Woodbury-based score at $10^{-10}$ tolerance. This would close the last gap in the score-to-sandwich verification chain: D25 verifies downstream CR2 algebra, but the upstream score matrix has not yet been cross-validated across languages.

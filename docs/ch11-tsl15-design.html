@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>13&nbsp; Real-Data Validation: Experimental Design – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./ch12-results.html" rel="next">
+<link href="./ch10-verification.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-8b4baf804e461d9b72633f0de59a0cac.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-25a4e8620ae17d49cd0c3861fdf92567.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch11-tsl15-design.html">Part III: Empirical Validation</a></li><li class="breadcrumb-item"><a href="./ch11-tsl15-design.html"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch00-notation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part I: Foundations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch01-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch02-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch03-sandwich.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Sandwich Variance Estimation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch04-ccc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch05-envelope.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part II: Software Realization and Verification</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch06-architecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch07-fitting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch08-sandwich-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch09-ccc-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch10-verification.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part III: Empirical Validation</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch11-tsl15-design.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch12-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch13-mechanics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">CCC Mechanics and Limitations</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-a-proofs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Extended Proofs and Derivations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-b-decisions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Inference-Relevant Design Decisions</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-c-api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">C</span>&nbsp; <span class="chapter-title">API Quick Reference</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-d-reproducibility.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-tsl15-design" id="toc-sec-tsl15-design" class="nav-link active" data-scroll-target="#sec-tsl15-design"><span class="header-section-number">13.1</span> The <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (2015)</span> Dataset</a>
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link" data-scroll-target="#overview"><span class="header-section-number">13.1.1</span> Overview</a></li>
+  <li><a href="#data-dimensions" id="toc-data-dimensions" class="nav-link" data-scroll-target="#data-dimensions"><span class="header-section-number">13.1.2</span> Data Dimensions</a></li>
+  <li><a href="#dependency-structure" id="toc-dependency-structure" class="nav-link" data-scroll-target="#dependency-structure"><span class="header-section-number">13.1.3</span> Dependency Structure</a></li>
+  <li><a href="#rationale-for-dataset-selection" id="toc-rationale-for-dataset-selection" class="nav-link" data-scroll-target="#rationale-for-dataset-selection"><span class="header-section-number">13.1.4</span> Rationale for Dataset Selection</a></li>
+  </ul></li>
+  <li><a href="#sec-tsl15-models" id="toc-sec-tsl15-models" class="nav-link" data-scroll-target="#sec-tsl15-models"><span class="header-section-number">13.2</span> Model Specifications</a>
+  <ul>
+  <li><a href="#dv-category-model" id="toc-dv-category-model" class="nav-link" data-scroll-target="#dv-category-model"><span class="header-section-number">13.2.1</span> DV Category Model</a></li>
+  <li><a href="#control-type-model" id="toc-control-type-model" class="nav-link" data-scroll-target="#control-type-model"><span class="header-section-number">13.2.2</span> Control Type Model</a></li>
+  <li><a href="#covariate-definitions" id="toc-covariate-definitions" class="nav-link" data-scroll-target="#covariate-definitions"><span class="header-section-number">13.2.3</span> Covariate Definitions</a></li>
+  <li><a href="#random-effects-structure" id="toc-random-effects-structure" class="nav-link" data-scroll-target="#random-effects-structure"><span class="header-section-number">13.2.4</span> Random Effects Structure</a></li>
+  </ul></li>
+  <li><a href="#sec-tsl15-settings" id="toc-sec-tsl15-settings" class="nav-link" data-scroll-target="#sec-tsl15-settings"><span class="header-section-number">13.3</span> Analysis Settings</a>
+  <ul>
+  <li><a href="#mcmc-configuration" id="toc-mcmc-configuration" class="nav-link" data-scroll-target="#mcmc-configuration"><span class="header-section-number">13.3.1</span> MCMC Configuration</a></li>
+  <li><a href="#sandwich-and-calibration-settings" id="toc-sandwich-and-calibration-settings" class="nav-link" data-scroll-target="#sandwich-and-calibration-settings"><span class="header-section-number">13.3.2</span> Sandwich and Calibration Settings</a></li>
+  <li><a href="#prior-distributions" id="toc-prior-distributions" class="nav-link" data-scroll-target="#prior-distributions"><span class="header-section-number">13.3.3</span> Prior Distributions</a></li>
+  </ul></li>
+  <li><a href="#sec-tsl15-comparators" id="toc-sec-tsl15-comparators" class="nav-link" data-scroll-target="#sec-tsl15-comparators"><span class="header-section-number">13.4</span> Comparator Estimators</a>
+  <ul>
+  <li><a href="#estimator-summary" id="toc-estimator-summary" class="nav-link" data-scroll-target="#estimator-summary"><span class="header-section-number">13.4.1</span> Estimator Summary</a></li>
+  <li><a href="#estimator-descriptions" id="toc-estimator-descriptions" class="nav-link" data-scroll-target="#estimator-descriptions"><span class="header-section-number">13.4.2</span> Estimator Descriptions</a></li>
+  <li><a href="#comparison-logic" id="toc-comparison-logic" class="nav-link" data-scroll-target="#comparison-logic"><span class="header-section-number">13.4.3</span> Comparison Logic</a></li>
+  </ul></li>
+  <li><a href="#sec-tsl15-decisions" id="toc-sec-tsl15-decisions" class="nav-link" data-scroll-target="#sec-tsl15-decisions"><span class="header-section-number">13.5</span> Reproducibility and Decision Rules</a>
+  <ul>
+  <li><a href="#single-script-reproducibility" id="toc-single-script-reproducibility" class="nav-link" data-scroll-target="#single-script-reproducibility"><span class="header-section-number">13.5.1</span> Single-Script Reproducibility</a></li>
+  <li><a href="#pre-specified-decision-rules" id="toc-pre-specified-decision-rules" class="nav-link" data-scroll-target="#pre-specified-decision-rules"><span class="header-section-number">13.5.2</span> Pre-Specified Decision Rules</a></li>
+  <li><a href="#gate-3-criterion" id="toc-gate-3-criterion" class="nav-link" data-scroll-target="#gate-3-criterion"><span class="header-section-number">13.5.3</span> Gate 3 Criterion</a></li>
+  <li><a href="#rationale-for-the-0.9-1.1-band" id="toc-rationale-for-the-0.9-1.1-band" class="nav-link" data-scroll-target="#rationale-for-the-0.9-1.1-band"><span class="header-section-number">13.5.4</span> Rationale for the [0.9, 1.1] Band</a></li>
+  <li><a href="#supplementary-diagnostics" id="toc-supplementary-diagnostics" class="nav-link" data-scroll-target="#supplementary-diagnostics"><span class="header-section-number">13.5.5</span> Supplementary Diagnostics</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch11-tsl15-design.html">Part III: Empirical Validation</a></li><li class="breadcrumb-item"><a href="./ch11-tsl15-design.html"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>This chapter documents the experimental design of the real-data validation study used to evaluate bayesRVE’s Three-Layer Calibration against established frequentist robust variance estimation methods. The validation uses a well-characterized meta-analytic dataset that has served as a benchmark in the RVE literature, enabling direct comparison against published results.</p>
+<section id="sec-tsl15-design" class="level2" data-number="13.1">
+<h2 data-number="13.1" class="anchored" data-anchor-id="sec-tsl15-design"><span class="header-section-number">13.1</span> The <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> Dataset</h2>
+<section id="overview" class="level3" data-number="13.1.1">
+<h3 data-number="13.1.1" class="anchored" data-anchor-id="overview"><span class="header-section-number">13.1.1</span> Overview</h3>
+<p>The validation dataset comes from the meta-analysis by <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span>, which synthesized evidence on the effectiveness of brief alcohol interventions for adolescents and young adults. This dataset was subsequently reanalyzed by <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span> as a primary showcase for robust variance estimation methods in meta-analysis with dependent effect sizes, making it an ideal benchmark for evaluating bayesRVE.</p>
+</section>
+<section id="data-dimensions" class="level3" data-number="13.1.2">
+<h3 data-number="13.1.2" class="anchored" data-anchor-id="data-dimensions"><span class="header-section-number">13.1.2</span> Data Dimensions</h3>
+<p>After applying the inclusion filters from <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span>—removing observations with missing values on <code>percoll</code>, <code>attrition_all</code>, or <code>permale</code>—the analytic sample comprises:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Dimension</th>
+<th style="text-align: left;">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Total effect sizes (<span class="math inline">\(N\)</span>)</td>
+<td style="text-align: left;">1,198</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Independent studies (<span class="math inline">\(J\)</span>)</td>
+<td style="text-align: left;">107</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Effect size metric</td>
+<td style="text-align: left;">Standardized mean difference (Hedges’ <span class="math inline">\(g\)</span>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Sampling variances</td>
+<td style="text-align: left;">Reported or estimated via standard formulas</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Effect sizes per study</td>
+<td style="text-align: left;">1 to 45 (median approximately 5)</td>
+</tr>
+</tbody>
+</table>
+<p>A note on study counts: the original <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> publication reports a larger sample. The <span class="math inline">\(J = 107\)</span> figure reflects the analytic subset after the <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span> filtering criteria are applied and studies with missing covariate data are excluded. In the model design matrix, some sources report <span class="math inline">\(J = 117\)</span> unique study clusters because certain studies contribute effect sizes across multiple dependent variable categories, creating additional effective clusters in the cross-classified structure.</p>
+</section>
+<section id="dependency-structure" class="level3" data-number="13.1.3">
+<h3 data-number="13.1.3" class="anchored" data-anchor-id="dependency-structure"><span class="header-section-number">13.1.3</span> Dependency Structure</h3>
+<p>The dataset exhibits substantial within-study dependence: individual studies contribute between 1 and 45 effect sizes, arising because a single intervention trial can measure multiple outcomes (e.g., frequency of use, quantity of use, peak consumption) at multiple follow-up time points. This dependence structure makes robust variance estimation essential for valid statistical inference, as standard methods that assume independence would understate uncertainty.</p>
+</section>
+<section id="rationale-for-dataset-selection" class="level3" data-number="13.1.4">
+<h3 data-number="13.1.4" class="anchored" data-anchor-id="rationale-for-dataset-selection"><span class="header-section-number">13.1.4</span> Rationale for Dataset Selection</h3>
+<p>The <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> dataset was selected for the following reasons:</p>
+<ol type="1">
+<li><p><strong>Large number of studies.</strong> With <span class="math inline">\(J = 107\)</span> independent studies, the dataset falls well within bayesRVE’s operating envelope (<span class="math inline">\(J_{\min} = \max(8, 2K + 2)\)</span>; see <a href="#sec-envelope" class="quarto-xref"><span class="quarto-unresolved-ref">sec-envelope</span></a>) for all moderator specifications considered, ensuring that CR2 corrections and Satterthwaite degrees of freedom are well-identified.</p></li>
+<li><p><strong>Heterogeneous cluster sizes.</strong> The range of 1 to 45 effect sizes per study exercises the sandwich estimator across a variety of cluster configurations, from singletons to large clusters.</p></li>
+<li><p><strong>Established benchmark.</strong> Published results from <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span> using robumeta and clubSandwich provide a ground truth against which bayesRVE output can be directly compared.</p></li>
+<li><p><strong>Substantive moderators.</strong> The dataset includes both categorical moderators (dependent variable category, control type) and continuous covariates, enabling validation of bayesRVE’s CCC machinery under realistic meta-regression specifications with <span class="math inline">\(K &gt; 1\)</span> predictors.</p></li>
+</ol>
+</section>
+</section>
+<section id="sec-tsl15-models" class="level2" data-number="13.2">
+<h2 data-number="13.2" class="anchored" data-anchor-id="sec-tsl15-models"><span class="header-section-number">13.2</span> Model Specifications</h2>
+<p>Two moderator specifications are fit to the dataset, each using a cell-means parameterization (no intercept term, no reference category). This parameterization directly estimates the conditional mean effect size for each category level, facilitating interpretable comparisons across all groups.</p>
+<section id="dv-category-model" class="level3" data-number="13.2.1">
+<h3 data-number="13.2.1" class="anchored" data-anchor-id="dv-category-model"><span class="header-section-number">13.2.1</span> DV Category Model</h3>
+<p>The DV Category model estimates mean effect sizes for six outcome categories, adjusted for five continuous covariates:</p>
+<p><span class="math display">\[
+g_{ij} = \sum_{k=1}^{6} \beta_k \cdot \mathbb{1}[\text{DV}_{ij} = k]
+       + \beta_7 \cdot \text{postwks\_c}_{ij}
+       + \beta_8 \cdot \text{postwks\_long}_{ij}
+       + \beta_9 \cdot \text{percoll\_c}_{ij}
+       + \beta_{10} \cdot \text{permale\_c}_{ij}
+       + \beta_{11} \cdot \text{attrition\_c}_{ij}
+       + u_j + \varepsilon_{ij}
+\]</span></p>
+<p>The six DV categories are:</p>
+<ol type="1">
+<li>BAC (blood alcohol concentration)</li>
+<li>Combined measures</li>
+<li>Frequency of heavy use</li>
+<li>Frequency of use</li>
+<li>Peak consumption</li>
+<li>Quantity of use</li>
+</ol>
+<p>This yields <span class="math inline">\(K = 11\)</span> total regression coefficients (6 category indicators + 5 covariates).</p>
+</section>
+<section id="control-type-model" class="level3" data-number="13.2.2">
+<h3 data-number="13.2.2" class="anchored" data-anchor-id="control-type-model"><span class="header-section-number">13.2.2</span> Control Type Model</h3>
+<p>The Control Type model replaces the DV category indicators with four control-type indicators, using the same five continuous covariates:</p>
+<p><span class="math display">\[
+g_{ij} = \sum_{k=1}^{4} \gamma_k \cdot \mathbb{1}[\text{Ctype}_{ij} = k]
+       + \gamma_5 \cdot \text{postwks\_c}_{ij}
+       + \gamma_6 \cdot \text{postwks\_long}_{ij}
+       + \gamma_7 \cdot \text{percoll\_c}_{ij}
+       + \gamma_8 \cdot \text{permale\_c}_{ij}
+       + \gamma_9 \cdot \text{attrition\_c}_{ij}
+       + u_j + \varepsilon_{ij}
+\]</span></p>
+<p>This yields <span class="math inline">\(K = 9\)</span> total regression coefficients (4 control-type indicators + 5 covariates).</p>
+</section>
+<section id="covariate-definitions" class="level3" data-number="13.2.3">
+<h3 data-number="13.2.3" class="anchored" data-anchor-id="covariate-definitions"><span class="header-section-number">13.2.3</span> Covariate Definitions</h3>
+<p>All covariates are centered to improve MCMC sampling efficiency and interpretability:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 32%">
+<col style="width: 35%">
+<col style="width: 32%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Covariate</th>
+<th style="text-align: left;">Definition</th>
+<th style="text-align: left;">Centering</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>postwks_c</code></td>
+<td style="text-align: left;">Post-treatment follow-up (weeks), capped at 26</td>
+<td style="text-align: left;">Centered at 12 weeks</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>postwks_long</code></td>
+<td style="text-align: left;">Indicator for follow-up exceeding 26 weeks</td>
+<td style="text-align: left;">Binary (0/1)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>percoll_c</code></td>
+<td style="text-align: left;">Proportion of college-age participants</td>
+<td style="text-align: left;">Centered at 1.0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>permale_c</code></td>
+<td style="text-align: left;">Proportion male in sample</td>
+<td style="text-align: left;">Centered at 0.5</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>attrition_c</code></td>
+<td style="text-align: left;">Overall attrition rate</td>
+<td style="text-align: left;">Centered at sample median</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="random-effects-structure" class="level3" data-number="13.2.4">
+<h3 data-number="13.2.4" class="anchored" data-anchor-id="random-effects-structure"><span class="header-section-number">13.2.4</span> Random Effects Structure</h3>
+<p>Each model specification is fit under two random-effects structures:</p>
+<ul>
+<li><p><strong>CE (Correlated Effects):</strong> A single between-study random effect <span class="math inline">\(u_j \sim N(0, \tau^2)\)</span>, inducing within-study correlation <span class="math inline">\(\rho = \tau^2/(\bar{s}_j^2 + \tau^2)\)</span> structurally through the compound-symmetric covariance. In bayesRVE, <span class="math inline">\(\rho_{\text{work}} = 0\)</span> during MCMC (D5); <span class="math inline">\(\rho\)</span> enters only at the sandwich stage.</p></li>
+<li><p><strong>CHE (Correlated-Hierarchical Effects):</strong> Two random effects—a between-study component <span class="math inline">\(u_j \sim N(0, \tau^2)\)</span> and a within-study component <span class="math inline">\(w_{ij} \sim N(0, \omega^2)\)</span>—so that <span class="math inline">\(\text{Var}(g_{ij}) = v_{ij} + \omega^2 + \tau^2\)</span>.</p></li>
+</ul>
+<p>In R formula syntax:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CE model</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bm_fit</span>(es <span class="sc">|</span> <span class="fu">se</span>(V) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> dv_cat <span class="sc">+</span> postwks_c <span class="sc">+</span> postwks_long <span class="sc">+</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>       percoll_c <span class="sc">+</span> permale_c <span class="sc">+</span> attrition_c,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">data =</span> TSL15, <span class="at">study =</span> <span class="sc">~</span> studyid, <span class="at">model =</span> <span class="st">"ce"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># CHE model</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">bm_fit</span>(es <span class="sc">|</span> <span class="fu">se</span>(V) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> dv_cat <span class="sc">+</span> postwks_c <span class="sc">+</span> postwks_long <span class="sc">+</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>       percoll_c <span class="sc">+</span> permale_c <span class="sc">+</span> attrition_c,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">data =</span> TSL15, <span class="at">study =</span> <span class="sc">~</span> studyid, <span class="at">model =</span> <span class="st">"che"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This yields <span class="math inline">\(2 \times 2 = 4\)</span> bayesRVE model fits per moderator specification (CE/CHE crossed with DV/Control Type), plus the three frequentist baselines per specification, for a total of 14 fitted models.</p>
+</section>
+</section>
+<section id="sec-tsl15-settings" class="level2" data-number="13.3">
+<h2 data-number="13.3" class="anchored" data-anchor-id="sec-tsl15-settings"><span class="header-section-number">13.3</span> Analysis Settings</h2>
+<section id="mcmc-configuration" class="level3" data-number="13.3.1">
+<h3 data-number="13.3.1" class="anchored" data-anchor-id="mcmc-configuration"><span class="header-section-number">13.3.1</span> MCMC Configuration</h3>
+<p>All bayesRVE models use the following MCMC settings:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 24%">
+<col style="width: 37%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Value</th>
+<th style="text-align: left;">Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Chains</td>
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">Standard for convergence assessment via <span class="math inline">\(\hat{R}\)</span> and split-<span class="math inline">\(\hat{R}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Warmup iterations</td>
+<td style="text-align: left;">2,000</td>
+<td style="text-align: left;">Sufficient for NUTS adaptation (step size, mass matrix)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Sampling iterations</td>
+<td style="text-align: left;">2,000</td>
+<td style="text-align: left;">Yields <span class="math inline">\(S = 8{,}000\)</span> total posterior draws</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Random seed</td>
+<td style="text-align: left;">20260324</td>
+<td style="text-align: left;">Exact reproducibility across reruns</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>adapt_delta</code></td>
+<td style="text-align: left;">0.95</td>
+<td style="text-align: left;">Conservative target acceptance rate for meta-analysis models</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>max_treedepth</code></td>
+<td style="text-align: left;">12</td>
+<td style="text-align: left;">Standard upper bound on leapfrog trajectory length</td>
+</tr>
+</tbody>
+</table>
+<p>The total of <span class="math inline">\(S = 8{,}000\)</span> posterior draws provides adequate effective sample sizes for all parameters of interest given the relatively low dimensionality of the models (<span class="math inline">\(K \leq 11\)</span> regression coefficients plus 1–2 variance components).</p>
+</section>
+<section id="sandwich-and-calibration-settings" class="level3" data-number="13.3.2">
+<h3 data-number="13.3.2" class="anchored" data-anchor-id="sandwich-and-calibration-settings"><span class="header-section-number">13.3.2</span> Sandwich and Calibration Settings</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 24%">
+<col style="width: 37%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Value</th>
+<th style="text-align: left;">Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Working correlation (<span class="math inline">\(\rho\)</span>)</td>
+<td style="text-align: left;">0.6</td>
+<td style="text-align: left;">Recommended by <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span> for social science meta-analyses; sandwich estimator is consistent regardless of <span class="math inline">\(\rho\)</span> choice</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Small-sample correction</td>
+<td style="text-align: left;">CR2</td>
+<td style="text-align: left;">Default (Decision D12); bias-reducing leverage adjustment</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Degrees of freedom</td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">Default (Decision D13); accounts for estimation uncertainty in variance components</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Covariance imputation</td>
+<td style="text-align: left;"><code>metafor::impute_covariance_matrix()</code> with <code>smooth_vi = TRUE</code> <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span></td>
+<td style="text-align: left;">Constructs <span class="math inline">\(V\)</span> matrix assuming equicorrelation within studies at <span class="math inline">\(\rho = 0.6\)</span></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prior-distributions" class="level3" data-number="13.3.3">
+<h3 data-number="13.3.3" class="anchored" data-anchor-id="prior-distributions"><span class="header-section-number">13.3.3</span> Prior Distributions</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 24%">
+<col style="width: 37%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Prior</th>
+<th style="text-align: left;">Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(\beta_k\)</span> (regression coefficients)</td>
+<td style="text-align: left;"><span class="math inline">\(N(0, 10)\)</span></td>
+<td style="text-align: left;">Weakly informative for standardized mean differences; prior SD of 10 is effectively flat on the SMD scale</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><span class="math inline">\(\tau\)</span> (between-study SD)</td>
+<td style="text-align: left;">Half-Cauchy<span class="math inline">\((0, 0.5)\)</span></td>
+<td style="text-align: left;">Standard weakly informative prior for heterogeneity in social science; allows substantial heterogeneity while mildly regularizing</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(\omega\)</span> (within-study SD, CHE only)</td>
+<td style="text-align: left;">Half-Cauchy<span class="math inline">\((0, 0.5)\)</span></td>
+<td style="text-align: left;">Same specification as <span class="math inline">\(\tau\)</span>; symmetric treatment of variance components</td>
+</tr>
+</tbody>
+</table>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># CE prior specification</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>prior_ce <span class="ot">&lt;-</span> <span class="fu">bm_prior</span>(<span class="at">beta =</span> <span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">tau =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>))</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># CHE prior specification</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>prior_che <span class="ot">&lt;-</span> <span class="fu">bm_prior</span>(<span class="at">beta =</span> <span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>),</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                      <span class="at">tau =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>),</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>                      <span class="at">omega =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The choice of Half-Cauchy(0, 0.5) for variance component priors follows the recommendations of <span class="citation" data-cites="gelman2006">Gelman (<a href="#ref-gelman2006" role="doc-biblioref">2006</a>)</span> and <span class="citation" data-cites="polson2012">Polson &amp; Scott (<a href="#ref-polson2012" role="doc-biblioref">2012</a>)</span> for hierarchical models. The scale parameter of 0.5 is appropriate for standardized effect sizes where heterogeneity SDs rarely exceed 0.5 in most substantive domains, while the heavy tails of the Cauchy distribution allow the data to dominate when heterogeneity is larger.</p>
+</section>
+</section>
+<section id="sec-tsl15-comparators" class="level2" data-number="13.4">
+<h2 data-number="13.4" class="anchored" data-anchor-id="sec-tsl15-comparators"><span class="header-section-number">13.4</span> Comparator Estimators</h2>
+<p>The validation compares five estimators that span the frequentist and Bayesian approaches to meta-analysis with dependent effect sizes. Each estimator pair is chosen to isolate specific sources of variation in the comparison.</p>
+<section id="estimator-summary" class="level3" data-number="13.4.1">
+<h3 data-number="13.4.1" class="anchored" data-anchor-id="estimator-summary"><span class="header-section-number">13.4.1</span> Estimator Summary</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 17%">
+<col style="width: 14%">
+<col style="width: 10%">
+<col style="width: 31%">
+<col style="width: 17%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Estimator</th>
+<th style="text-align: left;">Package</th>
+<th style="text-align: left;">Model</th>
+<th style="text-align: left;">Variance Estimation</th>
+<th style="text-align: left;">df Method</th>
+<th style="text-align: left;">Role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CE robumeta</td>
+<td style="text-align: left;"><code>robumeta::robu</code></td>
+<td style="text-align: left;">CE working model</td>
+<td style="text-align: left;">CR2 <span class="citation" data-cites="tipton2015">(<a href="#ref-tipton2015" role="doc-biblioref">Tipton, 2015</a>)</span></td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">Published baseline</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CE metafor</td>
+<td style="text-align: left;"><code>metafor::rma.mv</code></td>
+<td style="text-align: left;">CE (<span class="math inline">\(\tau^2\)</span> only)</td>
+<td style="text-align: left;">CR2 via <code>clubSandwich</code></td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">Fair CE comparison</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CHE metafor</td>
+<td style="text-align: left;"><code>metafor::rma.mv</code></td>
+<td style="text-align: left;">CHE (<span class="math inline">\(\tau^2 + \omega^2\)</span>)</td>
+<td style="text-align: left;">CR2 via <code>clubSandwich</code></td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">Fair CHE comparison</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">bayesRVE CE</td>
+<td style="text-align: left;"><code>bayesRVE::bm_fit</code></td>
+<td style="text-align: left;">CE (<span class="math inline">\(\tau^2\)</span> only)</td>
+<td style="text-align: left;">CCC with CR2 target</td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">This package (CE)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">bayesRVE CHE</td>
+<td style="text-align: left;"><code>bayesRVE::bm_fit</code></td>
+<td style="text-align: left;">CHE (<span class="math inline">\(\tau^2 + \omega^2\)</span>)</td>
+<td style="text-align: left;">CCC with CR2 target</td>
+<td style="text-align: left;">Satterthwaite</td>
+<td style="text-align: left;">This package (CHE)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="estimator-descriptions" class="level3" data-number="13.4.2">
+<h3 data-number="13.4.2" class="anchored" data-anchor-id="estimator-descriptions"><span class="header-section-number">13.4.2</span> Estimator Descriptions</h3>
+<p><strong>CE robumeta.</strong> The <code>robumeta::robu</code> function implements the correlated-effects working model of <span class="citation" data-cites="hedges2010">Hedges et al. (<a href="#ref-hedges2010" role="doc-biblioref">2010</a>)</span>, computing study-level aggregated effect sizes under an assumed equicorrelation <span class="math inline">\(\rho\)</span>, then applying CR2 small-sample corrections following <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>. This estimator serves as the published baseline, replicating the exact results reported in <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span>. Because robumeta performs study-mean aggregation internally, its point estimates and standard errors may differ slightly from observation-level estimators.</p>
+<p><strong>CE metafor.</strong> The <code>metafor::rma.mv</code> function <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> fits a single-<span class="math inline">\(\tau^2\)</span> random-effects model at the observation level using REML, with the imputed covariance matrix <span class="math inline">\(V\)</span> incorporating the working correlation <span class="math inline">\(\rho = 0.6\)</span>. CR2 standard errors and Satterthwaite degrees of freedom are obtained via the <code>clubSandwich</code> package. This estimator provides a fair comparison target for bayesRVE CE because both operate on the same data structure (observation-level, single random effect) and apply the same CR2 + Satterthwaite inference framework.</p>
+<p><strong>CHE metafor.</strong> The <code>metafor::rma.mv</code> function with a two-level random structure (<code>~ 1 | studyid / esid</code>) fits the correlated-hierarchical effects model, estimating both <span class="math inline">\(\tau^2\)</span> (between-study) and <span class="math inline">\(\omega^2\)</span> (within-study) via REML. CR2 corrections and Satterthwaite degrees of freedom are again obtained via <code>clubSandwich</code>. This estimator is the fair comparison target for bayesRVE CHE.</p>
+<p><strong>bayesRVE CE.</strong> The <code>bayesRVE::bm_fit</code> function with <code>model = "ce"</code> fits a Bayesian CE model via Stan <span class="citation" data-cites="carpenter2017">(<a href="#ref-carpenter2017" role="doc-biblioref">Carpenter et al., 2017</a>)</span> (NUTS sampler), estimating posterior distributions for all regression coefficients and <span class="math inline">\(\tau\)</span>. The Cholesky Calibration Correction (CCC) maps posterior draws to have the CR2 sandwich covariance as their dispersion target. Satterthwaite degrees of freedom define the reference distribution for inference (Three-Layer Calibration: L1 = posterior mean, L2 = CR2 sandwich, L3 = Satterthwaite <span class="math inline">\(t\)</span>).</p>
+<p><strong>bayesRVE CHE.</strong> The <code>bayesRVE::bm_fit</code> function with <code>model = "che"</code> extends the CE model with a within-study variance component <span class="math inline">\(\omega^2\)</span>. The CHE CCC computation uses <span class="math inline">\(\hat{\omega}^2 = \text{mean}(\omega^{(s)2})\)</span> (Decision D20) to construct the CR2 sandwich with Woodbury-based <span class="math inline">\(W^{1/2}\)</span> weights (Decision D24). This estimator is the primary new capability introduced in v0.6.0.</p>
+</section>
+<section id="comparison-logic" class="level3" data-number="13.4.3">
+<h3 data-number="13.4.3" class="anchored" data-anchor-id="comparison-logic"><span class="header-section-number">13.4.3</span> Comparison Logic</h3>
+<p>The five-estimator design enables the following structured comparisons:</p>
+<ol type="1">
+<li><p><strong>CE robumeta vs.&nbsp;CE metafor:</strong> Quantifies the effect of study-mean aggregation (robumeta) versus observation-level modeling (metafor) within the CE framework. Differences in point estimates arise from the distinct weighting schemes.</p></li>
+<li><p><strong>CE metafor vs.&nbsp;bayesRVE CE:</strong> The primary validation comparison for CE models. Both use observation-level data with a single random effect. Differences reflect the Bayesian-vs-REML estimation and the CCC calibration procedure. If CCC is working correctly, the CCC SD should approximate the CR2 SE.</p></li>
+<li><p><strong>CHE metafor vs.&nbsp;bayesRVE CHE:</strong> The primary validation comparison for CHE models, introduced in v0.6.0. Both use two random effects. Agreement validates that the CHE extension of CCC (omega-aware weights, Woodbury <span class="math inline">\(W^{1/2}\)</span>) produces calibrated inference.</p></li>
+<li><p><strong>CE vs.&nbsp;CHE (within estimator):</strong> Reveals the effect of modeling within-study heterogeneity. In the CE model, <span class="math inline">\(\tau^2\)</span> absorbs <span class="math inline">\(\omega^2\)</span>, producing larger between-study variance estimates. The CHE model decomposes total heterogeneity, generally yielding similar or slightly different standard errors depending on the relative magnitudes of <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span>.</p></li>
+</ol>
+</section>
+</section>
+<section id="sec-tsl15-decisions" class="level2" data-number="13.5">
+<h2 data-number="13.5" class="anchored" data-anchor-id="sec-tsl15-decisions"><span class="header-section-number">13.5</span> Reproducibility and Decision Rules</h2>
+<section id="single-script-reproducibility" class="level3" data-number="13.5.1">
+<h3 data-number="13.5.1" class="anchored" data-anchor-id="single-script-reproducibility"><span class="header-section-number">13.5.1</span> Single-Script Reproducibility</h3>
+<p>The complete analysis—from data preparation through all 14 model fits to summary tables and figures—is contained in a single R script:</p>
+<pre><code>dev/log/201_real-data-v060/00_full_analysis.R</code></pre>
+<p>This script loads the raw dataset, applies all filters and transformations, fits all frequentist baselines and bayesRVE models, computes all comparison tables, and saves results to disk. No manual intervention or intermediate files are required. Given the fixed random seed (<code>SEED = 20260324</code>), all MCMC results are exactly reproducible on the same hardware and software configuration.</p>
+</section>
+<section id="pre-specified-decision-rules" class="level3" data-number="13.5.2">
+<h3 data-number="13.5.2" class="anchored" data-anchor-id="pre-specified-decision-rules"><span class="header-section-number">13.5.2</span> Pre-Specified Decision Rules</h3>
+<p>All model specifications, MCMC settings, prior distributions, and evaluation criteria were fixed before running the bayesRVE models. Specifically:</p>
+<ul>
+<li>The two moderator specifications (DV Category, Control Type) replicate <span class="citation" data-cites="pustejovsky2022">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2022" role="doc-biblioref">2022</a>)</span> exactly.</li>
+<li>The covariate centering scheme follows the original publication.</li>
+<li>Prior distributions and MCMC settings were chosen based on general recommendations in the literature, not tuned to the TSL15 data.</li>
+<li>No post-hoc model selection, predictor selection, or prior adjustment was performed.</li>
+</ul>
+</section>
+<section id="gate-3-criterion" class="level3" data-number="13.5.3">
+<h3 data-number="13.5.3" class="anchored" data-anchor-id="gate-3-criterion"><span class="header-section-number">13.5.3</span> Gate 3 Criterion</h3>
+<p>The primary success criterion for the real-data validation is:</p>
+<p><span class="math display">\[
+R_{\text{SE},k} = \frac{\text{CCC SD}_k}{\text{CR2 SE}_k} \in [0.9, 1.1]
+\quad \text{for all DV category coefficients } k = 1, \ldots, 6
+\]</span></p>
+<p>This criterion is evaluated separately for CE and CHE models:</p>
+<ul>
+<li><strong>CE:</strong> CCC SD from bayesRVE CE vs.&nbsp;CR2 SE from metafor CE (via clubSandwich)</li>
+<li><strong>CHE:</strong> CCC SD from bayesRVE CHE vs.&nbsp;CR2 SE from metafor CHE (via clubSandwich)</li>
+</ul>
+<p>Gate 3 is defined exclusively for the six DV category coefficients (<span class="math inline">\(k = 1, \ldots, 6\)</span>), which serve as intercepts in the DV-moderator specification and each draw information from a large number of contributing studies. Covariate coefficients (e.g., <code>percoll_c</code>, <code>permale_c</code>) are reported separately in <a href="#sec-mechanics-covariates" class="quarto-xref"><span class="quarto-unresolved-ref">sec-mechanics-covariates</span></a> and are <em>not</em> subject to the Gate 3 acceptance band; their CCC/CR2 ratios may fall outside [0.9, 1.1] due to lower effective cluster counts and Satterthwaite df.</p>
+</section>
+<section id="rationale-for-the-0.9-1.1-band" class="level3" data-number="13.5.4">
+<h3 data-number="13.5.4" class="anchored" data-anchor-id="rationale-for-the-0.9-1.1-band"><span class="header-section-number">13.5.4</span> Rationale for the [0.9, 1.1] Band</h3>
+<p>The 10% tolerance band around unity accommodates two sources of discrepancy between the Bayesian CCC standard deviations and the frequentist CR2 standard errors:</p>
+<ol type="1">
+<li><p><strong>Variance-component plug-in discrepancy (primary).</strong> The CCC uses the Bayesian posterior mean of variance components (<span class="math inline">\(\tau^2\)</span>, <span class="math inline">\(\omega^2\)</span>) as plug-in estimates for the weight matrix <span class="math inline">\(W\)</span> and hence the bread matrix (<span class="math inline">\(X'WX\)</span>), while the frequentist CR2 uses REML estimates. Because the posterior mean and REML estimate differ due to prior influence, the two methods construct different <span class="math inline">\(V_{\text{CR2}}\)</span> targets. By Theorem 2, CCC achieves its own <span class="math inline">\(V_{\text{CR2}}\)</span> exactly; the observed ratio <span class="math inline">\(\neq 1\)</span> reflects two different targets, not a calibration failure. This typically contributes 1–5% discrepancy.</p></li>
+<li><p><strong>MCMC sampling noise (secondary).</strong> Even with <span class="math inline">\(S = 8{,}000\)</span> posterior draws, the sample covariance of the calibrated draws has finite Monte Carlo error. For well-behaved posteriors, this contributes approximately 1–2% variation and is reducible by increasing <span class="math inline">\(S\)</span>.</p></li>
+</ol>
+<p>A ratio of exactly 1.0 would indicate perfect calibration; the [0.9, 1.1] band reflects the practical precision achievable given these two sources of variation. This tolerance was established a priori based on experience from the simulation studies (sim3, 24 conditions <span class="math inline">\(\times\)</span> 500 replications), where CCC-<span class="math inline">\(t\)</span> coverage achieved 94.5–95.3% nominal 95% coverage with SE ratios in this range.</p>
+</section>
+<section id="supplementary-diagnostics" class="level3" data-number="13.5.5">
+<h3 data-number="13.5.5" class="anchored" data-anchor-id="supplementary-diagnostics"><span class="header-section-number">13.5.5</span> Supplementary Diagnostics</h3>
+<p>Beyond the primary Gate 3 criterion, the following diagnostics are examined:</p>
+<ul>
+<li><p><strong>Shrinkage ratio <span class="math inline">\(R_k\)</span>.</strong> The ratio of CCC SD to raw posterior SD, quantifying how much the calibration correction adjusts each coefficient’s uncertainty. Values below 1.0 indicate CCC shrinkage (the raw posterior is overestimating uncertainty relative to the sandwich target); values above 1.0 indicate CCC inflation.</p></li>
+<li><p><strong>Satterthwaite df agreement.</strong> The Satterthwaite degrees of freedom from bayesRVE vs.&nbsp;those from clubSandwich, verifying that the independent implementation (Decision D11) produces consistent results.</p></li>
+<li><p><strong>Point estimate concordance.</strong> Bayesian posterior means vs.&nbsp;REML point estimates, confirming that prior influence on the location parameters is minimal given the large sample size.</p></li>
+<li><p><strong>Variance component comparison.</strong> Bayesian posterior medians of <span class="math inline">\(\tau\)</span> and <span class="math inline">\(\omega\)</span> vs.&nbsp;REML estimates, documenting the expected prior-induced differences and the <span class="math inline">\(\tau\)</span>-absorption phenomenon in CE models.</p></li>
+</ul>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-carpenter2017" class="csl-entry" role="listitem">
+Carpenter, B., Gelman, A., Hoffman, M. D., Lee, D., Goodrich, B., Betancourt, M., Brubaker, M., Guo, J., Li, P., &amp; Riddell, A. (2017). <span>S</span>tan: A probabilistic programming language. <em>Journal of Statistical Software</em>, <em>76</em>(1), 1–32. <a href="https://doi.org/10.18637/jss.v076.i01">https://doi.org/10.18637/jss.v076.i01</a>
+</div>
+<div id="ref-gelman2006" class="csl-entry" role="listitem">
+Gelman, A. (2006). Prior distributions for variance parameters in hierarchical models (comment on article by <span>Browne</span> and <span>Draper</span>). <em>Bayesian Analysis</em>, <em>1</em>(3), 515–534. <a href="https://doi.org/10.1214/06-BA117A">https://doi.org/10.1214/06-BA117A</a>
+</div>
+<div id="ref-hedges2010" class="csl-entry" role="listitem">
+Hedges, L. V., Tipton, E., &amp; Johnson, M. C. (2010). Robust variance estimation in meta-regression with dependent effect size estimates. <em>Research Synthesis Methods</em>, <em>1</em>(1), 39–65. <a href="https://doi.org/10.1002/jrsm.5">https://doi.org/10.1002/jrsm.5</a>
+</div>
+<div id="ref-polson2012" class="csl-entry" role="listitem">
+Polson, N. G., &amp; Scott, J. G. (2012). On the half-<span>C</span>auchy prior for a global scale parameter. <em>Bayesian Analysis</em>, <em>7</em>(4), 887–902. <a href="https://doi.org/10.1214/12-BA730">https://doi.org/10.1214/12-BA730</a>
+</div>
+<div id="ref-pustejovsky2022" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2022). Meta-analysis with robust variance estimation: Expanding the range of working models. <em>Prevention Science</em>, <em>23</em>(3), 425–438. <a href="https://doi.org/10.1007/s11121-021-01246-3">https://doi.org/10.1007/s11121-021-01246-3</a>
+</div>
+<div id="ref-tannersmith2015" class="csl-entry" role="listitem">
+Tanner-Smith, E. E., &amp; Lipsey, M. W. (2015). Brief alcohol interventions for adolescents and young adults: A systematic review and meta-analysis. <em>Journal of Substance Abuse Treatment</em>, <em>51</em>, 1–18. <a href="https://doi.org/10.1016/j.jsat.2014.09.001">https://doi.org/10.1016/j.jsat.2014.09.001</a>
+</div>
+<div id="ref-tipton2015" class="csl-entry" role="listitem">
+Tipton, E. (2015). Small sample adjustments for robust variance estimation with meta-regression. <em>Psychological Methods</em>, <em>20</em>(3), 375–393. <a href="https://doi.org/10.1037/met0000011">https://doi.org/10.1037/met0000011</a>
+</div>
+<div id="ref-viechtbauer2010" class="csl-entry" role="listitem">
+Viechtbauer, W. (2010). Conducting meta-analyses in <span>R</span> with the <strong>metafor</strong> package. <em>Journal of Statistical Software</em>, <em>36</em>(3), 1–48. <a href="https://doi.org/10.18637/jss.v036.i03">https://doi.org/10.18637/jss.v036.i03</a>
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./ch10-verification.html" class="pagination-link" aria-label="Verification">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./ch12-results.html" class="pagination-link" aria-label="Results">
+        <span class="nav-page-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Real-Data Validation: Experimental Design"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>This chapter documents the experimental design of the real-data validation study</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>used to evaluate bayesRVE's Three-Layer Calibration against established</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>frequentist robust variance estimation methods. The validation uses a</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>well-characterized meta-analytic dataset that has served as a benchmark in the</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>RVE literature, enabling direct comparison against published results.</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## The @tannersmith2015 Dataset {#sec-tsl15-design}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="fu">### Overview</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>The validation dataset comes from the meta-analysis by @tannersmith2015, which synthesized evidence on the effectiveness of brief alcohol</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>interventions for adolescents and young adults. This dataset was subsequently</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>reanalyzed by @pustejovsky2022 as a primary showcase for robust</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>variance estimation methods in meta-analysis with dependent effect sizes, making</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>it an ideal benchmark for evaluating bayesRVE.</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="fu">### Data Dimensions</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>After applying the inclusion filters from @pustejovsky2022---removing</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>observations with missing values on <span class="in">`percoll`</span>, <span class="in">`attrition_all`</span>, or <span class="in">`permale`</span>---the</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>analytic sample comprises:</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Dimension <span class="pp">|</span> Value <span class="pp">|</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:------|</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Total effect sizes ($N$) <span class="pp">|</span> 1,198 <span class="pp">|</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Independent studies ($J$) <span class="pp">|</span> 107 <span class="pp">|</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Effect size metric <span class="pp">|</span> Standardized mean difference (Hedges' $g$) <span class="pp">|</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Sampling variances <span class="pp">|</span> Reported or estimated via standard formulas <span class="pp">|</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Effect sizes per study <span class="pp">|</span> 1 to 45 (median approximately 5) <span class="pp">|</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>A note on study counts: the original @tannersmith2015 publication</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>reports a larger sample. The $J = 107$ figure reflects the analytic subset after</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>the @pustejovsky2022 filtering criteria are applied and studies with</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>missing covariate data are excluded. In the model design matrix, some sources</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>report $J = 117$ unique study clusters because certain studies contribute effect</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>sizes across multiple dependent variable categories, creating additional effective</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>clusters in the cross-classified structure.</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="fu">### Dependency Structure</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>The dataset exhibits substantial within-study dependence: individual studies</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>contribute between 1 and 45 effect sizes, arising because a single intervention</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>trial can measure multiple outcomes (e.g., frequency of use, quantity of use,</span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>peak consumption) at multiple follow-up time points. This dependence structure</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>makes robust variance estimation essential for valid statistical inference, as</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>standard methods that assume independence would understate uncertainty.</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="fu">### Rationale for Dataset Selection</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>The @tannersmith2015 dataset was selected for the following reasons:</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Large number of studies.** With $J = 107$ independent studies, the dataset</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>   falls well within bayesRVE's operating envelope ($J_{\min} = \max(8, 2K + 2)$;</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>   see @sec-envelope) for all moderator specifications considered, ensuring that</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>   CR2 corrections and Satterthwaite degrees of freedom are well-identified.</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Heterogeneous cluster sizes.** The range of 1 to 45 effect sizes per study</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>   exercises the sandwich estimator across a variety of cluster configurations,</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>   from singletons to large clusters.</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Established benchmark.** Published results from @pustejovsky2022</span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a>   using robumeta and clubSandwich provide a ground truth against which bayesRVE</span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>   output can be directly compared.</span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Substantive moderators.** The dataset includes both categorical moderators</span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>   (dependent variable category, control type) and continuous covariates, enabling</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>   validation of bayesRVE's CCC machinery under realistic meta-regression</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>   specifications with $K &gt; 1$ predictors.</span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="fu">## Model Specifications {#sec-tsl15-models}</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>Two moderator specifications are fit to the dataset, each using a cell-means</span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>parameterization (no intercept term, no reference category). This</span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>parameterization directly estimates the conditional mean effect size for each</span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>category level, facilitating interpretable comparisons across all groups.</span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a><span class="fu">### DV Category Model</span></span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>The DV Category model estimates mean effect sizes for six outcome categories,</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>adjusted for five continuous covariates:</span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a>g_{ij} = \sum_{k=1}^{6} \beta_k \cdot \mathbb{1}<span class="co">[</span><span class="ot">\text{DV}_{ij} = k</span><span class="co">]</span></span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\beta_7 \cdot \text{postwks\_c}_{ij}</span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\beta_8 \cdot \text{postwks\_long}_{ij}</span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\beta_9 \cdot \text{percoll\_c}_{ij}</span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\beta_{10} \cdot \text{permale\_c}_{ij}</span>
+<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\beta_{11} \cdot \text{attrition\_c}_{ij}</span>
+<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>u_j + \varepsilon_{ij}</span>
+<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a>The six DV categories are:</span>
+<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>BAC (blood alcohol concentration)</span>
+<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Combined measures</span>
+<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Frequency of heavy use</span>
+<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Frequency of use</span>
+<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Peak consumption</span>
+<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Quantity of use</span>
+<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a>This yields $K = 11$ total regression coefficients (6 category indicators + 5</span>
+<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>covariates).</span>
+<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a><span class="fu">### Control Type Model</span></span>
+<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a>The Control Type model replaces the DV category indicators with four control-type</span>
+<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>indicators, using the same five continuous covariates:</span>
+<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>g_{ij} = \sum_{k=1}^{4} \gamma_k \cdot \mathbb{1}<span class="co">[</span><span class="ot">\text{Ctype}_{ij} = k</span><span class="co">]</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\gamma_5 \cdot \text{postwks\_c}_{ij}</span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\gamma_6 \cdot \text{postwks\_long}_{ij}</span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\gamma_7 \cdot \text{percoll\_c}_{ij}</span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\gamma_8 \cdot \text{permale\_c}_{ij}</span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>\gamma_9 \cdot \text{attrition\_c}_{ij}</span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a><span class="ss">       + </span>u_j + \varepsilon_{ij}</span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>This yields $K = 9$ total regression coefficients (4 control-type indicators + 5</span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a>covariates).</span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a><span class="fu">### Covariate Definitions</span></span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>All covariates are centered to improve MCMC sampling efficiency and</span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>interpretability:</span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Covariate <span class="pp">|</span> Definition <span class="pp">|</span> Centering <span class="pp">|</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:-----------|:----------|</span></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`postwks_c`</span> <span class="pp">|</span> Post-treatment follow-up (weeks), capped at 26 <span class="pp">|</span> Centered at 12 weeks <span class="pp">|</span></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`postwks_long`</span> <span class="pp">|</span> Indicator for follow-up exceeding 26 weeks <span class="pp">|</span> Binary (0/1) <span class="pp">|</span></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`percoll_c`</span> <span class="pp">|</span> Proportion of college-age participants <span class="pp">|</span> Centered at 1.0 <span class="pp">|</span></span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`permale_c`</span> <span class="pp">|</span> Proportion male in sample <span class="pp">|</span> Centered at 0.5 <span class="pp">|</span></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`attrition_c`</span> <span class="pp">|</span> Overall attrition rate <span class="pp">|</span> Centered at sample median <span class="pp">|</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a><span class="fu">### Random Effects Structure</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>Each model specification is fit under two random-effects structures:</span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CE (Correlated Effects):** A single between-study random effect $u_j \sim N(0, \tau^2)$, inducing within-study correlation $\rho = \tau^2/(\bar{s}_j^2 + \tau^2)$ structurally through the compound-symmetric covariance. In bayesRVE, $\rho_{\text{work}} = 0$ during MCMC (D5); $\rho$ enters only at the sandwich stage.</span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CHE (Correlated-Hierarchical Effects):** Two random effects---a between-study component $u_j \sim N(0, \tau^2)$ and a within-study component $w_{ij} \sim N(0, \omega^2)$---so that $\text{Var}(g_{ij}) = v_{ij} + \omega^2 + \tau^2$.</span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a>In R formula syntax:</span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a><span class="co"># CE model</span></span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a><span class="fu">bm_fit</span>(es <span class="sc">|</span> <span class="fu">se</span>(V) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> dv_cat <span class="sc">+</span> postwks_c <span class="sc">+</span> postwks_long <span class="sc">+</span></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>       percoll_c <span class="sc">+</span> permale_c <span class="sc">+</span> attrition_c,</span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>       <span class="at">data =</span> TSL15, <span class="at">study =</span> <span class="sc">~</span> studyid, <span class="at">model =</span> <span class="st">"ce"</span>)</span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a><span class="co"># CHE model</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a><span class="fu">bm_fit</span>(es <span class="sc">|</span> <span class="fu">se</span>(V) <span class="sc">~</span> <span class="dv">0</span> <span class="sc">+</span> dv_cat <span class="sc">+</span> postwks_c <span class="sc">+</span> postwks_long <span class="sc">+</span></span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a>       percoll_c <span class="sc">+</span> permale_c <span class="sc">+</span> attrition_c,</span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a>       <span class="at">data =</span> TSL15, <span class="at">study =</span> <span class="sc">~</span> studyid, <span class="at">model =</span> <span class="st">"che"</span>)</span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a>This yields $2 \times 2 = 4$ bayesRVE model fits per moderator specification</span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>(CE/CHE crossed with DV/Control Type), plus the three frequentist baselines per</span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a>specification, for a total of 14 fitted models.</span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a><span class="fu">## Analysis Settings {#sec-tsl15-settings}</span></span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a><span class="fu">### MCMC Configuration</span></span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>All bayesRVE models use the following MCMC settings:</span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Parameter <span class="pp">|</span> Value <span class="pp">|</span> Rationale <span class="pp">|</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:------|:----------|</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Chains <span class="pp">|</span> 4 <span class="pp">|</span> Standard for convergence assessment via $\hat{R}$ and split-$\hat{R}$ <span class="pp">|</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Warmup iterations <span class="pp">|</span> 2,000 <span class="pp">|</span> Sufficient for NUTS adaptation (step size, mass matrix) <span class="pp">|</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Sampling iterations <span class="pp">|</span> 2,000 <span class="pp">|</span> Yields $S = 8{,}000$ total posterior draws <span class="pp">|</span></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Random seed <span class="pp">|</span> 20260324 <span class="pp">|</span> Exact reproducibility across reruns <span class="pp">|</span></span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`adapt_delta`</span> <span class="pp">|</span> 0.95 <span class="pp">|</span> Conservative target acceptance rate for meta-analysis models <span class="pp">|</span></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`max_treedepth`</span> <span class="pp">|</span> 12 <span class="pp">|</span> Standard upper bound on leapfrog trajectory length <span class="pp">|</span></span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a>The total of $S = 8{,}000$ posterior draws provides adequate effective sample</span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>sizes for all parameters of interest given the relatively low dimensionality of</span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>the models ($K \leq 11$ regression coefficients plus 1--2 variance components).</span>
+<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sandwich and Calibration Settings</span></span>
+<span id="cb4-187"><a href="#cb4-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-188"><a href="#cb4-188" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Parameter <span class="pp">|</span> Value <span class="pp">|</span> Rationale <span class="pp">|</span></span>
+<span id="cb4-189"><a href="#cb4-189" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:------|:----------|</span></span>
+<span id="cb4-190"><a href="#cb4-190" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Working correlation ($\rho$) <span class="pp">|</span> 0.6 <span class="pp">|</span> Recommended by @pustejovsky2022 for social science meta-analyses; sandwich estimator is consistent regardless of $\rho$ choice <span class="pp">|</span></span>
+<span id="cb4-191"><a href="#cb4-191" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Small-sample correction <span class="pp">|</span> CR2 <span class="pp">|</span> Default (Decision D12); bias-reducing leverage adjustment <span class="pp">|</span></span>
+<span id="cb4-192"><a href="#cb4-192" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Degrees of freedom <span class="pp">|</span> Satterthwaite <span class="pp">|</span> Default (Decision D13); accounts for estimation uncertainty in variance components <span class="pp">|</span></span>
+<span id="cb4-193"><a href="#cb4-193" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Covariance imputation <span class="pp">|</span> <span class="in">`metafor::impute_covariance_matrix()`</span> with <span class="in">`smooth_vi = TRUE`</span> <span class="co">[</span><span class="ot">@viechtbauer2010</span><span class="co">]</span> <span class="pp">|</span> Constructs $V$ matrix assuming equicorrelation within studies at $\rho = 0.6$ <span class="pp">|</span></span>
+<span id="cb4-194"><a href="#cb4-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-195"><a href="#cb4-195" aria-hidden="true" tabindex="-1"></a><span class="fu">### Prior Distributions</span></span>
+<span id="cb4-196"><a href="#cb4-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-197"><a href="#cb4-197" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Parameter <span class="pp">|</span> Prior <span class="pp">|</span> Rationale <span class="pp">|</span></span>
+<span id="cb4-198"><a href="#cb4-198" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:------|:----------|</span></span>
+<span id="cb4-199"><a href="#cb4-199" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\beta_k$ (regression coefficients) <span class="pp">|</span> $N(0, 10)$ <span class="pp">|</span> Weakly informative for standardized mean differences; prior SD of 10 is effectively flat on the SMD scale <span class="pp">|</span></span>
+<span id="cb4-200"><a href="#cb4-200" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\tau$ (between-study SD) <span class="pp">|</span> Half-Cauchy$(0, 0.5)$ <span class="pp">|</span> Standard weakly informative prior for heterogeneity in social science; allows substantial heterogeneity while mildly regularizing <span class="pp">|</span></span>
+<span id="cb4-201"><a href="#cb4-201" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\omega$ (within-study SD, CHE only) <span class="pp">|</span> Half-Cauchy$(0, 0.5)$ <span class="pp">|</span> Same specification as $\tau$; symmetric treatment of variance components <span class="pp">|</span></span>
+<span id="cb4-202"><a href="#cb4-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-203"><a href="#cb4-203" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb4-204"><a href="#cb4-204" aria-hidden="true" tabindex="-1"></a><span class="co"># CE prior specification</span></span>
+<span id="cb4-205"><a href="#cb4-205" aria-hidden="true" tabindex="-1"></a>prior_ce <span class="ot">&lt;-</span> <span class="fu">bm_prior</span>(<span class="at">beta =</span> <span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">tau =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>))</span>
+<span id="cb4-206"><a href="#cb4-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-207"><a href="#cb4-207" aria-hidden="true" tabindex="-1"></a><span class="co"># CHE prior specification</span></span>
+<span id="cb4-208"><a href="#cb4-208" aria-hidden="true" tabindex="-1"></a>prior_che <span class="ot">&lt;-</span> <span class="fu">bm_prior</span>(<span class="at">beta =</span> <span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>),</span>
+<span id="cb4-209"><a href="#cb4-209" aria-hidden="true" tabindex="-1"></a>                      <span class="at">tau =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>),</span>
+<span id="cb4-210"><a href="#cb4-210" aria-hidden="true" tabindex="-1"></a>                      <span class="at">omega =</span> <span class="fu">half_cauchy</span>(<span class="dv">0</span>, <span class="fl">0.5</span>))</span>
+<span id="cb4-211"><a href="#cb4-211" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-212"><a href="#cb4-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-213"><a href="#cb4-213" aria-hidden="true" tabindex="-1"></a>The choice of Half-Cauchy(0, 0.5) for variance component priors follows the</span>
+<span id="cb4-214"><a href="#cb4-214" aria-hidden="true" tabindex="-1"></a>recommendations of @gelman2006 and @polson2012 for hierarchical models. The scale</span>
+<span id="cb4-215"><a href="#cb4-215" aria-hidden="true" tabindex="-1"></a>parameter of 0.5 is appropriate for standardized effect sizes where heterogeneity</span>
+<span id="cb4-216"><a href="#cb4-216" aria-hidden="true" tabindex="-1"></a>SDs rarely exceed 0.5 in most substantive domains, while the heavy tails of the</span>
+<span id="cb4-217"><a href="#cb4-217" aria-hidden="true" tabindex="-1"></a>Cauchy distribution allow the data to dominate when heterogeneity is larger.</span>
+<span id="cb4-218"><a href="#cb4-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-219"><a href="#cb4-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-220"><a href="#cb4-220" aria-hidden="true" tabindex="-1"></a><span class="fu">## Comparator Estimators {#sec-tsl15-comparators}</span></span>
+<span id="cb4-221"><a href="#cb4-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-222"><a href="#cb4-222" aria-hidden="true" tabindex="-1"></a>The validation compares five estimators that span the frequentist and Bayesian</span>
+<span id="cb4-223"><a href="#cb4-223" aria-hidden="true" tabindex="-1"></a>approaches to meta-analysis with dependent effect sizes. Each estimator pair is</span>
+<span id="cb4-224"><a href="#cb4-224" aria-hidden="true" tabindex="-1"></a>chosen to isolate specific sources of variation in the comparison.</span>
+<span id="cb4-225"><a href="#cb4-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-226"><a href="#cb4-226" aria-hidden="true" tabindex="-1"></a><span class="fu">### Estimator Summary</span></span>
+<span id="cb4-227"><a href="#cb4-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-228"><a href="#cb4-228" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Estimator <span class="pp">|</span> Package <span class="pp">|</span> Model <span class="pp">|</span> Variance Estimation <span class="pp">|</span> df Method <span class="pp">|</span> Role <span class="pp">|</span></span>
+<span id="cb4-229"><a href="#cb4-229" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:--------|:------|:-------------------|:----------|:-----|</span></span>
+<span id="cb4-230"><a href="#cb4-230" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CE robumeta <span class="pp">|</span> <span class="in">`robumeta::robu`</span> <span class="pp">|</span> CE working model <span class="pp">|</span> CR2 <span class="co">[</span><span class="ot">@tipton2015</span><span class="co">]</span> <span class="pp">|</span> Satterthwaite <span class="pp">|</span> Published baseline <span class="pp">|</span></span>
+<span id="cb4-231"><a href="#cb4-231" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CE metafor <span class="pp">|</span> <span class="in">`metafor::rma.mv`</span> <span class="pp">|</span> CE ($\tau^2$ only) <span class="pp">|</span> CR2 via <span class="in">`clubSandwich`</span> <span class="pp">|</span> Satterthwaite <span class="pp">|</span> Fair CE comparison <span class="pp">|</span></span>
+<span id="cb4-232"><a href="#cb4-232" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CHE metafor <span class="pp">|</span> <span class="in">`metafor::rma.mv`</span> <span class="pp">|</span> CHE ($\tau^2 + \omega^2$) <span class="pp">|</span> CR2 via <span class="in">`clubSandwich`</span> <span class="pp">|</span> Satterthwaite <span class="pp">|</span> Fair CHE comparison <span class="pp">|</span></span>
+<span id="cb4-233"><a href="#cb4-233" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> bayesRVE CE <span class="pp">|</span> <span class="in">`bayesRVE::bm_fit`</span> <span class="pp">|</span> CE ($\tau^2$ only) <span class="pp">|</span> CCC with CR2 target <span class="pp">|</span> Satterthwaite <span class="pp">|</span> This package (CE) <span class="pp">|</span></span>
+<span id="cb4-234"><a href="#cb4-234" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> bayesRVE CHE <span class="pp">|</span> <span class="in">`bayesRVE::bm_fit`</span> <span class="pp">|</span> CHE ($\tau^2 + \omega^2$) <span class="pp">|</span> CCC with CR2 target <span class="pp">|</span> Satterthwaite <span class="pp">|</span> This package (CHE) <span class="pp">|</span></span>
+<span id="cb4-235"><a href="#cb4-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-236"><a href="#cb4-236" aria-hidden="true" tabindex="-1"></a><span class="fu">### Estimator Descriptions</span></span>
+<span id="cb4-237"><a href="#cb4-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a>**CE robumeta.** The <span class="in">`robumeta::robu`</span> function implements the correlated-effects</span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a>working model of @hedges2010, computing study-level</span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a>aggregated effect sizes under an assumed equicorrelation $\rho$, then applying</span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>CR2 small-sample corrections following @tipton2015. This estimator serves as</span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a>the published baseline, replicating the exact results reported in @pustejovsky2022. Because robumeta performs study-mean aggregation internally,</span>
+<span id="cb4-243"><a href="#cb4-243" aria-hidden="true" tabindex="-1"></a>its point estimates and standard errors may differ slightly from observation-level</span>
+<span id="cb4-244"><a href="#cb4-244" aria-hidden="true" tabindex="-1"></a>estimators.</span>
+<span id="cb4-245"><a href="#cb4-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-246"><a href="#cb4-246" aria-hidden="true" tabindex="-1"></a>**CE metafor.** The <span class="in">`metafor::rma.mv`</span> function <span class="co">[</span><span class="ot">@viechtbauer2010</span><span class="co">]</span> fits a single-$\tau^2$ random-effects</span>
+<span id="cb4-247"><a href="#cb4-247" aria-hidden="true" tabindex="-1"></a>model at the observation level using REML, with the imputed covariance matrix $V$</span>
+<span id="cb4-248"><a href="#cb4-248" aria-hidden="true" tabindex="-1"></a>incorporating the working correlation $\rho = 0.6$. CR2 standard errors and</span>
+<span id="cb4-249"><a href="#cb4-249" aria-hidden="true" tabindex="-1"></a>Satterthwaite degrees of freedom are obtained via the <span class="in">`clubSandwich`</span> package.</span>
+<span id="cb4-250"><a href="#cb4-250" aria-hidden="true" tabindex="-1"></a>This estimator provides a fair comparison target for bayesRVE CE because both</span>
+<span id="cb4-251"><a href="#cb4-251" aria-hidden="true" tabindex="-1"></a>operate on the same data structure (observation-level, single random effect)</span>
+<span id="cb4-252"><a href="#cb4-252" aria-hidden="true" tabindex="-1"></a>and apply the same CR2 + Satterthwaite inference framework.</span>
+<span id="cb4-253"><a href="#cb4-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-254"><a href="#cb4-254" aria-hidden="true" tabindex="-1"></a>**CHE metafor.** The <span class="in">`metafor::rma.mv`</span> function with a two-level random structure</span>
+<span id="cb4-255"><a href="#cb4-255" aria-hidden="true" tabindex="-1"></a>(<span class="in">`~ 1 | studyid / esid`</span>) fits the correlated-hierarchical effects model,</span>
+<span id="cb4-256"><a href="#cb4-256" aria-hidden="true" tabindex="-1"></a>estimating both $\tau^2$ (between-study) and $\omega^2$ (within-study)</span>
+<span id="cb4-257"><a href="#cb4-257" aria-hidden="true" tabindex="-1"></a>via REML. CR2 corrections and Satterthwaite degrees of freedom are again</span>
+<span id="cb4-258"><a href="#cb4-258" aria-hidden="true" tabindex="-1"></a>obtained via <span class="in">`clubSandwich`</span>. This estimator is the fair comparison target</span>
+<span id="cb4-259"><a href="#cb4-259" aria-hidden="true" tabindex="-1"></a>for bayesRVE CHE.</span>
+<span id="cb4-260"><a href="#cb4-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-261"><a href="#cb4-261" aria-hidden="true" tabindex="-1"></a>**bayesRVE CE.** The <span class="in">`bayesRVE::bm_fit`</span> function with <span class="in">`model = "ce"`</span> fits a</span>
+<span id="cb4-262"><a href="#cb4-262" aria-hidden="true" tabindex="-1"></a>Bayesian CE model via Stan <span class="co">[</span><span class="ot">@carpenter2017</span><span class="co">]</span> (NUTS sampler), estimating posterior distributions</span>
+<span id="cb4-263"><a href="#cb4-263" aria-hidden="true" tabindex="-1"></a>for all regression coefficients and $\tau$. The Cholesky Calibration Correction</span>
+<span id="cb4-264"><a href="#cb4-264" aria-hidden="true" tabindex="-1"></a>(CCC) maps posterior draws to have the CR2 sandwich covariance as their</span>
+<span id="cb4-265"><a href="#cb4-265" aria-hidden="true" tabindex="-1"></a>dispersion target. Satterthwaite degrees of freedom define the reference</span>
+<span id="cb4-266"><a href="#cb4-266" aria-hidden="true" tabindex="-1"></a>distribution for inference (Three-Layer Calibration: L1 = posterior mean,</span>
+<span id="cb4-267"><a href="#cb4-267" aria-hidden="true" tabindex="-1"></a>L2 = CR2 sandwich, L3 = Satterthwaite $t$).</span>
+<span id="cb4-268"><a href="#cb4-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-269"><a href="#cb4-269" aria-hidden="true" tabindex="-1"></a>**bayesRVE CHE.** The <span class="in">`bayesRVE::bm_fit`</span> function with <span class="in">`model = "che"`</span> extends</span>
+<span id="cb4-270"><a href="#cb4-270" aria-hidden="true" tabindex="-1"></a>the CE model with a within-study variance component $\omega^2$. The CHE CCC</span>
+<span id="cb4-271"><a href="#cb4-271" aria-hidden="true" tabindex="-1"></a>computation uses $\hat{\omega}^2 = \text{mean}(\omega^{(s)2})$ (Decision D20)</span>
+<span id="cb4-272"><a href="#cb4-272" aria-hidden="true" tabindex="-1"></a>to construct the CR2 sandwich with Woodbury-based $W^{1/2}$ weights</span>
+<span id="cb4-273"><a href="#cb4-273" aria-hidden="true" tabindex="-1"></a>(Decision D24). This estimator is the primary new capability introduced in</span>
+<span id="cb4-274"><a href="#cb4-274" aria-hidden="true" tabindex="-1"></a>v0.6.0.</span>
+<span id="cb4-275"><a href="#cb4-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-276"><a href="#cb4-276" aria-hidden="true" tabindex="-1"></a><span class="fu">### Comparison Logic</span></span>
+<span id="cb4-277"><a href="#cb4-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-278"><a href="#cb4-278" aria-hidden="true" tabindex="-1"></a>The five-estimator design enables the following structured comparisons:</span>
+<span id="cb4-279"><a href="#cb4-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-280"><a href="#cb4-280" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**CE robumeta vs. CE metafor:** Quantifies the effect of study-mean</span>
+<span id="cb4-281"><a href="#cb4-281" aria-hidden="true" tabindex="-1"></a>   aggregation (robumeta) versus observation-level modeling (metafor) within</span>
+<span id="cb4-282"><a href="#cb4-282" aria-hidden="true" tabindex="-1"></a>   the CE framework. Differences in point estimates arise from the distinct</span>
+<span id="cb4-283"><a href="#cb4-283" aria-hidden="true" tabindex="-1"></a>   weighting schemes.</span>
+<span id="cb4-284"><a href="#cb4-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-285"><a href="#cb4-285" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**CE metafor vs. bayesRVE CE:** The primary validation comparison for CE</span>
+<span id="cb4-286"><a href="#cb4-286" aria-hidden="true" tabindex="-1"></a>   models. Both use observation-level data with a single random effect.</span>
+<span id="cb4-287"><a href="#cb4-287" aria-hidden="true" tabindex="-1"></a>   Differences reflect the Bayesian-vs-REML estimation and the CCC</span>
+<span id="cb4-288"><a href="#cb4-288" aria-hidden="true" tabindex="-1"></a>   calibration procedure. If CCC is working correctly, the CCC SD should</span>
+<span id="cb4-289"><a href="#cb4-289" aria-hidden="true" tabindex="-1"></a>   approximate the CR2 SE.</span>
+<span id="cb4-290"><a href="#cb4-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-291"><a href="#cb4-291" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**CHE metafor vs. bayesRVE CHE:** The primary validation comparison for</span>
+<span id="cb4-292"><a href="#cb4-292" aria-hidden="true" tabindex="-1"></a>   CHE models, introduced in v0.6.0. Both use two random effects. Agreement</span>
+<span id="cb4-293"><a href="#cb4-293" aria-hidden="true" tabindex="-1"></a>   validates that the CHE extension of CCC (omega-aware weights, Woodbury</span>
+<span id="cb4-294"><a href="#cb4-294" aria-hidden="true" tabindex="-1"></a>   $W^{1/2}$) produces calibrated inference.</span>
+<span id="cb4-295"><a href="#cb4-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-296"><a href="#cb4-296" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**CE vs. CHE (within estimator):** Reveals the effect of modeling</span>
+<span id="cb4-297"><a href="#cb4-297" aria-hidden="true" tabindex="-1"></a>   within-study heterogeneity. In the CE model, $\tau^2$ absorbs $\omega^2$,</span>
+<span id="cb4-298"><a href="#cb4-298" aria-hidden="true" tabindex="-1"></a>   producing larger between-study variance estimates. The CHE model decomposes</span>
+<span id="cb4-299"><a href="#cb4-299" aria-hidden="true" tabindex="-1"></a>   total heterogeneity, generally yielding similar or slightly different</span>
+<span id="cb4-300"><a href="#cb4-300" aria-hidden="true" tabindex="-1"></a>   standard errors depending on the relative magnitudes of $\tau^2$ and</span>
+<span id="cb4-301"><a href="#cb4-301" aria-hidden="true" tabindex="-1"></a>   $\omega^2$.</span>
+<span id="cb4-302"><a href="#cb4-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-303"><a href="#cb4-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-304"><a href="#cb4-304" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reproducibility and Decision Rules {#sec-tsl15-decisions}</span></span>
+<span id="cb4-305"><a href="#cb4-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-306"><a href="#cb4-306" aria-hidden="true" tabindex="-1"></a><span class="fu">### Single-Script Reproducibility</span></span>
+<span id="cb4-307"><a href="#cb4-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-308"><a href="#cb4-308" aria-hidden="true" tabindex="-1"></a>The complete analysis---from data preparation through all 14 model fits to</span>
+<span id="cb4-309"><a href="#cb4-309" aria-hidden="true" tabindex="-1"></a>summary tables and figures---is contained in a single R script:</span>
+<span id="cb4-310"><a href="#cb4-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-311"><a href="#cb4-311" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-312"><a href="#cb4-312" aria-hidden="true" tabindex="-1"></a><span class="in">dev/log/201_real-data-v060/00_full_analysis.R</span></span>
+<span id="cb4-313"><a href="#cb4-313" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb4-314"><a href="#cb4-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-315"><a href="#cb4-315" aria-hidden="true" tabindex="-1"></a>This script loads the raw dataset, applies all filters and transformations,</span>
+<span id="cb4-316"><a href="#cb4-316" aria-hidden="true" tabindex="-1"></a>fits all frequentist baselines and bayesRVE models, computes all comparison</span>
+<span id="cb4-317"><a href="#cb4-317" aria-hidden="true" tabindex="-1"></a>tables, and saves results to disk. No manual intervention or intermediate files</span>
+<span id="cb4-318"><a href="#cb4-318" aria-hidden="true" tabindex="-1"></a>are required. Given the fixed random seed (<span class="in">`SEED = 20260324`</span>), all MCMC results</span>
+<span id="cb4-319"><a href="#cb4-319" aria-hidden="true" tabindex="-1"></a>are exactly reproducible on the same hardware and software configuration.</span>
+<span id="cb4-320"><a href="#cb4-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-321"><a href="#cb4-321" aria-hidden="true" tabindex="-1"></a><span class="fu">### Pre-Specified Decision Rules</span></span>
+<span id="cb4-322"><a href="#cb4-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-323"><a href="#cb4-323" aria-hidden="true" tabindex="-1"></a>All model specifications, MCMC settings, prior distributions, and evaluation</span>
+<span id="cb4-324"><a href="#cb4-324" aria-hidden="true" tabindex="-1"></a>criteria were fixed before running the bayesRVE models. Specifically:</span>
+<span id="cb4-325"><a href="#cb4-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-326"><a href="#cb4-326" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The two moderator specifications (DV Category, Control Type) replicate</span>
+<span id="cb4-327"><a href="#cb4-327" aria-hidden="true" tabindex="-1"></a>  @pustejovsky2022 exactly.</span>
+<span id="cb4-328"><a href="#cb4-328" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The covariate centering scheme follows the original publication.</span>
+<span id="cb4-329"><a href="#cb4-329" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Prior distributions and MCMC settings were chosen based on general</span>
+<span id="cb4-330"><a href="#cb4-330" aria-hidden="true" tabindex="-1"></a>  recommendations in the literature, not tuned to the TSL15 data.</span>
+<span id="cb4-331"><a href="#cb4-331" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>No post-hoc model selection, predictor selection, or prior adjustment</span>
+<span id="cb4-332"><a href="#cb4-332" aria-hidden="true" tabindex="-1"></a>  was performed.</span>
+<span id="cb4-333"><a href="#cb4-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-334"><a href="#cb4-334" aria-hidden="true" tabindex="-1"></a><span class="fu">### Gate 3 Criterion</span></span>
+<span id="cb4-335"><a href="#cb4-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-336"><a href="#cb4-336" aria-hidden="true" tabindex="-1"></a>The primary success criterion for the real-data validation is:</span>
+<span id="cb4-337"><a href="#cb4-337" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-338"><a href="#cb4-338" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-339"><a href="#cb4-339" aria-hidden="true" tabindex="-1"></a>R_{\text{SE},k} = \frac{\text{CCC SD}_k}{\text{CR2 SE}_k} \in <span class="co">[</span><span class="ot">0.9, 1.1</span><span class="co">]</span></span>
+<span id="cb4-340"><a href="#cb4-340" aria-hidden="true" tabindex="-1"></a>\quad \text{for all DV category coefficients } k = 1, \ldots, 6</span>
+<span id="cb4-341"><a href="#cb4-341" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb4-342"><a href="#cb4-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-343"><a href="#cb4-343" aria-hidden="true" tabindex="-1"></a>This criterion is evaluated separately for CE and CHE models:</span>
+<span id="cb4-344"><a href="#cb4-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-345"><a href="#cb4-345" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CE:** CCC SD from bayesRVE CE vs. CR2 SE from metafor CE (via clubSandwich)</span>
+<span id="cb4-346"><a href="#cb4-346" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**CHE:** CCC SD from bayesRVE CHE vs. CR2 SE from metafor CHE (via clubSandwich)</span>
+<span id="cb4-347"><a href="#cb4-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-348"><a href="#cb4-348" aria-hidden="true" tabindex="-1"></a>Gate 3 is defined exclusively for the six DV category coefficients ($k = 1, \ldots, 6$), which serve as intercepts in the DV-moderator specification and each draw information from a large number of contributing studies. Covariate coefficients (e.g., <span class="in">`percoll_c`</span>, <span class="in">`permale_c`</span>) are reported separately in @sec-mechanics-covariates and are *not* subject to the Gate 3 acceptance band; their CCC/CR2 ratios may fall outside <span class="co">[</span><span class="ot">0.9, 1.1</span><span class="co">]</span> due to lower effective cluster counts and Satterthwaite df.</span>
+<span id="cb4-349"><a href="#cb4-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-350"><a href="#cb4-350" aria-hidden="true" tabindex="-1"></a><span class="fu">### Rationale for the [0.9, 1.1] Band</span></span>
+<span id="cb4-351"><a href="#cb4-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-352"><a href="#cb4-352" aria-hidden="true" tabindex="-1"></a>The 10% tolerance band around unity accommodates two sources of</span>
+<span id="cb4-353"><a href="#cb4-353" aria-hidden="true" tabindex="-1"></a>discrepancy between the Bayesian CCC standard deviations and the frequentist</span>
+<span id="cb4-354"><a href="#cb4-354" aria-hidden="true" tabindex="-1"></a>CR2 standard errors:</span>
+<span id="cb4-355"><a href="#cb4-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-356"><a href="#cb4-356" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Variance-component plug-in discrepancy (primary).** The CCC uses the</span>
+<span id="cb4-357"><a href="#cb4-357" aria-hidden="true" tabindex="-1"></a>   Bayesian posterior mean of variance components ($\tau^2$, $\omega^2$) as</span>
+<span id="cb4-358"><a href="#cb4-358" aria-hidden="true" tabindex="-1"></a>   plug-in estimates for the weight matrix $W$ and hence the bread matrix</span>
+<span id="cb4-359"><a href="#cb4-359" aria-hidden="true" tabindex="-1"></a>   ($X'WX$), while the frequentist CR2 uses REML estimates. Because the</span>
+<span id="cb4-360"><a href="#cb4-360" aria-hidden="true" tabindex="-1"></a>   posterior mean and REML estimate differ due to prior influence, the two</span>
+<span id="cb4-361"><a href="#cb4-361" aria-hidden="true" tabindex="-1"></a>   methods construct different $V_{\text{CR2}}$ targets. By Theorem 2, CCC</span>
+<span id="cb4-362"><a href="#cb4-362" aria-hidden="true" tabindex="-1"></a>   achieves its own $V_{\text{CR2}}$ exactly; the observed ratio $\neq 1$</span>
+<span id="cb4-363"><a href="#cb4-363" aria-hidden="true" tabindex="-1"></a>   reflects two different targets, not a calibration failure. This typically</span>
+<span id="cb4-364"><a href="#cb4-364" aria-hidden="true" tabindex="-1"></a>   contributes 1--5% discrepancy.</span>
+<span id="cb4-365"><a href="#cb4-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-366"><a href="#cb4-366" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**MCMC sampling noise (secondary).** Even with $S = 8{,}000$ posterior</span>
+<span id="cb4-367"><a href="#cb4-367" aria-hidden="true" tabindex="-1"></a>   draws, the sample covariance of the calibrated draws has finite Monte</span>
+<span id="cb4-368"><a href="#cb4-368" aria-hidden="true" tabindex="-1"></a>   Carlo error. For well-behaved posteriors, this contributes approximately</span>
+<span id="cb4-369"><a href="#cb4-369" aria-hidden="true" tabindex="-1"></a>   1--2% variation and is reducible by increasing $S$.</span>
+<span id="cb4-370"><a href="#cb4-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-371"><a href="#cb4-371" aria-hidden="true" tabindex="-1"></a>A ratio of exactly 1.0 would indicate perfect calibration; the <span class="co">[</span><span class="ot">0.9, 1.1</span><span class="co">]</span> band</span>
+<span id="cb4-372"><a href="#cb4-372" aria-hidden="true" tabindex="-1"></a>reflects the practical precision achievable given these two sources of variation.</span>
+<span id="cb4-373"><a href="#cb4-373" aria-hidden="true" tabindex="-1"></a>This tolerance was established a priori based on experience from the simulation</span>
+<span id="cb4-374"><a href="#cb4-374" aria-hidden="true" tabindex="-1"></a>studies (sim3, 24 conditions $\times$ 500 replications), where CCC-$t$ coverage achieved 94.5--95.3% nominal</span>
+<span id="cb4-375"><a href="#cb4-375" aria-hidden="true" tabindex="-1"></a>95% coverage with SE ratios in this range.</span>
+<span id="cb4-376"><a href="#cb4-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-377"><a href="#cb4-377" aria-hidden="true" tabindex="-1"></a><span class="fu">### Supplementary Diagnostics</span></span>
+<span id="cb4-378"><a href="#cb4-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-379"><a href="#cb4-379" aria-hidden="true" tabindex="-1"></a>Beyond the primary Gate 3 criterion, the following diagnostics are examined:</span>
+<span id="cb4-380"><a href="#cb4-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-381"><a href="#cb4-381" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Shrinkage ratio $R_k$.** The ratio of CCC SD to raw posterior SD, quantifying</span>
+<span id="cb4-382"><a href="#cb4-382" aria-hidden="true" tabindex="-1"></a>  how much the calibration correction adjusts each coefficient's uncertainty.</span>
+<span id="cb4-383"><a href="#cb4-383" aria-hidden="true" tabindex="-1"></a>  Values below 1.0 indicate CCC shrinkage (the raw posterior is overestimating</span>
+<span id="cb4-384"><a href="#cb4-384" aria-hidden="true" tabindex="-1"></a>  uncertainty relative to the sandwich target); values above 1.0 indicate CCC</span>
+<span id="cb4-385"><a href="#cb4-385" aria-hidden="true" tabindex="-1"></a>  inflation.</span>
+<span id="cb4-386"><a href="#cb4-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-387"><a href="#cb4-387" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Satterthwaite df agreement.** The Satterthwaite degrees of freedom from</span>
+<span id="cb4-388"><a href="#cb4-388" aria-hidden="true" tabindex="-1"></a>  bayesRVE vs. those from clubSandwich, verifying that the independent</span>
+<span id="cb4-389"><a href="#cb4-389" aria-hidden="true" tabindex="-1"></a>  implementation (Decision D11) produces consistent results.</span>
+<span id="cb4-390"><a href="#cb4-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-391"><a href="#cb4-391" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Point estimate concordance.** Bayesian posterior means vs. REML point</span>
+<span id="cb4-392"><a href="#cb4-392" aria-hidden="true" tabindex="-1"></a>  estimates, confirming that prior influence on the location parameters is</span>
+<span id="cb4-393"><a href="#cb4-393" aria-hidden="true" tabindex="-1"></a>  minimal given the large sample size.</span>
+<span id="cb4-394"><a href="#cb4-394" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-395"><a href="#cb4-395" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Variance component comparison.** Bayesian posterior medians of $\tau$ and</span>
+<span id="cb4-396"><a href="#cb4-396" aria-hidden="true" tabindex="-1"></a>  $\omega$ vs. REML estimates, documenting the expected prior-induced</span>
+<span id="cb4-397"><a href="#cb4-397" aria-hidden="true" tabindex="-1"></a>  differences and the $\tau$-absorption phenomenon in CE models.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

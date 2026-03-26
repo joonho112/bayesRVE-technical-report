@@ -1,0 +1,503 @@
+---
+title: "Software Architecture"
+---
+
+The bayesRVE package is organized around a three-stage pipeline---`bm_fit`, `sandwich`, `ccc`---with strict S3 class contracts at each boundary.
+Every object carries provenance metadata so that downstream stages can reject mismatched inputs at construction time rather than failing silently during computation.
+This chapter documents the module layout, object lifecycle, class contracts, provenance system, and dependency strategy.
+
+
+## Package Module Map {#sec-architecture}
+
+The package comprises 16 R source files, 3 Stan model files, and supporting infrastructure.
+The files are grouped into four functional layers.
+
+### Core Pipeline
+
+These three files implement the statistical pipeline described in @sec-ccc and @sec-sandwich.
+
+| File | Role |
+|:-----|:-----|
+| `fit.R` | Entry point `bm_fit()` for Bayesian model fitting via CmdStan. Parses arguments, delegates to `data-prep.R` for formula/data processing, invokes Stan sampling, runs post-sampling diagnostics, and constructs the `bm_fit` S3 object. Also provides `.extract_draws()`, the sole interface for posterior draw access. |
+| `sandwich.R` | Exports the `sandwich()` S3 generic and `sandwich.bm_fit()` method. Implements both CE and CHE marginal/conditional sandwich estimators, CR2 bias correction with Satterthwaite degrees of freedom, the fingerprint provenance system, and the `.assemble_bm_sandwich()` constructor. |
+| `ccc.R` | Exports the `ccc()` S3 generic and `ccc.bm_fit()` method. Implements blockwise hybrid CCC for CE (beta-block Cholesky + theta-block diagonal rescaling) and beta-only CCC for CHE. Contains `.ccc_beta_block()`, `.ccc_theta_block()`, `.ccc_che()`, `.verify_ccc()`, and `.assemble_bm_ccc()`. |
+
+### Methods Layer
+
+These files provide the standard R model-object interface and downstream analysis tools.
+
+| File | Role |
+|:-----|:-----|
+| `methods.R` | S3 methods for all three pipeline classes: `nobs`, `coef`, `vcov`, `confint`, `summary`, and `print` methods for `bm_fit`, `bm_sandwich`, and `bm_ccc`. Implements Three-Layer Calibration output (CCC-t intervals with Satterthwaite df) in `summary.bm_ccc()` and `confint.bm_ccc()`. |
+| `diagnostics.R` | Unified diagnostics via `bm_diagnose()` S3 generic dispatching on all three classes. Extracts MCMC convergence (Rhat, ESS), sandwich conditioning, and CCC calibration quality. Defensive design: every CmdStan interaction is wrapped in `tryCatch`. |
+| `sensitivity.R` | Sensitivity analysis for the working correlation parameter rho. Sweeps a grid of rho values to show how the Design Effect Ratio (DER) decomposition changes, exploiting the fact that the posterior is fixed across rho. |
+| `plot.R` | `plot()` S3 methods for `bm_fit`, `bm_ccc`, and `bm_sensitivity_rho`. Produces posterior density overlays, CCC dumbbell plots, R_k vs. df scatterplots, and DER sensitivity curves. Requires ggplot2 (Suggests). |
+
+### Infrastructure
+
+These files provide foundational services consumed by the pipeline.
+
+| File | Role |
+|:-----|:-----|
+| `data-prep.R` | Formula parsing (LHS `y | se(v)` syntax), data validation, design matrix construction, study-level aggregation, and Stan input assembly. All functions are internal (dot-prefixed). |
+| `validate.R` | S3 object validators: `.assert_bm_fit()`, `.assert_bm_sandwich()`, `.assert_bm_ccc()`, plus the unified provenance dispatcher `.assert_sandwich_matches_fit()` (auto-routes CE vs. CHE) and its CHE-specific helper `.assert_che_sandwich_matches_fit()`. Every public method calls the relevant validator before proceeding. |
+| `priors.R` | Distribution constructors (`normal()`, `half_cauchy()`, `half_normal()`, `half_t()`), the `bm_prior()` constructor, `default_prior()`, and Stan prior-to-data mapping. Implements the prior-via-data-block pattern. |
+| `stan-cache.R` | Two-tier compilation cache: session-level (in-memory `CmdStanModel` objects in `.bm_cache`) and disk-level (compiled executables with MD5 integrity checks). Thread-safe via file-based locking. Exports `bm_compile()` and `bm_clear_cache()`. |
+| `utils.R` | Internal numerical helpers: `.is_pd()` (positive-definiteness check via eigendecomposition), `.symmetrize()` (floating-point symmetry enforcement), and related utilities. |
+| `data.R` | Roxygen documentation for the example dataset bundled with the package. |
+| `bayesRVE-package.R` | Package-level documentation, `@importFrom` declarations, and the `.bm_cache` environment initialization. |
+| `zzz.R` | `.onLoad()` and `.onAttach()` hooks. Prints the package version on attach. |
+
+### Interoperability
+
+| File | Role |
+|:-----|:-----|
+| `metafor-interop.R` | Bridges bayesRVE with the metafor [@viechtbauer2010] + clubSandwich [@pustejovsky2022] ecosystem. `compare_with_cr2()` runs a side-by-side comparison of bayesRVE sandwich SEs vs. frequentist CR2 SEs. `from_metafor()` extracts data from a fitted `rma.mv` object into the format expected by `bm_fit()`. Both metafor and clubSandwich are Suggests-only. |
+
+### Stan Models
+
+Three Stan [@carpenter2017] programs reside in `inst/stan/`:
+
+| Model | File | Description |
+|:------|:-----|:------------|
+| CE NCP | `bm_ce_ncp.stan` | Correlated-effects model with non-centered parameterization (default). Single $\tau^2$ random effect, $\rho_\text{work} = 0$. |
+| CE CP | `bm_ce_cp.stan` | Correlated-effects model with centered parameterization. Selected when the data suggest low posterior concentration. |
+| CHE NCP | `bm_che_ncp.stan` | Correlated-hierarchical-effects model. Two variance components ($\tau^2 + \omega^2$) with $\theta_j$ analytically integrated out in the marginal likelihood. |
+
+### Dependency Flow
+
+The inter-file dependency structure follows the pipeline topology.
+Functions in downstream files call into upstream files but never the reverse.
+
+```
+bayesRVE-package.R    ← package-level imports, .bm_cache
+     │
+     ├── priors.R         ← distribution constructors, default_prior()
+     ├── data-prep.R      ← formula parsing, Stan input assembly
+     ├── stan-cache.R     ← model compilation, bm_compile()
+     ├── validate.R       ← all assertion functions
+     ├── utils.R          ← .is_pd(), .symmetrize()
+     │
+     ├── fit.R            ← calls data-prep, stan-cache, priors, validate, utils
+     │    │
+     │    ├── sandwich.R  ← calls fit.R (.extract_draws), validate, utils
+     │    │    │
+     │    │    └── ccc.R  ← calls fit.R, sandwich.R (assembler), validate, utils
+     │    │
+     │    └── methods.R   ← calls fit.R (.extract_draws), validate
+     │         │
+     │         ├── diagnostics.R   ← calls validate, methods.R helpers
+     │         ├── sensitivity.R   ← calls sandwich.R, validate
+     │         ├── plot.R          ← calls methods.R (summary), validate
+     │         └── metafor-interop.R ← calls validate; metafor/clubSandwich optional
+```
+
+
+## Object Lifecycle {#sec-arch-lifecycle}
+
+The bayesRVE pipeline produces three S3 objects in strict sequence.
+Each stage validates its inputs, performs computation, and emits an immutable output object consumed by the next stage.
+
+### Typical Usage
+
+A complete analysis session consists of four calls:
+
+```r
+# Stage 1: Fit the Bayesian meta-analytic model
+fit <- bm_fit(yi | se(vi) ~ x1, data = dat, study = ~ studyid, model = "che")
+
+# Stage 2: Compute CR2 sandwich variance with Satterthwaite df
+sw  <- sandwich(fit, rho = 0.8, small_sample = "CR2")
+
+# Stage 3: Apply Cholesky Calibration Correction
+cal <- ccc(fit, sandwich_obj = sw)
+
+# Stage 4: Extract calibrated inference
+summary(cal)   # Three-Layer Calibration table with CCC SD, df, R_k
+confint(cal)   # CCC-t confidence intervals
+```
+
+Each call produces an immutable S3 object whose fields are fully determined at construction time.
+No method modifies an object after creation.
+The following subsections trace the internal construction of each object.
+
+### Stage 1: Model Fitting
+
+```
+bm_fit(formula, data, study, model, prior, ...)
+  │
+  ├── .parse_formula(formula)           [data-prep.R]
+  ├── .prepare_bm_data(formula, data)   [data-prep.R]
+  ├── .build_stan_input(bm_data, prior) [data-prep.R]
+  ├── bm_compile(model_name)            [stan-cache.R]
+  ├── mod$sample(stan_input, ...)       [CmdStan]
+  ├── .validate_cmdstan_fit(...)        [fit.R]
+  │
+  └── structure(..., class = "bm_fit")
+```
+
+**Input requirements.** A two-sided formula with `y | se(v) ~ predictors` syntax, a data frame containing the named columns, and a one-sided formula identifying the study grouping variable.
+The `model` argument selects CE or CHE; `prior` defaults to `default_prior()`.
+
+**Output.** A `bm_fit` object (named list with class attribute) containing the live `CmdStanMCMC` handle, the Stan input data, the parsed `bm_data` structure, and metadata (K, J, model name, parameterization, timing).
+
+**Validation.** `.assert_bm_fit()` checks class inheritance and that all 11 required slots are non-NULL.
+
+### Stage 2: Sandwich Variance Estimation
+
+```
+sandwich(fit, rho = 0.8, small_sample = "CR2")
+  │
+  ├── .assert_bm_fit(fit)                [validate.R]
+  ├── Dispatch: CE → .marginal_sandwich() + .conditional_sandwich()
+  │             CHE → .che_sandwich()
+  ├── CR2: .compute_cr2_adjustment()     [sandwich.R]
+  ├── Satterthwaite: .satterthwaite_df() [sandwich.R]
+  ├── .make_fit_fingerprint(fit, ...)    [sandwich.R]
+  │
+  └── structure(..., class = "bm_sandwich")
+```
+
+**Input requirements.** A validated `bm_fit` object.
+The `rho` parameter is the assumed within-study working correlation; `small_sample` selects the bias correction method.
+
+**Output.** A `bm_sandwich` object containing the corrected variance matrices, raw and CR2-adjusted variants, the MCMC posterior covariance, scoring matrices, Satterthwaite degrees of freedom, and a cryptographic fingerprint linking this sandwich to its parent fit.
+
+**Validation.** `.assert_bm_sandwich()` checks class inheritance, 9 always-required slots, and (when CR2 fields are present) type/dimension constraints on 6 additional fields.
+
+### Stage 3: Cholesky Calibration Correction
+
+```
+ccc(fit, sandwich_obj = NULL, rho = 0.8, center = "posterior_mean")
+  │
+  ├── .assert_bm_fit(fit)                          [validate.R]
+  ├── Provenance: .assert_sandwich_matches_fit()    [validate.R]
+  │               (auto-dispatches CE full hash / CHE data hash)
+  ├── Dispatch: CE  → .ccc_beta_block() + .ccc_theta_block()
+  │             CHE → .ccc_che()
+  ├── .verify_ccc(...)                              [ccc.R]
+  │
+  └── structure(..., class = "bm_ccc")
+```
+
+**Input requirements.** A validated `bm_fit` and an optional `bm_sandwich` (computed internally if not supplied).
+The provenance check ensures the sandwich was computed from this exact fit snapshot.
+
+**Output.** A `bm_ccc` object containing calibrated and original posterior draws, the CCC transformation matrix, per-parameter rescaling ratios, verification diagnostics, and the embedded sandwich for downstream methods.
+
+**Validation.** `.assert_bm_ccc()` checks class inheritance, 10 required slots, and (when present) that the `method` field takes one of three valid values.
+
+### Downstream Consumption
+
+The `bm_ccc` object feeds into the standard R model interface:
+
+```
+summary(cal)   → Three-Layer Calibration table (CCC-t)
+confint(cal)   → CCC-t confidence intervals (Satterthwaite df)
+coef(cal)      → CCC posterior means (beta, theta, or all)
+vcov(cal)      → CCC posterior covariance (K x K beta-block)
+plot(cal)      → Posterior overlay, dumbbell, R_k plots
+bm_diagnose(cal) → CCC calibration diagnostics
+```
+
+
+## S3 Class Contracts {#sec-arch-contracts}
+
+Each of the three pipeline classes is a named list with a class attribute.
+The tables below specify every field, its type and dimensions, a brief description, and which downstream functions consume it.
+Fields marked with a dagger ($\dagger$) may be `NULL` under documented conditions.
+
+### bm_fit Contract
+
+Constructed by `bm_fit()` in `fit.R` (lines 215--231).
+Validated by `.assert_bm_fit()` in `validate.R`.
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `fit` | `CmdStanMCMC` | -- | Live CmdStan handle for draw extraction | `.extract_draws()`, `bm_diagnose()` |
+| `stan_data` | list | -- | Stan input data block | `sandwich()` (weights, design) |
+| `bm_data` | list | -- | Parsed data: `yi`, `vi`, `X`, `study_ids`, `n_j`, `N_total` | `sandwich()`, `ccc()`, provenance |
+| `formula` | formula | -- | Original model formula | `print.bm_fit()` |
+| `prior` | `bm_prior` | -- | Prior specification object | Provenance fingerprint |
+| `param` | character(1) | -- | Parameterization: `"ncp"` or `"cp"` | Provenance fingerprint |
+| `model` | character(1) | -- | Model type: `"ce"` or `"che"` | `sandwich()` dispatch, `ccc()` dispatch |
+| `K` | integer(1) | -- | Number of fixed-effect coefficients | All downstream stages |
+| `J` | integer(1) | -- | Number of studies | All downstream stages |
+| `model_name` | character(1) | -- | Stan model identifier (e.g., `"bm_ce_ncp"`) | Provenance fingerprint |
+| `call` | call | -- | Matched call from `bm_fit()` | `print.bm_fit()` |
+| `elapsed` | numeric(1) | -- | Wall-clock fitting time in seconds | `print.bm_fit()` |
+
+**Invariants.** 11 of the 12 fields are validated as non-NULL by `.assert_bm_fit()`; the `model` field is not in the validator's required list for backward compatibility with pre-v0.4.0 objects, but is set by all current constructors.
+`K` and `J` are positive integers.
+`model` is one of `"ce"` or `"che"`.
+`param` is one of `"ncp"` or `"cp"`.
+
+### bm_sandwich Contract
+
+Constructed by `.assemble_bm_sandwich()` (CE path) or `.che_sandwich()` (CHE path) in `sandwich.R`.
+Validated by `.assert_bm_sandwich()` in `validate.R`.
+
+**Always-present fields** (validated as non-NULL):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `V_sand_marg` | matrix | K $\times$ K | Marginal sandwich variance for beta (CR2-corrected when applicable) | `ccc()` beta-block target, `vcov.bm_sandwich()` |
+| `V_sand_cond` | numeric | J | Per-study conditional sandwich variances | `ccc()` theta-block target |
+| `H_post` | matrix | (K+1) $\times$ (K+1) | Marginal Hessian (beta + tau$^2$) | Diagnostics |
+| `M` | matrix | (K+1) $\times$ (K+1) | Meat matrix (outer product of scores) | Diagnostics |
+| `Sigma_MCMC` | matrix | varies | Posterior covariance of all sampled parameters | `ccc()` Cholesky factorization (L1) |
+| `scores` | matrix | J $\times$ (K+1) | Per-study score contributions | Diagnostics, score sum norm |
+| `rho` | numeric(1) | -- | Working correlation used | `sensitivity.R`, `print()` |
+| `param_names` | character | K+1 or K+2 | Parameter labels | `print()`, `coef()` |
+| `fingerprint` | list | -- | Provenance metadata (version, K, J, study_ids, fit_hash) | `ccc()` provenance check |
+
+**CR2/small-sample fields** (present when `small_sample` is set; validated conditionally):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `V_sand_marg_raw` | matrix | K $\times$ K | Uncorrected (HC0) marginal sandwich | Diagnostics, comparison |
+| `small_sample` | character(1) | -- | Method: `"CR2"`, `"scalar"`, or `"none"` | `summary.bm_ccc()` dispatch |
+| `c_beta` | numeric(1) | -- | Scalar small-sample correction factor | Diagnostics |
+| `fallback` | logical(1) | -- | TRUE if J_min envelope triggered beta-block fallback | `ccc()` method selection |
+| `fallback_reason`$^\dagger$ | character(1) | -- | Human-readable fallback explanation. NULL when `fallback = FALSE`. | `print()` |
+| `p_eff_beta`$^\dagger$ | numeric(1) | -- | Effective number of beta parameters. NULL for non-CR2. | Diagnostics |
+| `leverage_beta`$^\dagger$ | numeric | J | Per-study leverage values. NULL for non-CR2. | Diagnostics |
+| `df_naive`$^\dagger$ | numeric(1) | -- | Naive degrees of freedom (J - p_eff). NULL for non-CR2. | Diagnostics |
+
+**CR2-specific fields** (NULL when `small_sample != "CR2"`):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `A_list`$^\dagger$ | list of matrices | J elements, each n_j $\times$ n_j | CR2 adjustment matrices | Advanced diagnostics |
+| `Q_bread`$^\dagger$ | matrix | K $\times$ K | WLS bread matrix | CR2 internals |
+| `W_list_cr2`$^\dagger$ | list of matrices | J elements | Per-study weight matrices | CR2 internals |
+| `X_list_cr2`$^\dagger$ | list of matrices | J elements, each n_j $\times$ K | Per-study design matrices | CR2 internals |
+| `hat_info`$^\dagger$ | list | -- | Hat matrix diagnostics | Advanced diagnostics |
+| `df_satt`$^\dagger$ | numeric | K | Satterthwaite degrees of freedom per coefficient | `confint.bm_ccc()`, `summary.bm_ccc()` |
+| `df_source`$^\dagger$ | character | K | Source of each df: `"satterthwaite"` or `"naive"` | Diagnostics |
+
+**Additional fields** (present but not validated):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `V_sand_marg_full` | matrix | (K+1) $\times$ (K+1) | Full marginal sandwich including tau$^2$ row/column | Diagnostics |
+| `H_post_marg` | matrix | (K+1) $\times$ (K+1) | Alias for `H_post` | Legacy compatibility |
+| `M_marg` | matrix | (K+1) $\times$ (K+1) | Alias for `M` | Legacy compatibility |
+| `scores_marg` | matrix | J $\times$ (K+1) | Alias for `scores` | Legacy compatibility |
+| `H_theta` | numeric | J | Per-study conditional Hessian values | Diagnostics |
+| `scores_theta` | numeric | J | Per-study conditional score values | Diagnostics |
+| `diagnostics` | list | -- | Pre-computed diagnostic measures (H condition number, M rank, etc.) | `bm_diagnose()` |
+| `K` | integer(1) | -- | Copy of K for standalone use | `print()`, `coef()` |
+| `J` | integer(1) | -- | Copy of J for standalone use | `print()` |
+| `center` | character(1) | -- | Always `"posterior_mean"` | `print()` |
+
+**Invariants.** When `diagnostics$beta_pd = TRUE`, `V_sand_marg` is symmetric positive definite: $\lambda_{\min}(V_{\text{sand,marg}}) > 0$.
+Score balance: $\|\sum_{j=1}^{J} s_j\| \approx 0$ (near-zero score sums at the posterior mean).
+When `small_sample = "CR2"`: `c_beta = 1` (CR2 replaces scalar correction); `df_satt` is a $K$-vector with $\text{df}_k \geq 1$ for all $k$.
+Fingerprint integrity: `fingerprint$fit_hash` is a 32-character MD5 hex string computed from data + model + posterior state.
+
+### bm_ccc Contract
+
+Constructed by `.assemble_bm_ccc()` (CE) or `.ccc_che()` (CHE) in `ccc.R`.
+Validated by `.assert_bm_ccc()` in `validate.R`.
+
+**Required fields** (validated as non-NULL by `.assert_bm_ccc()`):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `draws_star` | matrix | S $\times$ (K+J) | CCC-calibrated posterior draws | `coef.bm_ccc()`, `vcov.bm_ccc()`, `confint.bm_ccc()`, `summary.bm_ccc()`, `plot.bm_ccc()` |
+| `draws_orig` | matrix | S $\times$ (K+J) | Original (uncalibrated) posterior draws | `plot.bm_ccc()` (overlay), diagnostics |
+| `A_beta` | matrix | K $\times$ K | CCC transformation matrix for beta-block | Diagnostics, Frobenius norm |
+| `r_theta` | numeric | J | Per-study theta rescaling ratios (zeros for CHE) | `print.bm_ccc()`, diagnostics |
+| `frobenius_norm` | numeric(1) | -- | $\|A_\beta - I_K\|_F$: distance from identity | `print.bm_ccc()`, diagnostics |
+| `r_k` | numeric | K+J | Per-parameter SD ratios (CCC SD / MCMC SD) | `print.bm_ccc()`, `summary.bm_ccc()`, `plot.bm_ccc()` |
+| `center_type` | character(1) | -- | `"posterior_mean"` or `"posterior_median"` | `print.bm_ccc()` |
+| `sandwich` | `bm_sandwich` | -- | Embedded sandwich object for downstream df access | `confint.bm_ccc()`, `summary.bm_ccc()` |
+| `K` | integer(1) | -- | Number of fixed-effect coefficients | All downstream methods |
+| `J` | integer(1) | -- | Number of studies | All downstream methods |
+
+**Additional fields** (present but not formally validated):
+
+| Field | Type | Dim | Description | Consumed By |
+|:------|:-----|:----|:------------|:------------|
+| `center` | numeric | K+J | Centering point vector | Verification |
+| `verification` | list | -- | Results of `.verify_ccc()` post-construction checks | `bm_diagnose()` |
+| `method` | character(1) | -- | `"ccc"`, `"ccc_partial"`, or `"fallback_raw"` | `print.bm_ccc()`, `summary.bm_ccc()` |
+| `fallback` | logical(1) | -- | TRUE if sandwich fallback was active | `print.bm_ccc()` |
+| `fallback_reason`$^\dagger$ | character(1) | -- | Explanation when fallback is TRUE; NULL otherwise | `print.bm_ccc()` |
+| `beta_skipped` | logical(1) | -- | TRUE if beta-block CCC was not applied | `summary.bm_ccc()` |
+| `beta_skip_reason`$^\dagger$ | character(1) | -- | Reason for beta skip; NULL when not skipped | Diagnostics |
+| `tau_diag`$^\dagger$ | list | -- | Tau boundary diagnostics (CE only); NULL for CHE | `bm_diagnose()` |
+| `model` | character(1) | -- | `"ce"` or `"che"`: enables downstream CHE detection | `summary.bm_ccc()`, `print.bm_ccc()`, `confint.bm_ccc()` |
+| `DER_emp`$^\dagger$ | numeric | K | Empirical Design Effect Ratios (CHE only) | Diagnostics |
+| `call` | call | -- | Matched call from `ccc()` | `print.bm_ccc()` |
+
+**Mathematical invariants.** Centering preservation (Theorem 1, @sec-ccc): $\bar\beta^* = \bar\beta$ (CCC preserves the posterior mean).
+Exact covariance matching (Theorem 2, @sec-ccc): $\text{Cov}(\beta^*_{1:K}) = V_{\text{sand,marg}}$ exactly for any $S$.
+Frobenius diagnostic: $\|A_\beta - I_K\|_F$ quantifies calibration magnitude; values near zero indicate the posterior already approximates the sandwich.
+$R_k$ interpretation: $R_k = \text{SD}(\beta_k^*) / \text{SD}(\beta_k)$ gives per-coefficient variance inflation ($R_k > 1$) or deflation ($R_k < 1$).
+
+**CHE-specific invariants.** When `model = "che"`, the theta columns of `draws_star` and `draws_orig` are zero matrices (dummy compatibility layer), `r_theta` is a zero vector, and `tau_diag` is NULL.
+The `model` field enables downstream methods to suppress theta-related output and select the appropriate provenance check.
+
+
+## Provenance and Compatibility Checks {#sec-arch-provenance}
+
+A recurring failure mode in multi-stage pipelines is passing an object from one fit into a function expecting another.
+For example, fitting two models on different subsets and accidentally pairing a sandwich from model A with the draws from model B would produce silently wrong CCC output.
+The provenance system prevents this.
+
+### The Fingerprint
+
+Every `bm_sandwich` object carries a `fingerprint` list created by `.make_fit_fingerprint()` at construction time.
+The fingerprint contains:
+
+- **Structural metadata:** `K` (integer), `J` (integer), `study_ids` (character vector).
+- **Version tag:** integer version number (currently 2) for forward compatibility.
+- **Exact-match hash:** an MD5 digest computed over a canonical list that includes the data (`yi`, `vi`, `X`), model specification (`model_name`, `param`, `prior`), parameter labels, the posterior center vector, and the MCMC covariance matrix `Sigma_MCMC`.
+
+The hash captures both the data provenance and the MCMC realization.
+Two fits on identical data with different random seeds produce different hashes because their posterior draws (and hence `Sigma_MCMC` and `posterior_center`) differ.
+
+### CE Provenance: `.assert_sandwich_matches_fit()`
+
+`.assert_sandwich_matches_fit()` is the unified provenance dispatcher. It auto-routes to the CE or CHE check path based on `fit$model`. For CE models, it performs the full-strength provenance check.
+The check proceeds in four stages:
+
+1. **Class validation.** Both `fit` and `sandwich_obj` pass their respective `.assert_bm_*()` validators.
+2. **Dimension check.** `fingerprint$K` and `fingerprint$J` must match `fit$K` and `fit$J` exactly (as integers).
+3. **Study ID check.** `fingerprint$study_ids` must be identical (as character vectors) to `fit$bm_data$study_ids`.
+4. **Hash check.** The sandwich's stored `fit_hash` is compared against a freshly computed hash from the current `fit`. This recomputation calls `.extract_draws(fit, "beta")` and `.extract_draws(fit, "theta")` to rebuild the canonical list.
+
+If any stage fails, `cli_abort()` produces a diagnostic message directing the user to recompute the sandwich.
+
+### CHE Provenance: `.assert_che_sandwich_matches_fit()`
+
+The full CE provenance hash cannot be used for CHE models because `.make_fit_fingerprint()` internally calls `.extract_draws(x, "theta")`, which returns a zero matrix for CHE (theta is analytically integrated out in the marginal likelihood).
+A hash that includes a zero matrix would match any CHE fit regardless of data, defeating the purpose.
+
+The CHE-specific check (called automatically by the unified dispatcher) uses a `data_hash`---an MD5 digest over 9 fields (`K`, `J`, `study_ids`, `yi`, `vi`, `X`, `model_name`, `param`, `prior`)---instead of the full posterior-state hash:
+
+1. **Class validation.** Same as CE.
+2. **Dimension check.** Same as CE.
+3. **Study ID check.** Same as CE.
+4. **Data-hash check.** The sandwich's stored `data_hash` is compared against a freshly computed hash from the current `fit` via `.make_data_hash()`. This catches dataset swaps and model-specification changes without requiring posterior draws.
+
+This provides full data-level and model-specification provenance without requiring theta draws.
+The trade-off is that two CHE fits on identical data with different seeds produce the same `data_hash` and are not distinguished by this check, because the hash excludes posterior draws (`Sigma_MCMC`, `posterior_center`).
+In practice this is acceptable because the CHE CCC path is beta-only.
+Legacy sandwiches created before the `data_hash` field was introduced receive a warning (not an error) and fall back to the structural checks (stages 1--3).
+
+### Check Sequence in `ccc.bm_fit()`
+
+When `ccc()` is called with a user-supplied `sandwich_obj`, the following sequence executes before any computation:
+
+```
+ccc(fit, sandwich_obj, ...)
+  │
+  ├── .assert_bm_fit(fit)
+  ├── .assert_bm_sandwich(sandwich_obj)
+  │
+  ├── .assert_sandwich_matches_fit(fit, sandwich_obj)
+  │     (auto-dispatches: CE → full fingerprint hash,
+  │                        CHE → data hash)
+  │
+  └── [proceed to CCC computation]
+```
+
+When `sandwich_obj = NULL` (the default), `ccc()` calls `sandwich(fit, rho)` internally, and the resulting object is guaranteed to match because it was just constructed from the same `fit`.
+In this common case, the provenance check is effectively a no-op but is still executed for defense in depth.
+
+### Failure Examples
+
+The provenance system produces informative errors when the user passes a mismatched sandwich:
+
+```r
+# Two models with different specifications
+fit1 <- bm_fit(yi | se(vi) ~ x1, data = dat, study = ~ studyid, model = "ce")
+fit2 <- bm_fit(yi | se(vi) ~ x1 + x2, data = dat, study = ~ studyid, model = "ce")
+
+sw2 <- sandwich(fit2, rho = 0.8)
+ccc(fit1, sandwich_obj = sw2)
+#> Error in `ccc()`:
+#> ! Sandwich dimensions (K=3, J=20) do not match the supplied bm_fit
+#>   object (K=2, J=20).
+#> i Recompute via `sandwich(fit)` or pass `sandwich_obj = NULL`.
+```
+
+When dimensions match but the fits differ (same model, different MCMC run):
+
+```r
+fit_a <- bm_fit(yi | se(vi) ~ x1, data = dat, study = ~ studyid, model = "ce")
+fit_b <- bm_fit(yi | se(vi) ~ x1, data = dat, study = ~ studyid, model = "ce")
+
+sw_a <- sandwich(fit_a, rho = 0.8)
+ccc(fit_b, sandwich_obj = sw_a)
+#> Error in `ccc()`:
+#> ! Sandwich provenance does not match the supplied bm_fit object.
+#> i A structurally matching sandwich from a different fit/data snapshot
+#>   was detected.
+#> ! Recompute via `sandwich(fit)` or pass `sandwich_obj = NULL`.
+```
+
+This second case demonstrates why a hash over the posterior state is necessary: structural compatibility alone (matching K, J, study_ids) is insufficient.
+
+
+## Dependency Strategy {#sec-arch-dependencies}
+
+### Hard Dependencies (Imports)
+
+The package declares five hard dependencies in `DESCRIPTION`:
+
+| Package | Role | Minimum Version |
+|:--------|:-----|:----------------|
+| checkmate | Input validation (`assert_*` functions) throughout the codebase | 2.1.0 |
+| cli | User-facing messages, warnings, and errors (`cli_abort`, `cli_warn`, `cli_inform`) | 3.4.0 |
+| digest | MD5 fingerprint computation for provenance system | 0.6.29 |
+| Matrix | `nearPD()` for nearest positive-definite projection when MCMC covariance is non-PD | 1.5.0 |
+| rlang | `.data` pronoun, `check_installed()` for optional dependency gating, condition handling | 1.1.0 |
+
+The package depends on R >= 4.1.0 (for the native pipe and lambda syntax).
+
+### Runtime Dependencies (Suggests with Gating)
+
+Two packages are essential at runtime but declared as Suggests to avoid CRAN compilation issues:
+
+- **cmdstanr** (>= 0.8.0): Required for `bm_fit()` (Stan sampling). Gated via `rlang::check_installed("cmdstanr")` at the point of use, producing a helpful installation message if missing.
+- **posterior** (>= 1.4.0): Required for `.extract_draws()` (posterior draw extraction). Gated identically.
+
+This pattern---Suggests with `check_installed()` gating---allows the package to be installed and loaded without CmdStan being available, which is important for documentation builds and downstream package checks.
+
+### Benchmark-Only Dependencies
+
+- **clubSandwich** (>= 0.5.10): Used exclusively in `compare_with_cr2()` and test files for validating bayesRVE's CR2 implementation against the reference implementation. Never called in the core pipeline (Decision D11). This is a deliberate design choice: bayesRVE implements CR2 sandwich estimation independently, and clubSandwich serves only as an external benchmark.
+- **metafor** (>= 4.0.0): Used in `compare_with_cr2()` and `from_metafor()` for interoperability. Not required for the core pipeline.
+
+### Visualization Dependencies
+
+- **ggplot2** (>= 3.4.0), **patchwork** (>= 1.1.0), **bayesplot** (>= 1.10.0): Required for `plot()` methods. Gated via `check_installed()`.
+
+### Stan Model Compilation and Caching
+
+Stan model management is handled by `stan-cache.R` with a two-tier architecture described in @sec-envelope:
+
+- **Tier 1 (Session cache).** Compiled `CmdStanModel` objects are stored in the `.bm_cache` environment (defined in `bayesRVE-package.R`). Subsequent calls to `bm_compile()` or `bm_fit()` within the same session retrieve the in-memory object without disk access.
+- **Tier 2 (Disk cache).** Compiled Stan executables are stored in `tools::R_user_dir("bayesRVE", "cache")` alongside MD5 hashes of the `.stan` source files. If the hash matches, the pre-compiled executable is loaded; if not, recompilation is triggered. A file-based lock mechanism prevents race conditions when multiple R sessions compile simultaneously.
+
+The three valid model names are enumerated in `.bm_valid_models`: `bm_ce_ncp`, `bm_ce_cp`, and `bm_che_ncp`.
+The `bm_compile()` function accepts either the canonical name (with `bm_` prefix) or the short name and normalizes internally.
+`bm_clear_cache()` removes both tiers, forcing recompilation on the next call.
+
+### Missing Dependency Impact
+
+| Dependency Missing | Impact | Functions Affected | User Action |
+|:-------------------|:-------|:-------------------|:------------|
+| cmdstanr | Cannot fit any model | `bm_fit()` | Install from stan-dev r-universe |
+| CmdStan toolchain | cmdstanr loads but sampling fails | `bm_fit()` | `cmdstanr::install_cmdstan()` |
+| posterior | Cannot extract draws | `bm_fit()`, `sandwich()`, `ccc()` | `install.packages("posterior")` |
+| metafor | Cannot use interop functions | `from_metafor()`, `compare_with_cr2()` | Optional |
+| clubSandwich | Cannot run benchmark tests | Test suite (Tier 2/3 tests) | Optional |
+| ggplot2/bayesplot | No plotting | `plot.*()` methods | Optional; numeric output unaffected |
+
+The complete inference pipeline (`bm_fit` → `sandwich` → `ccc` → `summary`/`confint`) requires only Tier 1 imports plus cmdstanr and posterior from Tier 2.
+All other packages serve visualization, benchmarking, or interoperability purposes.

@@ -1,0 +1,288 @@
+---
+title: "Operating Envelope and Boundary Behavior"
+---
+
+# Operating Envelope and Boundary Behavior {#sec-envelope}
+
+The Cholesky Calibration Correction (CCC) framework, as developed in @sec-ccc, produces exact covariance matching under the assumptions stated in Theorem 2. However, these guarantees rest on regularity conditions that can fail in small or degenerate meta-analytic datasets. This chapter formally states the conditions required for valid CCC inference, delineates the operating envelope within which bayesRVE is designed to function reliably, taxonomizes the boundary cases that arise when these conditions are violated, and documents the fallback semantics that govern the software's behavior at the margins.
+
+
+## Coverage Conditions and Regularity Assumptions {#sec-env-conditions}
+
+The Three-Layer Calibration framework (Layer 1: posterior mean centering; Layer 2: CR2 sandwich target; Layer 3: Satterthwaite degrees of freedom) provides frequentist-calibrated intervals from Bayesian posterior draws. The validity of this procedure rests on four regularity conditions.
+
+**Condition 1 (Posterior Approximate Normality).** The marginal posterior for $\beta$ is approximately multivariate normal:
+$$
+p(\beta \mid y) \approx N_K\!\bigl(\hat\beta,\; \Sigma_{\mathrm{MCMC}}\bigr),
+$$
+where $\hat\beta$ is the posterior mean and $\Sigma_{\mathrm{MCMC}} = \mathrm{Cov}(\beta \mid y)$. This condition holds by Bayesian CLT arguments when the number of studies $J$ is large relative to $K$, the prior is not overly informative, and the likelihood is regular. The CCC affine transformation preserves any departures from normality (it maps quantiles linearly), but the CCC-$t$ interval construction in Layer 3 presumes approximate normality for the $t$-distribution pivotal argument to hold.
+
+**Condition 2 ($V_{\mathrm{CR2}}$ Positive Definite).** The bias-corrected cluster-robust sandwich variance $V_{\mathrm{CR2}}$ is positive definite. Since $V_{\mathrm{CR2}}$ is assembled from $J$ outer-product contributions (see @sec-sandwich), this requires:
+
+- $J > K$ (more clusters than parameters, so the meat matrix has rank $\geq K$);
+- No perfect multicollinearity in the between-study design matrix;
+- Finite and non-degenerate marginal variances $v_j = \bar{s}^2_j / n_j + \tau^2 > 0$ for all $j$.
+
+When $J \leq K$, the meat matrix is rank-deficient, and $V_{\mathrm{CR2}}$ is necessarily singular. The Cholesky factorization $L_2 = \mathrm{chol}(V_{\mathrm{CR2}})$ required for the CCC transformation does not exist, and the beta-block CCC must be skipped.
+
+**Condition 3 ($\Sigma_{\mathrm{MCMC}}$ Positive Definite).** The MCMC posterior covariance $\Sigma_{\mathrm{MCMC}}$ is positive definite. This is the sample covariance of $S$ posterior draws:
+$$
+\Sigma_{\mathrm{MCMC}} = \frac{1}{S-1}\sum_{s=1}^{S} (\beta^{(s)} - \hat\beta)(\beta^{(s)} - \hat\beta)^\top.
+$$
+The matrix $\Sigma_{\mathrm{MCMC}}$ has rank $\min(S - 1, K)$, so it is PD whenever $S > K$. With typical MCMC sample sizes ($S = 4000$ in bayesRVE defaults), this condition is virtually always satisfied. It can fail with pathologically few draws or when the sampler becomes stuck in a mode. The Cholesky factorization $L_1 = \mathrm{chol}(\Sigma_{\mathrm{MCMC}})$ required for CCC fails when this condition is violated; bayesRVE applies a `nearPD` correction as a fallback (see @sec-env-boundary).
+
+**Condition 4 (Consistent Centering).** The posterior mean $\hat\beta$ converges to the true $\beta_0$ as $J \to \infty$:
+$$
+\hat\beta \xrightarrow{p} \beta_0 \quad \text{as } J \to \infty.
+$$
+This is the standard Bayesian consistency requirement under model misspecification: even when the assumed model (CE or CHE) is not the true data-generating process, the posterior mean of $\beta$ converges to the pseudo-true value that the sandwich variance targets. The CCC transformation centers at $\hat\beta$ and the CR2 sandwich estimates the variance of $\hat\beta$ around this limit, so consistency of both components is required for the CCC-$t$ interval to achieve nominal coverage.
+
+These four conditions are grounded in the Calibrated Bayes framework of @little2012, which establishes that Bayesian procedures can achieve frequentist coverage properties when the posterior concentrates appropriately. The CR2 correction and Satterthwaite degrees of freedom follow @pustejovsky2018, ensuring finite-sample accuracy of the variance target even when $J$ is moderate.
+
+
+## Exact versus Asymptotic Guarantees {#sec-env-exact}
+
+A critical distinction must be maintained between what the CCC transformation guarantees exactly and what it guarantees only asymptotically.
+
+**The CCC transformation is exact.** Theorem 2 (@sec-ccc) establishes that for any number of posterior draws $S$, the CCC-calibrated draws $\beta^{*(s)} = \hat\beta + A(\beta^{(s)} - \hat\beta)$ satisfy:
+$$
+\mathrm{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\mathrm{CR2}}^{(\beta)},
+$$
+where $\mathrm{Cov}_S$ denotes the sample covariance across the $S$ draws. This is not an asymptotic statement; it holds exactly for any $S \geq K + 1$ (so that $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)}$ is nonsingular). The proof follows from the matrix identity $\mathbf{L}_2 \mathbf{L}_1^{-1} \hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)} \mathbf{L}_1^{-\top} \mathbf{L}_2^\top = \mathbf{V}_{\mathrm{CR2}}^{(\beta)}$.
+
+**The CCC-$t$ interval is asymptotic.** The Three-Layer Calibration interval for coefficient $\beta_k$ takes the form:
+$$
+\hat\beta_k \;\pm\; t_{\nu_k,\, 1-\alpha/2} \times \mathrm{SD}_{\mathrm{CCC}}(\beta_k^*),
+$$
+where $\nu_k$ is the Satterthwaite degrees of freedom for the $k$-th coefficient and $\mathrm{SD}_{\mathrm{CCC}}$ is the standard deviation of the calibrated draws. This interval achieves nominal coverage only in the limit as $J \to \infty$ (where $\nu_k \to \infty$ and the $t$-distribution converges to the normal). For finite $J$, the coverage guarantee is approximate, with the quality of approximation depending on:
+
+1. The accuracy of the Satterthwaite moment-matching approximation for $\nu_k$ [@satterthwaite1946];
+2. The validity of the normal approximation to the posterior (Condition 1);
+3. The quality of the plug-in variance component estimates ($\tau^2$, $\omega^2$) used in constructing $V_{\mathrm{CR2}}$.
+
+The Satterthwaite degrees of freedom $\nu_k$ are computed by matching the first two moments of a quadratic form to a scaled $\chi^2$ distribution (see @sec-sandwich for the computational formula). This is itself an approximation: the exact sampling distribution of the sandwich variance estimator is unknown in closed form, and the moment-matching procedure is most accurate when the underlying scores are approximately normal. As documented in the simulation study (@sec-results), the CCC-$t$ interval achieves 94.5--95.3\% empirical coverage across the 24 conditions in sim3, validating the approximation quality for the configurations studied.
+
+In summary: the covariance calibration is an algebraic identity; the inferential coverage is a statistical approximation that improves with $J$.
+
+
+## Operating Envelope: $J_{\min}$ {#sec-env-jmin}
+
+The operating envelope defines the minimum number of studies $J$ required for the full CCC pipeline to function. The threshold is governed by Decision D7:
+
+$$
+J_{\min} = \max(8,\; 2K + 2),
+$$
+
+where $K$ is the number of fixed-effect coefficients (including the intercept).
+
+### Rationale for the $2K + 2$ Component
+
+The $2K + 2$ threshold is a conservative heuristic motivated by rank requirements, residual degrees of freedom, and the small-cluster CRVE literature. The meat matrix $M = \sum_{j=1}^J s_j s_j^\top$ is a sum of $J$ rank-one outer products, giving $\mathrm{rank}(M) \leq J$. For $V_{\mathrm{CR2}}$ to be full-rank ($K \times K$), we need $J \geq K$. However, the CR2 bias correction involves the adjustment matrices $A_j = (I - H_{jj})^{-1/2}$, where $H_{jj}$ is the leverage block for study $j$. The aggregate leverage satisfies $\sum_j \mathrm{tr}(H_{jj}) = K$, so the effective residual degrees of freedom are $J - K$. Setting $J - K \geq K + 2$ yields $J \geq 2K + 2$, which provides:
+
+- $K$ degrees of freedom consumed by the fixed effects;
+- $K$ degrees of freedom for the $K \times K$ sandwich to be estimable;
+- $2$ additional degrees of freedom as a stability margin for the CR2 bias correction.
+
+This requirement controls the *average* study leverage: since $\sum_j \mathrm{tr}(H_{jj}) = K$, we have $\bar{h} = K/J \leq K/(2K+2) < 1/2$ when $J \geq 2K+2$. Note, however, that the bound applies to the average, not to any individual study. With highly unbalanced study sizes, a single study can still have $\mathrm{tr}(H_{jj})$ near or above $1/2$, making its CR2 adjustment $A_j$ ill-conditioned. The software guards against this at runtime: `.compute_hat_blocks()` issues a warning when the maximum per-study leverage exceeds $0.5$ (see @sec-env-boundary).
+
+### The Floor of 8
+
+The floor $J_{\min} \geq 8$ is imposed regardless of $K$ and reflects simulation evidence from @tipton2015, who demonstrated that cluster-robust inference with fewer than approximately 8--10 clusters exhibits substantial coverage distortion even for intercept-only models ($K = 1$). The value 8 is chosen as a pragmatic lower bound below which the asymptotic sandwich theory provides unreliable guidance.
+
+### $J_{\min}$ for Common Configurations
+
+| $K$ (coefficients) | $2K + 2$ | $J_{\min}$ |
+|:-------------------:|:--------:|:----------:|
+| 1 (intercept only)  | 4        | 8          |
+| 2                    | 6        | 8          |
+| 3                    | 8        | 8          |
+| 4                    | 10       | 10         |
+| 5                    | 12       | 12         |
+| 6                    | 14       | 14         |
+| 10                   | 22       | 22         |
+
+: $J_{\min}$ values as a function of the number of fixed-effect coefficients $K$. The floor of 8 binds for $K \leq 3$. {#tbl-jmin}
+
+### Worked Example
+
+Consider a researcher with $J = 6$ studies estimating a model with an intercept and two categorical moderators ($K = 3$).
+
+**Step 1.** Compute $J_{\min} = \max(8, 2 \times 3 + 2) = 8$.
+
+**Step 2.** Since $J = 6 < 8 = J_{\min}$, the operating envelope is violated.
+
+**Step 3.** bayesRVE response:
+
+- `sandwich()` sets `fallback = TRUE`, `fallback_reason = "J_too_small"`
+- `ccc()` skips beta-block CCC; `method = "ccc_partial"`
+- `confint()` returns quantile-based intervals for $\beta$
+
+**Step 4.** User options (in order of preference):
+
+1. **Expand the literature search** to bring $J \geq 8$.
+2. **Reduce model complexity** (e.g., drop a moderator to $K = 2$); but note the floor of 8 still binds.
+3. **Report raw Bayesian credible intervals** with a note that sandwich calibration was not applied.
+
+### Behavior Below $J_{\min}$
+
+When $J < J_{\min}$, the `sandwich()` function sets `fallback = TRUE` and emits an informational message. The downstream consequences are:
+
+- The beta-block sandwich $V_{\mathrm{CR2}}$ is still computed (and stored in `V_sand_marg`), but it is flagged as unreliable;
+- The `ccc()` function detects `sandwich_obj$fallback == TRUE` and skips the beta-block Cholesky transformation, returning the original (uncalibrated) posterior draws for $\beta$;
+- For CE models, the theta-block diagonal rescaling proceeds normally (it depends on per-study conditional sandwich variances, which do not require $J > J_{\min}$);
+- The `confint()` method forces `df = "normal"` (quantile-based intervals), since the CCC-$t$ infrastructure requires a fully calibrated beta block.
+
+The `method` field in the resulting `bm_ccc` object is set to `"ccc_partial"`, indicating that the theta-block was calibrated but the beta-block was not.
+
+::: {.callout-note title="Small-$J$ Alternatives Beyond bayesRVE"}
+When the operating envelope cannot be met, alternatives include the wild cluster bootstrap (Cameron, Gelbach, and Miller, 2008), the jackknife cluster-robust estimator (MacKinnon, Nielsen, and Webb, 2023), and randomization inference under the sharp null. These methods relax the large-$J$ asymptotics that CCC inherits from the sandwich estimator, but are not currently implemented in bayesRVE.
+:::
+
+
+## Boundary Cases and PD Failures {#sec-env-boundary}
+
+Even when $J \geq J_{\min}$, boundary conditions can cause the CCC pipeline to degrade. This section catalogs the principal failure modes and the software's response to each.
+
+### Case 1: $J \leq K$ (Structural Singularity)
+
+When $J \leq K$, the between-study design matrix has more columns than rows, and the meat matrix is structurally rank-deficient. The sandwich $V_{\mathrm{CR2}}$ is singular regardless of the data values. The `ccc()` function detects this condition and unconditionally skips the beta-block CCC:
+
+- For $J < K$: a warning is emitted noting structural singularity, and the method is set to `"fallback_raw"`.
+- For $J = K$: the sandwich may or may not be PD depending on the specific data configuration. If PD, `ccc()` proceeds with a zero-excess-df warning. If not PD, the beta-block is skipped.
+
+In either case, the theta-block (CE models only) proceeds normally, as conditional per-study variances require only $n_j \geq 1$.
+
+### Case 2: $\tau^2 \to 0$ (Degenerate Heterogeneity)
+
+As $\tau^2 \to 0$, the between-study variance vanishes and the marginal weights $W_j \to (1/\bar{s}^2_j) I_{n_j}$ reduce to the inverse sampling variance. In this limit:
+
+- The hat matrix converges to the standard OLS leverage, and high-leverage studies can produce $H_{jj}$ with eigenvalues near 1;
+- The CR2 adjustment $(I - H_{jj})^{-1/2}$ becomes ill-conditioned for high-leverage clusters;
+- Satterthwaite degrees of freedom may collapse to very small values, producing extremely wide CCC-$t$ intervals.
+
+The software monitors this boundary through the `tau_diag` component returned by `.check_tau_boundary()`, which flags when a large fraction of posterior draws have $\tau$ near zero. While no automatic fallback is triggered (the user may genuinely have a near-homogeneous meta-analysis), the summary output includes a diagnostic warning when $\tau$ boundary behavior is detected.
+
+### Case 3: $\Sigma_{\mathrm{MCMC}}$ Not Positive Definite
+
+The MCMC posterior covariance $\Sigma_{\mathrm{MCMC}}$ can fail to be PD when the sampler generates too few effective draws or becomes stuck. The `.ccc_beta_block()` function handles this via `.safe_chol()`, which:
+
+1. Attempts direct Cholesky decomposition of $\Sigma_{\mathrm{MCMC}}$;
+2. On failure, applies `Matrix::nearPD()` to project to the nearest PD matrix;
+3. Retries the Cholesky decomposition on the projected matrix;
+4. Aborts only if the projected matrix also fails decomposition.
+
+This `nearPD` correction is applied *only* to $\Sigma_{\mathrm{MCMC}}$ (the source covariance), never to $V_{\mathrm{CR2}}$ (the target). Applying `nearPD` to the sandwich target would alter the frequentist calibration target and defeat the purpose of the CCC correction. This asymmetry is a deliberate design decision documented in the codebase.
+
+### Case 4: $V_{\mathrm{CR2}}$ Not Positive Definite
+
+When $V_{\mathrm{CR2}}$ fails the PD check (`.is_pd()` with tolerance $10^{-8}$), the Cholesky factorization $L_2 = \mathrm{chol}(V_{\mathrm{CR2}})$ cannot proceed. Unlike $\Sigma_{\mathrm{MCMC}}$, no `nearPD` correction is applied. Instead, the beta-block CCC is skipped entirely:
+
+- The `sandwich()` function sets `diagnostics$beta_pd = FALSE`;
+- The `ccc()` function detects `!beta_pd` and returns uncalibrated beta draws;
+- The `method` field is set to `"fallback_raw"`.
+
+This can occur when numerical cancellation in the sandwich computation produces small negative eigenvalues (typically $|{\lambda_{\min}}| < 10^{-8}$). It is most likely when $J$ is close to $K$, the study sizes are highly unbalanced, or the design matrix is near-collinear.
+
+### Case 5: Singular CHE Hessian
+
+For the CHE model, the posterior Hessian $H$ is $(K+2) \times (K+2)$, incorporating both $\tau^2$ and $\omega^2$ components. When this Hessian is singular (or has negative eigenvalues due to numerical issues), the `.build_che_hessian()` function applies a `nearPD` correction with a warning. If the Hessian is truly singular, `MASS::ginv()` (Moore-Penrose pseudoinverse) is used as a fallback for the sandwich inversion. Similarly, when the WLS bread matrix $X^\top W X$ is singular, `.compute_wls_bread()` falls back to `MASS::ginv()`.
+
+
+## Singletons and CHE-Specific Warnings {#sec-env-singletons}
+
+### Singleton Non-Identifiability (Decision D22)
+
+In the CHE model, the between-study variance $\tau^2$ and the within-study heterogeneity $\omega^2$ enter the marginal variance as $v_{ij} = s^2_{ij} + \omega^2 + \tau^2$. For singleton studies (studies contributing exactly one effect size, $n_j = 1$), there is no within-study replication to distinguish $\omega^2$ from $\tau^2$. The variance components are confounded: any increase in $\omega^2$ can be offset by a corresponding decrease in $\tau^2$ without changing the marginal likelihood.
+
+The `bayesRVE` implementation enforces Decision D22 with a two-tier warning system in `.che_sandwich()`:
+
+- **All singletons** ($n_j = 1$ for all $j = 1, \ldots, J$): A warning is emitted stating that $\tau^2$ and $\omega^2$ are *not separately identified*. Posterior separation relies entirely on the prior distributions. The CR2 sandwich benchmark from a frequentist multi-level analysis may diverge from the Bayesian posterior because the frequentist estimator (typically REML) faces the same identification problem but resolves it differently (often setting one component to zero).
+
+- **Majority singletons** ($> 50\%$ of studies have $n_j = 1$): A warning is emitted stating that $\tau^2$ and $\omega^2$ *may be weakly identified*. The posterior is prior-sensitive, and a sensitivity analysis varying the half-Cauchy scale parameters is recommended.
+
+These warnings do not trigger fallback behavior; the sandwich and CCC computations proceed normally. The warnings serve to alert the analyst that the variance decomposition is driven primarily by the prior rather than the data, and that the CCC calibration (which plugs in posterior mean variance components) inherits this prior sensitivity.
+
+### CHE Prior Sensitivity
+
+When singletons dominate, the half-Cauchy prior scale for $\omega$ [introduced by @gelman2006 and theoretically justified by @polson2012] becomes a critical tuning parameter. A wide prior (e.g., $\omega \sim \mathrm{half\text{-}Cauchy}(0, 1)$) allows $\omega^2$ to absorb substantial variance, potentially inflating the marginal weights and altering the sandwich. A narrow prior concentrates $\omega$ near zero, effectively reducing the CHE to a CE model. The `bm_sensitivity_rho()` function provides systematic tools for assessing sensitivity to the working correlation $\rho$; prior scale sensitivity for $\omega$ requires refitting the model with different `bm_prior()` specifications and comparing the resulting CCC intervals.
+
+### CHE Theta Quarantine
+
+In the CHE model, the study-specific effects $\theta_j$ are analytically integrated out of the marginal likelihood (see @sec-models). No posterior draws of $\theta_j$ exist. For API compatibility with the CE pathway, the `bm_ccc` object returned by `.ccc_che()` contains dummy zero-valued theta draws. These dummy values are quarantined in all downstream methods:
+
+- `coef(cal, type = "theta")` returns zeros with a warning for CHE objects;
+- `confint()` applies CCC-$t$ intervals only to the beta block; theta intervals are meaningless;
+- `summary()` and `print()` suppress theta output when `model = "che"`.
+
+The `bm_ccc$model` field (set to `"che"`) enables clean dispatch in all downstream methods, preventing accidental interpretation of the dummy theta values as real posterior summaries.
+
+
+## Fallback Semantics {#sec-env-fallback}
+
+The bayesRVE pipeline implements a cascading fallback system across the three main functions: `sandwich()`, `ccc()`, and `confint()`. @tbl-fallback provides a comprehensive decision table summarizing the behavior under each boundary condition.
+
+| Condition | `sandwich()` | `ccc()` | `confint()` | `method` | User Message |
+|:----------|:------------|:--------|:-----------|:---------|:------------|
+| $J \geq J_{\min}$, PD | CR2 + Satterthwaite | Full Cholesky CCC | CCC-$t$ | `"ccc"` | (none) |
+| $J \geq J_{\min}$, $V_{\mathrm{CR2}}$ not PD | HC0 (sandwich computed, `beta_pd = FALSE`) | Beta skipped, theta proceeds | Quantile-based | `"fallback_raw"` | Warning: V not PD |
+| $J < J_{\min}$ | `fallback = TRUE` | Beta skipped, theta proceeds | Quantile-based | `"ccc_partial"` | Info: below envelope |
+| $J \leq K$ | Rank-deficient sandwich | Beta skipped unconditionally | Quantile-based | `"fallback_raw"` | Warning: singular |
+| $\Sigma_{\mathrm{MCMC}}$ not PD | (any) | `nearPD` correction, then CCC | CCC-$t$ | `"ccc"` | Warning: nearPD applied |
+| CHE, all singletons | CR2 (proceeds) | Beta Cholesky (proceeds) | CCC-$t$ | `"ccc"` | Warning: not identified |
+
+: Comprehensive fallback decision table for the bayesRVE CCC pipeline. Each row represents a boundary condition, with columns showing the behavior of each pipeline stage. {#tbl-fallback}
+
+### The `method` Field
+
+The `bm_ccc` object carries a `method` field that records the CCC path taken. This field governs downstream inference:
+
+- **`"ccc"`**: Full CCC was applied. The beta-block Cholesky transformation matched the posterior covariance to $V_{\mathrm{CR2}}$. The `confint()` method uses CCC-$t$ intervals with Satterthwaite degrees of freedom by default.
+
+- **`"ccc_partial"`**: The beta-block was skipped due to the $J_{\min}$ operating envelope check (`sandwich$fallback == TRUE`), but the theta-block diagonal rescaling was applied (CE models only). Beta intervals fall back to quantile-based (CCC-$q$). The `confint()` method forces `df = "normal"` when `method` is `"ccc_partial"`.
+
+- **`"fallback_raw"`**: The beta-block was skipped for a reason other than the $J_{\min}$ check---typically because $V_{\mathrm{CR2}}$ was not positive definite or $J \leq K$. The `confint()` method forces `df = "normal"`. The `beta_skip_reason` field provides a human-readable explanation.
+
+### Pipeline Flow
+
+The fallback logic propagates through the pipeline as follows:
+
+1. **`sandwich(x)`** evaluates $J \geq J_{\min}$. If not, it sets `fallback = TRUE` and `fallback_reason = "J_too_small"`. It computes the sandwich regardless (for diagnostic purposes) but flags the result.
+
+2. **`ccc(x, sandwich_obj)`** inspects `sandwich_obj$fallback`. If `TRUE`, it skips the beta-block Cholesky and sets `method = "ccc_partial"`. If `FALSE`, it inspects `sandwich_obj$diagnostics$beta_pd`. If `FALSE`, it skips the beta-block and sets `method = "fallback_raw"`. Otherwise, it applies the full Cholesky CCC and sets `method = "ccc"`.
+
+3. **`confint(cal)`** inspects `cal$method`. If the method is `"ccc_partial"` or `"fallback_raw"`, it forces `df = "normal"` with a warning, yielding quantile-based intervals from the (uncalibrated) posterior draws. If the method is `"ccc"`, it proceeds with the default Satterthwaite degrees of freedom to produce CCC-$t$ intervals.
+
+This cascade ensures that no layer of the pipeline silently produces invalid results. Every degradation is accompanied by an explicit warning message and is encoded in the `method` field, enabling programmatic detection by downstream analysis scripts.
+
+### The Three Interval Types
+
+The fallback semantics produce three distinct interval types, listed in decreasing order of inferential quality:
+
+1. **CCC-$t$** (Three-Layer Calibration): Full Cholesky CCC with CR2 target and Satterthwaite degrees of freedom. Available when `method = "ccc"` and `df = "satterthwaite"`. This is the recommended default.
+
+2. **CCC-$t$ (naive df)**: Full Cholesky CCC with scalar $\mathrm{df} = J - K$. Available when `method = "ccc"` and `df = "naive"`. Less precise than Satterthwaite df but still uses the calibrated posterior.
+
+3. **CCC-$q$** (quantile-based): Raw posterior quantiles, with or without partial CCC calibration. Used when `method` is `"ccc_partial"` or `"fallback_raw"`. The `confint()` method computes the $\alpha/2$ and $1 - \alpha/2$ quantiles directly from the (possibly uncalibrated) posterior draws.
+
+The simulation study in @sec-results demonstrates that CCC-$t$ achieves near-nominal coverage (94.5--95.3\%) while CCC-$q$ exhibits undercoverage (91--94\%) at moderate $J$, confirming that the Satterthwaite adjustment in Layer 3 is essential for reliable inference.
+
+
+## Quick Reference: When to Worry {#sec-env-quickref}
+
+::: {.callout-note appearance="simple"}
+### Safe (Standard Operation)
+
+$J \geq 20$, $K \leq 3$, no singletons or singletons a small minority ($<25\%$). Console output is silent (no warnings). `cal$method == "ccc"`, `sw$diagnostics$beta_pd == TRUE`, all `sw$df_source` entries are `"satterthwaite"`. Simulation evidence (sim3) shows CCC-$t$ coverage between 94.5% and 95.3% under these conditions.
+:::
+
+::: {.callout-warning appearance="simple"}
+### Caution (Verify Results)
+
+$8 \leq J < 20$, especially with $K \geq 3$. More than 50% singleton studies (CHE). Some `df_source` entries are `"naive"`. `sw$diagnostics$H_condition > 10^6$. The pipeline completes but operates near its limits. Recommended: (1) compare CCC-calibrated intervals with raw posterior, (2) leave-one-out sensitivity, (3) prior sensitivity for CHE variance components.
+:::
+
+::: {.callout-important appearance="simple"}
+### Investigate (Results May Be Unreliable)
+
+$J < 8$, or $J \leq K$, or PD failure warnings from `sandwich()` or `ccc()`. `cal$method == "fallback_raw"` or `cal$beta_skipped == TRUE`. The frequentist calibration guarantee of CCC does not apply. Options: (1) simplify the model, (2) expand literature search, (3) report raw Bayesian credible intervals with appropriate caveats.
+:::

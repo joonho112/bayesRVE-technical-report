@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>10&nbsp; Sandwich Implementation – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./ch09-ccc-impl.html" rel="next">
+<link href="./ch07-fitting.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-8b4baf804e461d9b72633f0de59a0cac.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-25a4e8620ae17d49cd0c3861fdf92567.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch06-architecture.html">Part II: Software Realization and Verification</a></li><li class="breadcrumb-item"><a href="./ch08-sandwich-impl.html"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch00-notation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part I: Foundations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch01-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch02-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch03-sandwich.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Sandwich Variance Estimation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch04-ccc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch05-envelope.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part II: Software Realization and Verification</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch06-architecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch07-fitting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch08-sandwich-impl.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch09-ccc-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch10-verification.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part III: Empirical Validation</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch11-tsl15-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch12-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch13-mechanics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">CCC Mechanics and Limitations</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-a-proofs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Extended Proofs and Derivations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-b-decisions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Inference-Relevant Design Decisions</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-c-api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">C</span>&nbsp; <span class="chapter-title">API Quick Reference</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-d-reproducibility.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-sandwich-impl" id="toc-sec-sandwich-impl" class="nav-link active" data-scroll-target="#sec-sandwich-impl"><span class="header-section-number">11</span> Sandwich Implementation</a>
+  <ul>
+  <li><a href="#sec-sw-dispatch" id="toc-sec-sw-dispatch" class="nav-link" data-scroll-target="#sec-sw-dispatch"><span class="header-section-number">11.1</span> Entry Points and Dispatch Logic</a>
+  <ul class="collapse">
+  <li><a href="#ce-vs-che-dispatch" id="toc-ce-vs-che-dispatch" class="nav-link" data-scroll-target="#ce-vs-che-dispatch"><span class="header-section-number">11.1.1</span> CE vs CHE Dispatch</a></li>
+  <li><a href="#operating-envelope" id="toc-operating-envelope" class="nav-link" data-scroll-target="#operating-envelope"><span class="header-section-number">11.1.2</span> Operating Envelope</a></li>
+  <li><a href="#moderator-scope" id="toc-moderator-scope" class="nav-link" data-scroll-target="#moderator-scope"><span class="header-section-number">11.1.3</span> Moderator Scope</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-ce" id="toc-sec-sw-ce" class="nav-link" data-scroll-target="#sec-sw-ce"><span class="header-section-number">11.2</span> CE Sandwich Path</a>
+  <ul class="collapse">
+  <li><a href="#marginal-sandwich-hc0-computation" id="toc-marginal-sandwich-hc0-computation" class="nav-link" data-scroll-target="#marginal-sandwich-hc0-computation"><span class="header-section-number">11.2.1</span> Marginal Sandwich: HC0 Computation</a></li>
+  <li><a href="#observation-level-path" id="toc-observation-level-path" class="nav-link" data-scroll-target="#observation-level-path"><span class="header-section-number">11.2.2</span> Observation-Level Path</a></li>
+  <li><a href="#conditional-sandwich-theta-block" id="toc-conditional-sandwich-theta-block" class="nav-link" data-scroll-target="#conditional-sandwich-theta-block"><span class="header-section-number">11.2.3</span> Conditional Sandwich: Theta Block</a></li>
+  <li><a href="#scalar-small-sample-correction" id="toc-scalar-small-sample-correction" class="nav-link" data-scroll-target="#scalar-small-sample-correction"><span class="header-section-number">11.2.4</span> Scalar Small-Sample Correction</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-che" id="toc-sec-sw-che" class="nav-link" data-scroll-target="#sec-sw-che"><span class="header-section-number">11.3</span> CHE Sandwich Path</a>
+  <ul class="collapse">
+  <li><a href="#architectural-principle-reuse-via-omega2_hat" id="toc-architectural-principle-reuse-via-omega2_hat" class="nav-link" data-scroll-target="#architectural-principle-reuse-via-omega2_hat"><span class="header-section-number">11.3.1</span> Architectural Principle: Reuse via omega2_hat</a></li>
+  <li><a href="#che-hc0-sandwich" id="toc-che-hc0-sandwich" class="nav-link" data-scroll-target="#che-hc0-sandwich"><span class="header-section-number">11.3.2</span> CHE HC0 Sandwich</a></li>
+  <li><a href="#che-cr2-upgrade" id="toc-che-cr2-upgrade" class="nav-link" data-scroll-target="#che-cr2-upgrade"><span class="header-section-number">11.3.3</span> CHE CR2 Upgrade</a></li>
+  <li><a href="#che-conditional-sandwich" id="toc-che-conditional-sandwich" class="nav-link" data-scroll-target="#che-conditional-sandwich"><span class="header-section-number">11.3.4</span> CHE Conditional Sandwich</a></li>
+  <li><a href="#decision-d22-singleton-warning" id="toc-decision-d22-singleton-warning" class="nav-link" data-scroll-target="#decision-d22-singleton-warning"><span class="header-section-number">11.3.5</span> Decision D22: Singleton Warning</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-woodbury" id="toc-sec-sw-woodbury" class="nav-link" data-scroll-target="#sec-sw-woodbury"><span class="header-section-number">11.4</span> Woodbury Linear Algebra and <span class="math inline">\(\mathbf{W}^{1/2}\)</span></a>
+  <ul class="collapse">
+  <li><a href="#weight-matrix-.compute_w_j" id="toc-weight-matrix-.compute_w_j" class="nav-link" data-scroll-target="#weight-matrix-.compute_w_j"><span class="header-section-number">11.4.1</span> Weight Matrix: <code>.compute_W_j()</code></a></li>
+  <li><a href="#matrix-square-root-.compute_w_j_sqrt-decision-d24" id="toc-matrix-square-root-.compute_w_j_sqrt-decision-d24" class="nav-link" data-scroll-target="#matrix-square-root-.compute_w_j_sqrt-decision-d24"><span class="header-section-number">11.4.2</span> Matrix Square Root: <code>.compute_W_j_sqrt()</code> (Decision D24)</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-cr2" id="toc-sec-sw-cr2" class="nav-link" data-scroll-target="#sec-sw-cr2"><span class="header-section-number">11.5</span> CR2 Assembly and Satterthwaite df</a>
+  <ul class="collapse">
+  <li><a href="#step-a.1-wls-bread-decision-d15" id="toc-step-a.1-wls-bread-decision-d15" class="nav-link" data-scroll-target="#step-a.1-wls-bread-decision-d15"><span class="header-section-number">11.5.1</span> Step A.1: WLS Bread (Decision D15)</a></li>
+  <li><a href="#step-a.2a-hat-matrix-blocks" id="toc-step-a.2a-hat-matrix-blocks" class="nav-link" data-scroll-target="#step-a.2a-hat-matrix-blocks"><span class="header-section-number">11.5.2</span> Step A.2a: Hat Matrix Blocks</a></li>
+  <li><a href="#step-a.2b-cr2-adjustment-matrices-decision-d16" id="toc-step-a.2b-cr2-adjustment-matrices-decision-d16" class="nav-link" data-scroll-target="#step-a.2b-cr2-adjustment-matrices-decision-d16"><span class="header-section-number">11.5.3</span> Step A.2b: CR2 Adjustment Matrices (Decision D16)</a></li>
+  <li><a href="#step-a.3-v_cr2-assembly" id="toc-step-a.3-v_cr2-assembly" class="nav-link" data-scroll-target="#step-a.3-v_cr2-assembly"><span class="header-section-number">11.5.4</span> Step A.3: V_CR2 Assembly</a></li>
+  <li><a href="#step-b.1-satterthwaite-degrees-of-freedom-decision-d17" id="toc-step-b.1-satterthwaite-degrees-of-freedom-decision-d17" class="nav-link" data-scroll-target="#step-b.1-satterthwaite-degrees-of-freedom-decision-d17"><span class="header-section-number">11.5.5</span> Step B.1: Satterthwaite Degrees of Freedom (Decision D17)</a></li>
+  <li><a href="#decision-d25-plug-in-parity" id="toc-decision-d25-plug-in-parity" class="nav-link" data-scroll-target="#decision-d25-plug-in-parity"><span class="header-section-number">11.5.6</span> Decision D25: Plug-In Parity</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-safeguards" id="toc-sec-sw-safeguards" class="nav-link" data-scroll-target="#sec-sw-safeguards"><span class="header-section-number">11.6</span> Numerical Safeguards</a>
+  <ul class="collapse">
+  <li><a href="#generalized-inverse-fallback" id="toc-generalized-inverse-fallback" class="nav-link" data-scroll-target="#generalized-inverse-fallback"><span class="header-section-number">11.6.1</span> Generalized Inverse Fallback</a></li>
+  <li><a href="#positive-definiteness-diagnostics" id="toc-positive-definiteness-diagnostics" class="nav-link" data-scroll-target="#positive-definiteness-diagnostics"><span class="header-section-number">11.6.2</span> Positive-Definiteness Diagnostics</a></li>
+  <li><a href="#score-balance-check" id="toc-score-balance-check" class="nav-link" data-scroll-target="#score-balance-check"><span class="header-section-number">11.6.3</span> Score Balance Check</a></li>
+  <li><a href="#condition-number-monitoring" id="toc-condition-number-monitoring" class="nav-link" data-scroll-target="#condition-number-monitoring"><span class="header-section-number">11.6.4</span> Condition Number Monitoring</a></li>
+  <li><a href="#the-nearpd-anti-pattern" id="toc-the-nearpd-anti-pattern" class="nav-link" data-scroll-target="#the-nearpd-anti-pattern"><span class="header-section-number">11.6.5</span> The nearPD Anti-Pattern</a></li>
+  </ul></li>
+  <li><a href="#sec-sw-decisions" id="toc-sec-sw-decisions" class="nav-link" data-scroll-target="#sec-sw-decisions"><span class="header-section-number">11.7</span> Design Decision Registry</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch06-architecture.html">Part II: Software Realization and Verification</a></li><li class="breadcrumb-item"><a href="./ch08-sandwich-impl.html"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-sandwich-impl" class="level1" data-number="11">
+<h1 data-number="11"><span class="header-section-number">11</span> Sandwich Implementation</h1>
+<p>This chapter traces the implementation of the cluster-robust sandwich variance estimator in <code>bayesRVE</code>, covering the full pipeline from S3 dispatch through HC0 computation, CR2 bias correction, and Satterthwaite degrees of freedom. The theoretical foundations appear in <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>; here we show how each formula translates into working R code inside <code>bayesRVE/R/sandwich.R</code>.</p>
+<p>The implementation serves two roles. First, the HC0 and scalar-corrected sandwich provide a fast classical benchmark for CCC calibration targets (<a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>). Second, the CR2 sandwich with Satterthwaite degrees of freedom constitutes the Three-Layer Calibration target—the gold standard against which CCC inference is validated.</p>
+<section id="sec-sw-dispatch" class="level2" data-number="11.1">
+<h2 data-number="11.1" class="anchored" data-anchor-id="sec-sw-dispatch"><span class="header-section-number">11.1</span> Entry Points and Dispatch Logic</h2>
+<p>The sandwich module exposes a single S3 generic:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>sandwich <span class="ot">&lt;-</span> <span class="cf">function</span>(x, ...) <span class="fu">UseMethod</span>(<span class="st">"sandwich"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The method <code>sandwich.bm_fit()</code> accepts three arguments beyond the fitted object: a working correlation <code>rho</code>, a <code>small_sample</code> correction selector, and dots reserved for future extensions. <strong>The <code>rho</code> parameter is stored in the output object for provenance tracking but does not enter the CE or CHE marginal sandwich computation</strong>—both models use the compound-symmetric working covariance <span class="math inline">\(\boldsymbol{\Sigma}_j = a_j \mathbf{I} + \tau^2 \mathbf{1}\mathbf{1}'\)</span>, which fully determines the within-cluster correlation structure. The stored <code>rho</code> value is available to downstream consumers (e.g., sensitivity analyses) without affecting the sandwich estimate.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>sandwich.bm_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">rho =</span> <span class="fl">0.8</span>,</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">small_sample =</span> <span class="fu">c</span>(<span class="st">"CR2"</span>, <span class="st">"scalar"</span>, <span class="st">"none"</span>), ...) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  checkmate<span class="sc">::</span><span class="fu">assert_class</span>(x, <span class="st">"bm_fit"</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  checkmate<span class="sc">::</span><span class="fu">assert_number</span>(rho, <span class="at">lower =</span> <span class="dv">0</span>, <span class="at">upper =</span> <span class="dv">1</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  small_sample <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(small_sample)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The <code>small_sample</code> argument controls the correction hierarchy:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 41%">
+<col style="width: 58%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Value</th>
+<th style="text-align: left;">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>"CR2"</code></td>
+<td style="text-align: left;"><span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> CR2 adjustment matrices + Satterthwaite df (default since v0.5.0)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>"scalar"</code></td>
+<td style="text-align: left;">Scalar inflation <span class="math inline">\(c_\beta = J / (J - p_\text{eff})\)</span> via Bayesian leverage</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>"none"</code></td>
+<td style="text-align: left;">Raw HC0 sandwich, no correction</td>
+</tr>
+</tbody>
+</table>
+<section id="ce-vs-che-dispatch" class="level3" data-number="11.1.1">
+<h3 data-number="11.1.1" class="anchored" data-anchor-id="ce-vs-che-dispatch"><span class="header-section-number">11.1.1</span> CE vs CHE Dispatch</h3>
+<p>The first branching point is model type. The <code>bm_fit</code> object carries a <code>$model</code> field (<code>"ce"</code> or <code>"che"</code>); for backward compatibility with pre-v0.4.0 objects that lack this field, <code>NULL</code> defaults to <code>"ce"</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>model_type <span class="ot">&lt;-</span> x<span class="sc">$</span>model <span class="sc">%||%</span> <span class="st">"ce"</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (model_type <span class="sc">==</span> <span class="st">"che"</span>) {</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">.che_sandwich</span>(x, <span class="at">rho =</span> rho, <span class="at">small_sample =</span> small_sample))</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>For CE models, the function continues with the operating-envelope check (Decision D7), moderator-scope dispatch (cluster-constant vs.&nbsp;observation-level), posterior draw extraction, and sequential computation of the marginal sandwich, CR2 upgrade, and conditional sandwich before assembly.</p>
+</section>
+<section id="operating-envelope" class="level3" data-number="11.1.2">
+<h3 data-number="11.1.2" class="anchored" data-anchor-id="operating-envelope"><span class="header-section-number">11.1.2</span> Operating Envelope</h3>
+<p>Decision D7 defines the minimum number of studies for reliable sandwich estimation:</p>
+<p><span class="math display">\[
+J_\min = \max(8,\; 2K + 2)
+\]</span></p>
+<p>When <span class="math inline">\(J &lt; J_\min\)</span>, the beta-block sandwich is unreliable. Rather than aborting, bayesRVE enters a fallback mode where the beta-block CCC uses raw posterior draws and only the theta-block proceeds with sandwich calibration. The <code>fallback</code> flag propagates through the entire pipeline, skipping HC0 inversion, CR2 upgrade, and Satterthwaite computation for the beta block.</p>
+</section>
+<section id="moderator-scope" class="level3" data-number="11.1.3">
+<h3 data-number="11.1.3" class="anchored" data-anchor-id="moderator-scope"><span class="header-section-number">11.1.3</span> Moderator Scope</h3>
+<p>The <code>obs_level</code> flag, derived from <code>bm_data$cluster_constant</code> (set during data preparation), controls whether score and Hessian computation uses study-level aggregated quantities or observation-level Woodbury expansions. When all predictors are cluster-constant—the common case in meta-analysis with study-level moderators—the study-level path provides an efficient closed-form computation. When within-study varying predictors are present (e.g., outcome-type moderators), the observation-level path handles the full <span class="math inline">\(n_j \times K\)</span> design matrices per study.</p>
+</section>
+</section>
+<section id="sec-sw-ce" class="level2" data-number="11.2">
+<h2 data-number="11.2" class="anchored" data-anchor-id="sec-sw-ce"><span class="header-section-number">11.2</span> CE Sandwich Path</h2>
+<p>The CE sandwich decomposes into two independent blocks: a marginal sandwich for <span class="math inline">\(\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2)\)</span> and a conditional sandwich for <span class="math inline">\(\boldsymbol{\theta} \mid \hat{\boldsymbol{\beta}}\)</span>. This blockwise structure (Decision D2) allows the CCC to apply different calibration strategies to each parameter group.</p>
+<section id="marginal-sandwich-hc0-computation" class="level3" data-number="11.2.1">
+<h3 data-number="11.2.1" class="anchored" data-anchor-id="marginal-sandwich-hc0-computation"><span class="header-section-number">11.2.1</span> Marginal Sandwich: HC0 Computation</h3>
+<p>The function <code>.marginal_sandwich()</code> computes the HC0 sandwich at the posterior mean <span class="math inline">\((\hat{\boldsymbol{\beta}}, \hat\tau^2)\)</span>. For the study-level path, the computation follows the classical sandwich formula.</p>
+<p><strong>Residuals and scores.</strong> The marginal variance of the study mean is <span class="math inline">\(v_j = \bar{s}_j^2 / n_j + \hat\tau^2\)</span>. Study-level residuals are <span class="math inline">\(r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}\)</span>. The likelihood score matrix <span class="math inline">\(\mathbf{S}\)</span> has rows indexed by study <span class="math inline">\(j\)</span> and columns indexed by parameters <span class="math inline">\((\beta_1, \ldots, \beta_K, \tau^2)\)</span>:</p>
+<p><span class="math display">\[
+s_j^{(\beta)} = \frac{r_j}{v_j}\,\bar{\mathbf{x}}_j, \qquad
+s_j^{(\tau^2)} = -\frac{1}{2v_j} + \frac{r_j^2}{2v_j^2}
+\]</span></p>
+<p>In code:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>score_beta <span class="ot">&lt;-</span> (r_j <span class="sc">/</span> v_j) <span class="sc">*</span> x_bar            <span class="co"># J x K</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>score_tau2 <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> v_j) <span class="sc">+</span> r_j<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> v_j<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">cbind</span>(score_beta, score_tau2)            <span class="co"># J x (K+1)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Meat.</strong> The meat matrix accumulates outer products of the per-study score vectors:</p>
+<p><span class="math display">\[
+\mathbf{M} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j' = \mathbf{S}'\mathbf{S}
+\]</span></p>
+<p>The meat is a <span class="math inline">\((K{+}1) \times (K{+}1)\)</span> matrix. Only likelihood scores contribute; prior scores are deliberately excluded from the meat to preserve the sandwich’s frequentist robustness properties.</p>
+<p><strong>Bread.</strong> The bread is the posterior Hessian <span class="math inline">\(\mathbf{H}_\text{post} = \mathbf{H}_\text{lik} + \mathbf{H}_\text{prior}\)</span>. The likelihood Hessian <code>.build_marginal_hessian()</code> assembles the <span class="math inline">\((K{+}1) \times (K{+}1)\)</span> matrix from the beta–beta, beta–<span class="math inline">\(\tau^2\)</span>, and <span class="math inline">\(\tau^2\)</span>–<span class="math inline">\(\tau^2\)</span> blocks using the study-level summaries. The stabilized prior Hessian <code>.build_prior_hessian()</code> adds precision from the beta and <span class="math inline">\(\tau^2\)</span> priors.</p>
+<p><strong>HC0 assembly.</strong></p>
+<p><span class="math display">\[
+\mathbf{V}_\text{HC0} = \mathbf{H}_\text{post}^{-1}\,\mathbf{M}\,\mathbf{H}_\text{post}^{-1}
+\]</span></p>
+<p>The beta-block is extracted as <span class="math inline">\(\mathbf{V}_\beta = \mathbf{V}_\text{HC0}[1{:}K,\; 1{:}K]\)</span>. A positive-definiteness check is performed on <span class="math inline">\(\mathbf{V}_\beta\)</span>; if it fails, the beta-block CCC is skipped (no <code>nearPD</code> correction is ever applied—see <a href="#sec-sw-safeguards" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sw-safeguards</span></a>).</p>
+</section>
+<section id="observation-level-path" class="level3" data-number="11.2.2">
+<h3 data-number="11.2.2" class="anchored" data-anchor-id="observation-level-path"><span class="header-section-number">11.2.2</span> Observation-Level Path</h3>
+<p>When within-study varying predictors are detected (<code>obs_level = TRUE</code>), scores use the Woodbury expansion of <span class="math inline">\(\boldsymbol{\Sigma}_j^{-1}\)</span> applied to the observation-level residual vector <span class="math inline">\(\mathbf{r}_j\)</span>:</p>
+<p><span class="math display">\[
+\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j = \frac{\mathbf{r}_j}{\bar{s}_j^2} - \frac{\tau^2\,\bar{r}_j}{\bar{s}_j^2\,v_j}\,\mathbf{1}_{n_j}
+\]</span></p>
+<p>The beta score for study <span class="math inline">\(j\)</span> becomes <span class="math inline">\(\mathbf{s}_j^{(\beta)} = \mathbf{X}_j'\,\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j\)</span>, using the full <span class="math inline">\(n_j \times K\)</span> design matrix. The <span class="math inline">\(\tau^2\)</span> score collapses to the same study-mean expression regardless of path, since <span class="math inline">\(\tau^2\)</span> is a between-study parameter.</p>
+</section>
+<section id="conditional-sandwich-theta-block" class="level3" data-number="11.2.3">
+<h3 data-number="11.2.3" class="anchored" data-anchor-id="conditional-sandwich-theta-block"><span class="header-section-number">11.2.3</span> Conditional Sandwich: Theta Block</h3>
+<p>The function <code>.conditional_sandwich()</code> computes per-study conditional variances <span class="math inline">\(V_{\text{cond},j}\)</span> for the CE theta parameters <span class="math inline">\(\theta_j \mid \hat{\boldsymbol{\beta}}\)</span>. With beta fixed, each <span class="math inline">\(\theta_j\)</span> is conditionally independent:</p>
+<p><span class="math display">\[
+H_{\theta,j} = \frac{n_j}{\bar{s}_j^2} + \frac{1}{\hat\tau^2}, \qquad
+s_{\theta,j} = \frac{n_j}{\bar{s}_j^2}\,r_{\text{cond},j}, \qquad
+V_{\text{cond},j} = \frac{s_{\theta,j}^2}{H_{\theta,j}^2}
+\]</span></p>
+<p>where <span class="math inline">\(r_{\text{cond},j} = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}} - \hat\theta_j\)</span>. These per-study scalar variances serve as the CCC theta-block calibration targets.</p>
+</section>
+<section id="scalar-small-sample-correction" class="level3" data-number="11.2.4">
+<h3 data-number="11.2.4" class="anchored" data-anchor-id="scalar-small-sample-correction"><span class="header-section-number">11.2.4</span> Scalar Small-Sample Correction</h3>
+<p>The <code>small_sample = "scalar"</code> path inflates the HC0 beta-block by a scalar factor derived from Bayesian leverage. The effective degrees of freedom <span class="math inline">\(p_\text{eff}\)</span> are computed from the trace of the Bayesian hat matrix, yielding:</p>
+<p><span class="math display">\[
+c_\beta = \frac{J}{J - p_\text{eff}}, \qquad \mathbf{V}_\text{scalar} = c_\beta \cdot \mathbf{V}_\text{HC0}
+\]</span></p>
+<p>This provides a simple correction that improves coverage when <span class="math inline">\(J\)</span> is small relative to <span class="math inline">\(K\)</span>, but lacks the per-study bias adjustment of CR2 and does not provide degrees of freedom for <span class="math inline">\(t\)</span>-based inference.</p>
+</section>
+</section>
+<section id="sec-sw-che" class="level2" data-number="11.3">
+<h2 data-number="11.3" class="anchored" data-anchor-id="sec-sw-che"><span class="header-section-number">11.3</span> CHE Sandwich Path</h2>
+<p>The CHE model analytically integrates out the study-specific effects <span class="math inline">\(\theta_j\)</span>, yielding a marginal parameter vector <span class="math inline">\(\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2, \omega^2)\)</span> of dimension <span class="math inline">\(K + 2\)</span>. The function <code>.che_sandwich()</code> handles this distinct pipeline.</p>
+<section id="architectural-principle-reuse-via-omega2_hat" class="level3" data-number="11.3.1">
+<h3 data-number="11.3.1" class="anchored" data-anchor-id="architectural-principle-reuse-via-omega2_hat"><span class="header-section-number">11.3.1</span> Architectural Principle: Reuse via omega2_hat</h3>
+<p>The central insight of the v0.6.0 implementation is that the CHE working covariance differs from CE only by a substitution in the within-study variance component. In the CE model, the marginal covariance for study <span class="math inline">\(j\)</span> is:</p>
+<p><span class="math display">\[
+\boldsymbol{\Sigma}_j^\text{CE} = \bar{s}_j^2\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p>In the CHE model, integrating out <span class="math inline">\(\theta_j\)</span> with <span class="math inline">\(\theta_j \sim N(\mathbf{x}_j'\boldsymbol{\beta},\, \omega^2)\)</span> yields:</p>
+<p><span class="math display">\[
+\boldsymbol{\Sigma}_j^\text{CHE} = (\bar{s}_j^2 + \omega^2)\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p>The substitution <span class="math inline">\(a_j = \bar{s}_j^2 + \hat\omega^2\)</span> (where <span class="math inline">\(\hat\omega^2 = \text{E}[\omega^2 \mid \text{data}]\)</span> per Decision D20) allows all CE CR2 infrastructure to be reused without modification. Every helper function—<code>.compute_W_j()</code>, <code>.compute_wls_bread()</code>, <code>.compute_hat_blocks()</code>, <code>.compute_cr2_adjustments()</code>, <code>.compute_vcr2()</code>, <code>.satterthwaite_df()</code>—accepts an <code>omega2_hat</code> parameter that defaults to 0 for CE.</p>
+</section>
+<section id="che-hc0-sandwich" class="level3" data-number="11.3.2">
+<h3 data-number="11.3.2" class="anchored" data-anchor-id="che-hc0-sandwich"><span class="header-section-number">11.3.2</span> CHE HC0 Sandwich</h3>
+<p>The CHE HC0 path constructs the full <span class="math inline">\((K{+}2) \times (K{+}2)\)</span> sandwich directly. Scores for <span class="math inline">\(\boldsymbol{\beta}\)</span>, <span class="math inline">\(\tau^2\)</span>, and <span class="math inline">\(\omega^2\)</span> are computed analytically at the posterior mean using the Woodbury-expanded covariance. The bread uses <code>.build_che_hessian()</code>, which assembles the full Hessian including the <span class="math inline">\(\omega^2\)</span> block. Unlike the CE path, which uses the observed likelihood Hessian (including residual-dependent terms), <code>.build_che_hessian()</code> uses <strong>expected information</strong>—the Hessian with residual terms dropped, retaining only trace-based curvature. This choice is deliberate: the observed information for the <span class="math inline">\((K{+}2)\)</span>-dimensional Hessian can produce negative diagonal entries for variance-component blocks, yielding a non-PD bread. Expected information is always PD for well-identified models and is standard practice in REML-type estimation.</p>
+<p>The expected-information Hessian has three nonzero block types:</p>
+<ul>
+<li><strong>Beta–beta:</strong> <span class="math inline">\(\sum_j \mathbf{X}_j' \boldsymbol{\Sigma}_j^{-1} \mathbf{X}_j\)</span> (identical to CE, with <span class="math inline">\(a_j = \bar{s}_j^2 + \hat\omega^2\)</span>).</li>
+<li><strong>Variance–variance:</strong> <span class="math inline">\(H_{\tau^2,\tau^2} = \tfrac{1}{2}\sum_j n_j^2 / c_j^2\)</span>; <span class="math inline">\(H_{\omega^2,\omega^2} = \tfrac{1}{2}\sum_j [(n_j{-}1)/a_j^2 + 1/c_j^2]\)</span>; <span class="math inline">\(H_{\tau^2,\omega^2} = \tfrac{1}{2}\sum_j n_j/c_j^2\)</span>.</li>
+<li><strong>Beta–variance cross-blocks:</strong> identically zero under expected information.</li>
+</ul>
+<p>The stabilized prior Hessian adds diagonal precision: <span class="math inline">\(1/\sigma_\beta^2\)</span> for each beta coefficient, and ridge-capped entries <span class="math inline">\(\min(1/(2\hat\tau^4),\, 10^6)\)</span> and <span class="math inline">\(\min(1/(2\hat\omega^4),\, 10^6)\)</span> for the variance components (see the analogous CE ridge in <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>). If the resulting <span class="math inline">\(\mathbf{H}_\text{post}\)</span> is not positive definite despite expected information, a <code>nearPD</code> correction is applied—the only location in the sandwich module where this fallback is used, justified because the bread (unlike <span class="math inline">\(\mathbf{V}_{\text{CR2}}\)</span>) is an auxiliary quantity whose slight perturbation does not mask a diagnostic signal (see also <a href="#sec-sw-safeguards" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sw-safeguards</span></a>).</p>
+</section>
+<section id="che-cr2-upgrade" class="level3" data-number="11.3.3">
+<h3 data-number="11.3.3" class="anchored" data-anchor-id="che-cr2-upgrade"><span class="header-section-number">11.3.3</span> CHE CR2 Upgrade</h3>
+<p>When <code>small_sample = "CR2"</code>, the CHE path mirrors the CE CR2 pipeline with one difference: the <code>omega2_hat</code> parameter flows through:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>bread_info_cr2 <span class="ot">&lt;-</span> <span class="fu">.compute_wls_bread</span>(bm_data, tau2_hat, K, J,</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                                      <span class="at">omega2_hat =</span> omega2_hat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>All subsequent steps—hat blocks, CR2 adjustments, V_CR2, and Satterthwaite df—call the same generic functions as CE. The CHE V_CR2 replaces the HC0 beta-block as the CCC calibration target.</p>
+</section>
+<section id="che-conditional-sandwich" class="level3" data-number="11.3.4">
+<h3 data-number="11.3.4" class="anchored" data-anchor-id="che-conditional-sandwich"><span class="header-section-number">11.3.4</span> CHE Conditional Sandwich</h3>
+<p>Since the CHE model integrates <span class="math inline">\(\theta_j\)</span> out analytically, there is no explicit theta parameter to calibrate. The CHE sandwich object sets <code>V_sand_cond = 0</code> for all <span class="math inline">\(J\)</span> studies, maintaining structural compatibility with downstream CCC and method dispatch while signaling that no theta-block calibration is needed.</p>
+</section>
+<section id="decision-d22-singleton-warning" class="level3" data-number="11.3.5">
+<h3 data-number="11.3.5" class="anchored" data-anchor-id="decision-d22-singleton-warning"><span class="header-section-number">11.3.5</span> Decision D22: Singleton Warning</h3>
+<p>Before any computation, <code>.che_sandwich()</code> checks for singleton studies (<span class="math inline">\(n_j = 1\)</span>), where <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> are not separately identified from the data. If all studies are singletons, a warning indicates that posterior separation relies entirely on the prior. If more than 50% of studies are singletons, a weaker warning flags potential sensitivity.</p>
+</section>
+</section>
+<section id="sec-sw-woodbury" class="level2" data-number="11.4">
+<h2 data-number="11.4" class="anchored" data-anchor-id="sec-sw-woodbury"><span class="header-section-number">11.4</span> Woodbury Linear Algebra and <span class="math inline">\(\mathbf{W}^{1/2}\)</span></h2>
+<p>The Woodbury matrix identity is the computational backbone of the sandwich module. Two functions encapsulate the key linear algebra: <code>.compute_W_j()</code> for the weight matrix and <code>.compute_W_j_sqrt()</code> for its matrix square root.</p>
+<section id="weight-matrix-.compute_w_j" class="level3" data-number="11.4.1">
+<h3 data-number="11.4.1" class="anchored" data-anchor-id="weight-matrix-.compute_w_j"><span class="header-section-number">11.4.1</span> Weight Matrix: <code>.compute_W_j()</code></h3>
+<p>The working covariance for study <span class="math inline">\(j\)</span> has compound-symmetric structure:</p>
+<p><span class="math display">\[
+\boldsymbol{\Sigma}_j = a_j\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p>where <span class="math inline">\(a_j = \bar{s}_j^2 + \hat\omega^2\)</span> (reducing to <span class="math inline">\(\bar{s}_j^2\)</span> for CE when <span class="math inline">\(\hat\omega^2 = 0\)</span>). The Woodbury inverse gives the weight matrix in closed form:</p>
+<p><span class="math display">\[
+\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1} = \frac{1}{a_j}\,\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p>where <span class="math inline">\(c_j = a_j + n_j\tau^2\)</span>. For singletons (<span class="math inline">\(n_j = 1\)</span>), this simplifies to the scalar <span class="math inline">\(1/(a_j + \tau^2)\)</span>.</p>
+<p>The implementation:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>.compute_W_j <span class="ot">&lt;-</span> <span class="cf">function</span>(s_bar2_j, tau2_hat, n_j, <span class="at">omega2_hat =</span> <span class="dv">0</span>) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  a_j <span class="ot">&lt;-</span> s_bar2_j <span class="sc">+</span> omega2_hat</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  a_j <span class="ot">&lt;-</span> <span class="fu">max</span>(a_j, .Machine<span class="sc">$</span>double.eps)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n_j <span class="sc">==</span> <span class="dv">1</span>L) <span class="fu">return</span>(<span class="fu">matrix</span>(<span class="dv">1</span> <span class="sc">/</span> (a_j <span class="sc">+</span> tau2_hat), <span class="dv">1</span>L, <span class="dv">1</span>L))</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  c_j <span class="ot">&lt;-</span> a_j <span class="sc">+</span> n_j <span class="sc">*</span> tau2_hat</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  diag_val <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> a_j</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  off_val  <span class="ot">&lt;-</span> <span class="sc">-</span>tau2_hat <span class="sc">/</span> (a_j <span class="sc">*</span> c_j)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  W_j <span class="ot">&lt;-</span> <span class="fu">matrix</span>(off_val, n_j, n_j)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(W_j) <span class="ot">&lt;-</span> diag_val <span class="sc">+</span> off_val</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  W_j</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The floor on <span class="math inline">\(a_j\)</span> guards against degenerate cases where both sampling variance and <span class="math inline">\(\omega^2\)</span> are near zero.</p>
+</section>
+<section id="matrix-square-root-.compute_w_j_sqrt-decision-d24" class="level3" data-number="11.4.2">
+<h3 data-number="11.4.2" class="anchored" data-anchor-id="matrix-square-root-.compute_w_j_sqrt-decision-d24"><span class="header-section-number">11.4.2</span> Matrix Square Root: <code>.compute_W_j_sqrt()</code> (Decision D24)</h3>
+<p>The CR2 adjustment requires the symmetrization transform <span class="math inline">\(\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}\)</span> (Decision D16). Rather than computing the general eigendecomposition of <span class="math inline">\(\mathbf{W}_j\)</span> at every study, Decision D24 exploits the compound-symmetric structure.</p>
+<p>The matrix <span class="math inline">\(\mathbf{W}_j = a\,\mathbf{I} + b\,\mathbf{1}\mathbf{1}'\)</span> (where <span class="math inline">\(a = 1/a_j - \tau^2/(a_j c_j)\)</span> and <span class="math inline">\(b = -\tau^2/(a_j c_j)\)</span>) has exactly two distinct eigenvalues:</p>
+<p><span class="math display">\[
+\lambda_1 = a + n_j b \quad (\text{eigenvector: } \mathbf{1}/\sqrt{n_j}), \qquad
+\lambda_2 = a \quad (n_j - 1 \text{ times})
+\]</span></p>
+<p>The square root and inverse square root inherit the same rank-1 structure:</p>
+<p><span class="math display">\[
+\mathbf{W}_j^{1/2} = \sqrt{\lambda_2}\,\mathbf{I}_{n_j} + \frac{\sqrt{\lambda_1} - \sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p><span class="math display">\[
+\mathbf{W}_j^{-1/2} = \frac{1}{\sqrt{\lambda_2}}\,\mathbf{I}_{n_j} + \frac{1/\sqrt{\lambda_1} - 1/\sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'
+\]</span></p>
+<p>This avoids the <span class="math inline">\(O(n_j^3)\)</span> eigendecomposition cost per study. The implementation constructs both matrices directly from the two eigenvalues:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>sa <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lam2)                              <span class="co"># sqrt of repeated eigenvalue</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lam1)                              <span class="co"># sqrt of rank-1 eigenvalue</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>W_sqrt <span class="ot">&lt;-</span> <span class="fu">matrix</span>((s1 <span class="sc">-</span> sa) <span class="sc">/</span> n_j, n_j, n_j)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(W_sqrt) <span class="ot">&lt;-</span> sa <span class="sc">+</span> (s1 <span class="sc">-</span> sa) <span class="sc">/</span> n_j</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A guard checks that both eigenvalues are positive; if not, the function falls back to a general eigendecomposition with eigenvalue flooring.</p>
+</section>
+</section>
+<section id="sec-sw-cr2" class="level2" data-number="11.5">
+<h2 data-number="11.5" class="anchored" data-anchor-id="sec-sw-cr2"><span class="header-section-number">11.5</span> CR2 Assembly and Satterthwaite df</h2>
+<p>The CR2 pipeline consists of four steps executed sequentially after the HC0 computation: WLS bread, hat matrix blocks, CR2 adjustment matrices, and V_CR2 assembly, followed by Satterthwaite degrees of freedom.</p>
+<section id="step-a.1-wls-bread-decision-d15" class="level3" data-number="11.5.1">
+<h3 data-number="11.5.1" class="anchored" data-anchor-id="step-a.1-wls-bread-decision-d15"><span class="header-section-number">11.5.1</span> Step A.1: WLS Bread (Decision D15)</h3>
+<p>Decision D15 mandates that CR2 uses the fixed-effect WLS bread <span class="math inline">\(\mathbf{Q} = (\mathbf{X}'\mathbf{W}\mathbf{X})^{-1}\)</span>, not the posterior Hessian. The posterior Hessian includes prior precision, which is appropriate for the MCMC covariance used in CCC but would distort the frequentist leverage computations that CR2 relies on.</p>
+<p>The function <code>.compute_wls_bread()</code> handles both study-level and observation-level paths:</p>
+<p><strong>Study-level</strong> (cluster-constant predictors): Each study contributes a scalar weight <span class="math inline">\(w_j = 1/v_j\)</span> where <span class="math inline">\(v_j = (\bar{s}_j^2 + \hat\omega^2)/n_j + \hat\tau^2\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{Q} = \left(\sum_{j=1}^{J} w_j\,\bar{\mathbf{x}}_j\,\bar{\mathbf{x}}_j'\right)^{-1}
+\]</span></p>
+<p><strong>Observation-level</strong> (within-study varying predictors): Each study contributes the full Woodbury weight matrix:</p>
+<p><span class="math display">\[
+\mathbf{Q} = \left(\sum_{j=1}^{J} \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{X}_j\right)^{-1}
+\]</span></p>
+<p>The function returns <span class="math inline">\(\mathbf{Q}\)</span> along with the per-study lists <span class="math inline">\(\mathbf{W}_j\)</span> and <span class="math inline">\(\mathbf{X}_j\)</span>, which are reused by all downstream CR2 functions. If <span class="math inline">\(\mathbf{X}'\mathbf{W}\mathbf{X}\)</span> is singular, a generalized inverse via <code>MASS::ginv()</code> is used with a diagnostic warning.</p>
+</section>
+<section id="step-a.2a-hat-matrix-blocks" class="level3" data-number="11.5.2">
+<h3 data-number="11.5.2" class="anchored" data-anchor-id="step-a.2a-hat-matrix-blocks"><span class="header-section-number">11.5.2</span> Step A.2a: Hat Matrix Blocks</h3>
+<p>The function <code>.compute_hat_blocks()</code> computes the diagonal blocks of the hat matrix for each study:</p>
+<p><span class="math display">\[
+\mathbf{H}_{jj} = \mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j
+\]</span></p>
+<p>For the study-level path, this reduces to the scalar leverage <span class="math inline">\(h_j = \bar{\mathbf{x}}_j'\,\mathbf{Q}\,\bar{\mathbf{x}}_j \cdot w_j\)</span>. A warning is issued if any <span class="math inline">\(h_j &gt; 0.5\)</span>, indicating a high-leverage study that may destabilize CR2.</p>
+<p>Note that <span class="math inline">\(\mathbf{H}_{jj}\)</span> is generally not symmetric for the observation-level path. The symmetrization needed for the CR2 eigendecomposition is handled in the next step via the <span class="math inline">\(\mathbf{W}^{1/2}\)</span> transform.</p>
+</section>
+<section id="step-a.2b-cr2-adjustment-matrices-decision-d16" class="level3" data-number="11.5.3">
+<h3 data-number="11.5.3" class="anchored" data-anchor-id="step-a.2b-cr2-adjustment-matrices-decision-d16"><span class="header-section-number">11.5.3</span> Step A.2b: CR2 Adjustment Matrices (Decision D16)</h3>
+<p>The function <code>.compute_cr2_adjustments()</code> computes the <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> adjustment matrices <span class="math inline">\(\mathbf{A}_j\)</span> using the <span class="math inline">\(\mathbf{W}^{1/2}\)</span> symmetrization approach (Decision D16).</p>
+<p>For the study-level or singleton case, the adjustment is a scalar:</p>
+<p><span class="math display">\[
+A_j = (1 - h_j)^{-1/2}
+\]</span></p>
+<p>For the observation-level case, the three-step procedure is:</p>
+<ol type="1">
+<li><strong>Symmetrize:</strong> <span class="math inline">\(\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}\)</span></li>
+<li><strong>Eigendecompose:</strong> <span class="math inline">\(\mathbf{I} - \tilde{\mathbf{H}}_{jj} = \mathbf{V}\,\boldsymbol{\Lambda}\,\mathbf{V}'\)</span>, then <span class="math inline">\(\tilde{\mathbf{A}}_j = (\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2} = \mathbf{V}\,\boldsymbol{\Lambda}^{-1/2}\,\mathbf{V}'\)</span></li>
+<li><strong>Back-transform:</strong> <span class="math inline">\(\mathbf{A}_j = \mathbf{W}_j^{-1/2}\,\tilde{\mathbf{A}}_j\,\mathbf{W}_j^{1/2}\)</span></li>
+</ol>
+<p>Eigenvalues of <span class="math inline">\(\mathbf{I} - \tilde{\mathbf{H}}_{jj}\)</span> below <span class="math inline">\(10^{-10}\)</span> are truncated with a warning, preventing division by near-zero values in the inverse square root. Leverage values exceeding 0.999 are capped for the scalar path.</p>
+</section>
+<section id="step-a.3-v_cr2-assembly" class="level3" data-number="11.5.4">
+<h3 data-number="11.5.4" class="anchored" data-anchor-id="step-a.3-v_cr2-assembly"><span class="header-section-number">11.5.4</span> Step A.3: V_CR2 Assembly</h3>
+<p>The function <code>.compute_vcr2()</code> assembles the CR2 variance estimator (Decision D12):</p>
+<p><span class="math display">\[
+\mathbf{V}_\text{CR2} = \mathbf{Q}\left(\sum_{j=1}^{J} \tilde{\mathbf{s}}_j\,\tilde{\mathbf{s}}_j'\right)\mathbf{Q}
+\]</span></p>
+<p>where <span class="math inline">\(\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{A}_j\,\hat{\mathbf{e}}_j\)</span> are the CR2-adjusted scores and <span class="math inline">\(\hat{\mathbf{e}}_j\)</span> are the WLS residuals.</p>
+<p>For the study-level path, the residual is the scalar <span class="math inline">\(r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}\)</span>, the adjustment is the scalar <span class="math inline">\(A_j\)</span>, and the adjusted score simplifies to <span class="math inline">\(\tilde{\mathbf{s}}_j = \bar{\mathbf{x}}_j \cdot w_j \cdot A_j \cdot r_j\)</span>.</p>
+<p>For the observation-level path, the full matrix computation applies: <span class="math inline">\(\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}}\)</span> (the <span class="math inline">\(n_j\)</span>-vector of residuals), <span class="math inline">\(\tilde{\mathbf{e}}_j = \mathbf{A}_j\hat{\mathbf{e}}_j\)</span>, and <span class="math inline">\(\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\tilde{\mathbf{e}}_j\)</span>.</p>
+<p>The assembled V_CR2 replaces the HC0 beta-block as the CCC calibration target. This is the critical integration point identified during v0.5.0 development: <code>marg$V_beta</code> (not <code>V_sand_marg</code>) must be overwritten, since <code>.assemble_bm_sandwich()</code> exports <code>V_beta</code> as the final <code>V_sand_marg</code> field.</p>
+</section>
+<section id="step-b.1-satterthwaite-degrees-of-freedom-decision-d17" class="level3" data-number="11.5.5">
+<h3 data-number="11.5.5" class="anchored" data-anchor-id="step-b.1-satterthwaite-degrees-of-freedom-decision-d17"><span class="header-section-number">11.5.5</span> Step B.1: Satterthwaite Degrees of Freedom (Decision D17)</h3>
+<p>The function <code>.satterthwaite_df()</code> computes per-coefficient degrees of freedom using the trace formula from <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> and <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>.</p>
+<p>For each coefficient <span class="math inline">\(k\)</span>, define the <span class="math inline">\(J \times J\)</span> matrix <span class="math inline">\(\mathbf{P}_k\)</span> with elements:</p>
+<p><span class="math display">\[
+P_{k,ii} = \mathbf{g}_{ik}'\,\mathbf{W}_i^{-1}\,\mathbf{g}_{ik} - \mathbf{g}_{ik}'\,\mathbf{X}_i\,\mathbf{Q}\,\mathbf{X}_i'\,\mathbf{g}_{ik}
+\]</span></p>
+<p><span class="math display">\[
+P_{k,ij} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\,\mathbf{Q}\,(\mathbf{X}_j'\mathbf{g}_{jk}), \quad i \neq j
+\]</span></p>
+<p>where <span class="math inline">\(\mathbf{g}_{jk} = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{c}_k\)</span> and <span class="math inline">\(\mathbf{c}_k\)</span> is the <span class="math inline">\(k\)</span>-th standard basis vector.</p>
+<p>The Satterthwaite df is then:</p>
+<p><span class="math display">\[
+\text{df}_k = \frac{[\text{tr}(\mathbf{P}_k)]^2}{\text{tr}(\mathbf{P}_k^2)}
+\]</span></p>
+<p>The implementation pre-computes <span class="math inline">\(\mathbf{G}_j = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}\)</span> for all studies, then extracts column <span class="math inline">\(k\)</span> as <span class="math inline">\(\mathbf{g}_{jk}\)</span>. The <span class="math inline">\(J \times J\)</span> matrix <span class="math inline">\(\mathbf{P}_k\)</span> is built with diagonal terms involving <span class="math inline">\(\mathbf{W}_j^{-1}\mathbf{g}_{jk}\)</span> (computed via <code>solve()</code> for numerical stability) and off-diagonal terms from the cross-products.</p>
+<p>The trace <span class="math inline">\(\text{tr}(\mathbf{P}_k^2)\)</span> is computed efficiently as <code>sum(P_k * P_k)</code> (the Frobenius inner product of <span class="math inline">\(\mathbf{P}_k\)</span> with itself, which equals the sum of squared elements for a symmetric matrix).</p>
+<p>Diagnostic safeguards handle three failure modes:</p>
+<ol type="1">
+<li>Computation failure (singular <span class="math inline">\(\mathbf{W}_j\)</span>): df set to <code>NA</code>, replaced by naive <span class="math inline">\(\max(J - K, 1)\)</span>.</li>
+<li><span class="math inline">\(\text{df}_k &lt; 1\)</span>: Replaced by naive df with a warning.</li>
+<li><span class="math inline">\(\text{df}_k &lt; 4\)</span>: Retained but flagged following <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>, who showed that <span class="math inline">\(t\)</span>-based inference is unreliable below this threshold.</li>
+</ol>
+</section>
+<section id="decision-d25-plug-in-parity" class="level3" data-number="11.5.6">
+<h3 data-number="11.5.6" class="anchored" data-anchor-id="decision-d25-plug-in-parity"><span class="header-section-number">11.5.6</span> Decision D25: Plug-In Parity</h3>
+<p>The plug-in parity test (Decision D25) validates the CR2 linear algebra by injecting REML estimates of <span class="math inline">\(\hat\tau^2\)</span> (and <span class="math inline">\(\hat\omega^2\)</span> for CHE) into the bayesRVE sandwich pipeline and comparing the resulting V_CR2 against <code>clubSandwich::vcovCR()</code> <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> applied to a <code>metafor::rma.mv()</code> <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> fit. Agreement at <span class="math inline">\(10^{-6}\)</span> tolerance isolates the linear algebra from MCMC noise, confirming that the Woodbury, CR2, and Satterthwaite implementations exactly match the reference. This test is a cornerstone of the verification strategy (<a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a>).</p>
+</section>
+</section>
+<section id="sec-sw-safeguards" class="level2" data-number="11.6">
+<h2 data-number="11.6" class="anchored" data-anchor-id="sec-sw-safeguards"><span class="header-section-number">11.6</span> Numerical Safeguards</h2>
+<p>The sandwich module incorporates multiple defensive measures to ensure numerical stability across the wide range of meta-analytic datasets encountered in practice.</p>
+<section id="generalized-inverse-fallback" class="level3" data-number="11.6.1">
+<h3 data-number="11.6.1" class="anchored" data-anchor-id="generalized-inverse-fallback"><span class="header-section-number">11.6.1</span> Generalized Inverse Fallback</h3>
+<p>When <span class="math inline">\(\mathbf{X}'\mathbf{W}\mathbf{X}\)</span> is singular or near-singular (e.g., due to collinear moderators or extreme weight imbalance), <code>solve()</code> will fail. The bread computation wraps the inversion in <code>tryCatch</code> and falls back to <code>MASS::ginv()</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">solve</span>(XtWX),</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    cli<span class="sc">::</span><span class="fu">cli_warn</span>(<span class="st">"X'WX is singular; using generalized inverse."</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    MASS<span class="sc">::</span><span class="fu">ginv</span>(XtWX)</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="positive-definiteness-diagnostics" class="level3" data-number="11.6.2">
+<h3 data-number="11.6.2" class="anchored" data-anchor-id="positive-definiteness-diagnostics"><span class="header-section-number">11.6.2</span> Positive-Definiteness Diagnostics</h3>
+<p>The <code>beta_pd</code> flag records whether <span class="math inline">\(\mathbf{V}_\beta\)</span> is positive definite. This diagnostic propagates to the CCC: if <code>beta_pd = FALSE</code>, the beta-block CCC transformation is skipped because the Cholesky factorization <span class="math inline">\(\mathbf{L}_2 = \text{chol}(\mathbf{V}_\text{CR2})\)</span> would fail. The PD check is recomputed after each correction stage (HC0, scalar, CR2) so the flag reflects the final export target.</p>
+</section>
+<section id="score-balance-check" class="level3" data-number="11.6.3">
+<h3 data-number="11.6.3" class="anchored" data-anchor-id="score-balance-check"><span class="header-section-number">11.6.3</span> Score Balance Check</h3>
+<p>The score sum norm <span class="math inline">\(\|\sum_j \mathbf{s}_j\|\)</span> is stored in <code>diagnostics$score_sum_norm</code>. At the posterior mean, the score equation <span class="math inline">\(\sum_j \mathbf{s}_j + \mathbf{s}_\text{prior} = \mathbf{0}\)</span> should hold approximately (exactly for MAP, approximately for posterior mean with informative priors). Large values indicate numerical issues in score computation.</p>
+</section>
+<section id="condition-number-monitoring" class="level3" data-number="11.6.4">
+<h3 data-number="11.6.4" class="anchored" data-anchor-id="condition-number-monitoring"><span class="header-section-number">11.6.4</span> Condition Number Monitoring</h3>
+<p>The condition number <span class="math inline">\(\kappa(\mathbf{H}_\text{post})\)</span> is computed from the eigenvalue ratio and stored in diagnostics. Values exceeding <span class="math inline">\(10^{12}\)</span> trigger a warning suggesting stronger priors. For the CR2 path, <span class="math inline">\(\kappa(\mathbf{Q})\)</span> is similarly monitored via <code>diagnostics$H_condition</code>.</p>
+</section>
+<section id="the-nearpd-anti-pattern" class="level3" data-number="11.6.5">
+<h3 data-number="11.6.5" class="anchored" data-anchor-id="the-nearpd-anti-pattern"><span class="header-section-number">11.6.5</span> The nearPD Anti-Pattern</h3>
+<p>A deliberate design choice: <code>nearPD()</code> is never applied to <span class="math inline">\(\mathbf{V}_\text{CR2}\)</span> or any sandwich variance output. If the sandwich estimate is not positive definite, this signals a genuine problem—insufficient studies, extreme leverage, or model misspecification—that should be reported to the user, not silently corrected. Applying <code>nearPD()</code> would mask the diagnostic signal and produce artificially smooth confidence intervals with no theoretical backing. Instead, non-PD beta-blocks cause the CCC to fall back to raw posterior draws, preserving valid Bayesian inference at the cost of losing the sandwich calibration. (The one exception is <code>.build_che_hessian()</code>, which applies <code>nearPD</code> to the posterior <em>bread</em> matrix <span class="math inline">\(\mathbf{H}_\text{post}\)</span>—an auxiliary intermediate, not a sandwich variance estimate—to ensure a valid bread exists for the HC0 inversion.)</p>
+</section>
+</section>
+<section id="sec-sw-decisions" class="level2" data-number="11.7">
+<h2 data-number="11.7" class="anchored" data-anchor-id="sec-sw-decisions"><span class="header-section-number">11.7</span> Design Decision Registry</h2>
+<p>The following table summarizes all design decisions that directly affect the <code>sandwich()</code> module. Each decision is referenced by its identifier (D<em>n</em>) from the project development log.</p>
+<div id="tbl-sw-decisions" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sw-decisions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;11.1: Design decisions affecting the sandwich variance estimation module.
+</figcaption>
+<div aria-describedby="tbl-sw-decisions-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 34%">
+<col style="width: 27%">
+<col style="width: 37%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Decision</th>
+<th style="text-align: left;">Choice</th>
+<th style="text-align: left;">Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">D2</td>
+<td style="text-align: left;">Blockwise hybrid CCC: beta-block marginal sandwich, theta-block diagonal rescaling</td>
+<td style="text-align: left;">Avoids Neyman-Scott inconsistency for variance components</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D5</td>
+<td style="text-align: left;"><code>rho</code> handled in <code>sandwich()</code>, not in <code>bm_fit()</code></td>
+<td style="text-align: left;">User controls working correlation at analysis time</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D6</td>
+<td style="text-align: left;">Within-study varying moderators trigger obs-level scores</td>
+<td style="text-align: left;">Auto-dispatch via <code>cluster_constant</code>; no user action needed</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D7</td>
+<td style="text-align: left;">Operating envelope <span class="math inline">\(J_{\min} = \max(8, 2K+2)\)</span>; fallback to raw posterior</td>
+<td style="text-align: left;">Prevents ill-conditioned sandwiches with too few clusters</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D11</td>
+<td style="text-align: left;">CR2 + Satterthwaite implemented independently</td>
+<td style="text-align: left;">No clubSandwich runtime dependency; full numerical control</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D12</td>
+<td style="text-align: left;">CCC target = <span class="math inline">\(V_{\text{CR2}}\)</span> (not <span class="math inline">\(V_{\text{HC0}} \cdot c_\beta\)</span>)</td>
+<td style="text-align: left;">CR2 is less biased, especially for heterogeneous cluster sizes</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D13</td>
+<td style="text-align: left;">Default <code>small_sample = "CR2"</code>, default df = Satterthwaite</td>
+<td style="text-align: left;">Best available finite-sample correction as package default</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D15</td>
+<td style="text-align: left;">WLS bread <span class="math inline">\((X'WX)^{-1}\)</span>, not posterior Hessian</td>
+<td style="text-align: left;">Frequentist CR2 requires frequentist bread; prior precision distorts leverage</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D16</td>
+<td style="text-align: left;"><span class="math inline">\(W^{1/2}\)</span> symmetrization for hat matrix</td>
+<td style="text-align: left;">Ensures real eigendecomposition for <span class="math inline">\(A_j\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D17</td>
+<td style="text-align: left;">Satterthwaite df via <span class="math inline">\(P_k\)</span> trace formula</td>
+<td style="text-align: left;">Deterministic, matches <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D20</td>
+<td style="text-align: left;"><span class="math inline">\(\hat\omega^2 = E[\omega^2]\)</span> (Jensen-safe)</td>
+<td style="text-align: left;">Correct variance plug-in; consistent with CE convention</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D22</td>
+<td style="text-align: left;">Singleton non-identifiability warning</td>
+<td style="text-align: left;">Protects users from misleading CHE results</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D24</td>
+<td style="text-align: left;">Analytical <span class="math inline">\(W^{1/2}\)</span> via rank-1 structure</td>
+<td style="text-align: left;"><span class="math inline">\(O(n_j)\)</span> closed form vs <span class="math inline">\(O(n_j^3)\)</span> eigendecomposition</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D25</td>
+<td style="text-align: left;">Plug-in parity: REML injection matches clubSandwich at <span class="math inline">\(10^{-6}\)</span></td>
+<td style="text-align: left;">Isolates linear algebra from MCMC noise</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-bell2002" class="csl-entry" role="listitem">
+Bell, R. M., &amp; McCaffrey, D. F. (2002). Bias reduction in standard errors for linear regression with multi-stage samples. <em>Survey Methodology</em>, <em>28</em>(2), 169–181.
+</div>
+<div id="ref-pustejovsky2022" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2022). Meta-analysis with robust variance estimation: Expanding the range of working models. <em>Prevention Science</em>, <em>23</em>(3), 425–438. <a href="https://doi.org/10.1007/s11121-021-01246-3">https://doi.org/10.1007/s11121-021-01246-3</a>
+</div>
+<div id="ref-tipton2015" class="csl-entry" role="listitem">
+Tipton, E. (2015). Small sample adjustments for robust variance estimation with meta-regression. <em>Psychological Methods</em>, <em>20</em>(3), 375–393. <a href="https://doi.org/10.1037/met0000011">https://doi.org/10.1037/met0000011</a>
+</div>
+<div id="ref-viechtbauer2010" class="csl-entry" role="listitem">
+Viechtbauer, W. (2010). Conducting meta-analyses in <span>R</span> with the <strong>metafor</strong> package. <em>Journal of Statistical Software</em>, <em>36</em>(3), 1–48. <a href="https://doi.org/10.18637/jss.v036.i03">https://doi.org/10.18637/jss.v036.i03</a>
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./ch07-fitting.html" class="pagination-link" aria-label="Model Fitting Pipeline">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./ch09-ccc-impl.html" class="pagination-link" aria-label="CCC Implementation and Inferential Outputs">
+        <span class="nav-page-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Sandwich Implementation"</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu"># Sandwich Implementation {#sec-sandwich-impl}</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>This chapter traces the implementation of the cluster-robust sandwich variance estimator in <span class="in">`bayesRVE`</span>, covering the full pipeline from S3 dispatch through HC0 computation, CR2 bias correction, and Satterthwaite degrees of freedom.</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>The theoretical foundations appear in @sec-sandwich; here we show how each formula translates into working R code inside <span class="in">`bayesRVE/R/sandwich.R`</span>.</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>The implementation serves two roles.</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>First, the HC0 and scalar-corrected sandwich provide a fast classical benchmark for CCC calibration targets (@sec-ccc).</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>Second, the CR2 sandwich with Satterthwaite degrees of freedom constitutes the Three-Layer Calibration target---the gold standard against which CCC inference is validated.</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="fu">## Entry Points and Dispatch Logic {#sec-sw-dispatch}</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>The sandwich module exposes a single S3 generic:</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>sandwich <span class="ot">&lt;-</span> <span class="cf">function</span>(x, ...) <span class="fu">UseMethod</span>(<span class="st">"sandwich"</span>)</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>The method <span class="in">`sandwich.bm_fit()`</span> accepts three arguments beyond the fitted object: a working correlation <span class="in">`rho`</span>, a <span class="in">`small_sample`</span> correction selector, and dots reserved for future extensions.</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>**The `rho` parameter is stored in the output object for provenance tracking but does not enter the CE or CHE marginal sandwich computation**---both models use the compound-symmetric working covariance $\boldsymbol{\Sigma}_j = a_j \mathbf{I} + \tau^2 \mathbf{1}\mathbf{1}'$, which fully determines the within-cluster correlation structure.</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>The stored <span class="in">`rho`</span> value is available to downstream consumers (e.g., sensitivity analyses) without affecting the sandwich estimate.</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>sandwich.bm_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">rho =</span> <span class="fl">0.8</span>,</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>                             <span class="at">small_sample =</span> <span class="fu">c</span>(<span class="st">"CR2"</span>, <span class="st">"scalar"</span>, <span class="st">"none"</span>), ...) {</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>  checkmate<span class="sc">::</span><span class="fu">assert_class</span>(x, <span class="st">"bm_fit"</span>)</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>  checkmate<span class="sc">::</span><span class="fu">assert_number</span>(rho, <span class="at">lower =</span> <span class="dv">0</span>, <span class="at">upper =</span> <span class="dv">1</span>)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>  small_sample <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(small_sample)</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>The <span class="in">`small_sample`</span> argument controls the correction hierarchy:</span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Value <span class="pp">|</span> Behavior <span class="pp">|</span></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|:------|:---------|</span></span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`"CR2"`</span> <span class="pp">|</span> @bell2002 CR2 adjustment matrices + Satterthwaite df (default since v0.5.0) <span class="pp">|</span></span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`"scalar"`</span> <span class="pp">|</span> Scalar inflation $c_\beta = J / (J - p_\text{eff})$ via Bayesian leverage <span class="pp">|</span></span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`"none"`</span> <span class="pp">|</span> Raw HC0 sandwich, no correction <span class="pp">|</span></span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a><span class="fu">### CE vs CHE Dispatch</span></span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>The first branching point is model type.</span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>The <span class="in">`bm_fit`</span> object carries a <span class="in">`$model`</span> field (<span class="in">`"ce"`</span> or <span class="in">`"che"`</span>); for backward compatibility with pre-v0.4.0 objects that lack this field, <span class="in">`NULL`</span> defaults to <span class="in">`"ce"`</span>:</span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>model_type <span class="ot">&lt;-</span> x<span class="sc">$</span>model <span class="sc">%||%</span> <span class="st">"ce"</span></span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (model_type <span class="sc">==</span> <span class="st">"che"</span>) {</span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">.che_sandwich</span>(x, <span class="at">rho =</span> rho, <span class="at">small_sample =</span> small_sample))</span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>For CE models, the function continues with the operating-envelope check (Decision D7), moderator-scope dispatch (cluster-constant vs.\ observation-level), posterior draw extraction, and sequential computation of the marginal sandwich, CR2 upgrade, and conditional sandwich before assembly.</span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a><span class="fu">### Operating Envelope</span></span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>Decision D7 defines the minimum number of studies for reliable sandwich estimation:</span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>J_\min = \max(8,\; 2K + 2)</span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>When $J &lt; J_\min$, the beta-block sandwich is unreliable.</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>Rather than aborting, bayesRVE enters a fallback mode where the beta-block CCC uses raw posterior draws and only the theta-block proceeds with sandwich calibration.</span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>The <span class="in">`fallback`</span> flag propagates through the entire pipeline, skipping HC0 inversion, CR2 upgrade, and Satterthwaite computation for the beta block.</span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a><span class="fu">### Moderator Scope</span></span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a>The <span class="in">`obs_level`</span> flag, derived from <span class="in">`bm_data$cluster_constant`</span> (set during data preparation), controls whether score and Hessian computation uses study-level aggregated quantities or observation-level Woodbury expansions.</span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a>When all predictors are cluster-constant---the common case in meta-analysis with study-level moderators---the study-level path provides an efficient closed-form computation.</span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a>When within-study varying predictors are present (e.g., outcome-type moderators), the observation-level path handles the full $n_j \times K$ design matrices per study.</span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a><span class="fu">## CE Sandwich Path {#sec-sw-ce}</span></span>
+<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a>The CE sandwich decomposes into two independent blocks: a marginal sandwich for $\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2)$ and a conditional sandwich for $\boldsymbol{\theta} \mid \hat{\boldsymbol{\beta}}$.</span>
+<span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a>This blockwise structure (Decision D2) allows the CCC to apply different calibration strategies to each parameter group.</span>
+<span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a><span class="fu">### Marginal Sandwich: HC0 Computation</span></span>
+<span id="cb9-84"><a href="#cb9-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-85"><a href="#cb9-85" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.marginal_sandwich()`</span> computes the HC0 sandwich at the posterior mean $(\hat{\boldsymbol{\beta}}, \hat\tau^2)$.</span>
+<span id="cb9-86"><a href="#cb9-86" aria-hidden="true" tabindex="-1"></a>For the study-level path, the computation follows the classical sandwich formula.</span>
+<span id="cb9-87"><a href="#cb9-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-88"><a href="#cb9-88" aria-hidden="true" tabindex="-1"></a>**Residuals and scores.**</span>
+<span id="cb9-89"><a href="#cb9-89" aria-hidden="true" tabindex="-1"></a>The marginal variance of the study mean is $v_j = \bar{s}_j^2 / n_j + \hat\tau^2$.</span>
+<span id="cb9-90"><a href="#cb9-90" aria-hidden="true" tabindex="-1"></a>Study-level residuals are $r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}$.</span>
+<span id="cb9-91"><a href="#cb9-91" aria-hidden="true" tabindex="-1"></a>The likelihood score matrix $\mathbf{S}$ has rows indexed by study $j$ and columns indexed by parameters $(\beta_1, \ldots, \beta_K, \tau^2)$:</span>
+<span id="cb9-92"><a href="#cb9-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-93"><a href="#cb9-93" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-94"><a href="#cb9-94" aria-hidden="true" tabindex="-1"></a>s_j^{(\beta)} = \frac{r_j}{v_j}\,\bar{\mathbf{x}}_j, \qquad</span>
+<span id="cb9-95"><a href="#cb9-95" aria-hidden="true" tabindex="-1"></a>s_j^{(\tau^2)} = -\frac{1}{2v_j} + \frac{r_j^2}{2v_j^2}</span>
+<span id="cb9-96"><a href="#cb9-96" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-97"><a href="#cb9-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-98"><a href="#cb9-98" aria-hidden="true" tabindex="-1"></a>In code:</span>
+<span id="cb9-99"><a href="#cb9-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-100"><a href="#cb9-100" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-101"><a href="#cb9-101" aria-hidden="true" tabindex="-1"></a>score_beta <span class="ot">&lt;-</span> (r_j <span class="sc">/</span> v_j) <span class="sc">*</span> x_bar            <span class="co"># J x K</span></span>
+<span id="cb9-102"><a href="#cb9-102" aria-hidden="true" tabindex="-1"></a>score_tau2 <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> v_j) <span class="sc">+</span> r_j<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> v_j<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb9-103"><a href="#cb9-103" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">cbind</span>(score_beta, score_tau2)            <span class="co"># J x (K+1)</span></span>
+<span id="cb9-104"><a href="#cb9-104" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-105"><a href="#cb9-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-106"><a href="#cb9-106" aria-hidden="true" tabindex="-1"></a>**Meat.** The meat matrix accumulates outer products of the per-study score vectors:</span>
+<span id="cb9-107"><a href="#cb9-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-108"><a href="#cb9-108" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-109"><a href="#cb9-109" aria-hidden="true" tabindex="-1"></a>\mathbf{M} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j' = \mathbf{S}'\mathbf{S}</span>
+<span id="cb9-110"><a href="#cb9-110" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-111"><a href="#cb9-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-112"><a href="#cb9-112" aria-hidden="true" tabindex="-1"></a>The meat is a $(K{+}1) \times (K{+}1)$ matrix.</span>
+<span id="cb9-113"><a href="#cb9-113" aria-hidden="true" tabindex="-1"></a>Only likelihood scores contribute; prior scores are deliberately excluded from the meat to preserve the sandwich's frequentist robustness properties.</span>
+<span id="cb9-114"><a href="#cb9-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-115"><a href="#cb9-115" aria-hidden="true" tabindex="-1"></a>**Bread.** The bread is the posterior Hessian $\mathbf{H}_\text{post} = \mathbf{H}_\text{lik} + \mathbf{H}_\text{prior}$.</span>
+<span id="cb9-116"><a href="#cb9-116" aria-hidden="true" tabindex="-1"></a>The likelihood Hessian <span class="in">`.build_marginal_hessian()`</span> assembles the $(K{+}1) \times (K{+}1)$ matrix from the beta--beta, beta--$\tau^2$, and $\tau^2$--$\tau^2$ blocks using the study-level summaries.</span>
+<span id="cb9-117"><a href="#cb9-117" aria-hidden="true" tabindex="-1"></a>The stabilized prior Hessian <span class="in">`.build_prior_hessian()`</span> adds precision from the beta and $\tau^2$ priors.</span>
+<span id="cb9-118"><a href="#cb9-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-119"><a href="#cb9-119" aria-hidden="true" tabindex="-1"></a>**HC0 assembly.**</span>
+<span id="cb9-120"><a href="#cb9-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-121"><a href="#cb9-121" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-122"><a href="#cb9-122" aria-hidden="true" tabindex="-1"></a>\mathbf{V}_\text{HC0} = \mathbf{H}_\text{post}^{-1}\,\mathbf{M}\,\mathbf{H}_\text{post}^{-1}</span>
+<span id="cb9-123"><a href="#cb9-123" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-124"><a href="#cb9-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-125"><a href="#cb9-125" aria-hidden="true" tabindex="-1"></a>The beta-block is extracted as $\mathbf{V}_\beta = \mathbf{V}_\text{HC0}<span class="co">[</span><span class="ot">1{:}K,\; 1{:}K</span><span class="co">]</span>$.</span>
+<span id="cb9-126"><a href="#cb9-126" aria-hidden="true" tabindex="-1"></a>A positive-definiteness check is performed on $\mathbf{V}_\beta$; if it fails, the beta-block CCC is skipped (no <span class="in">`nearPD`</span> correction is ever applied---see @sec-sw-safeguards).</span>
+<span id="cb9-127"><a href="#cb9-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-128"><a href="#cb9-128" aria-hidden="true" tabindex="-1"></a><span class="fu">### Observation-Level Path</span></span>
+<span id="cb9-129"><a href="#cb9-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-130"><a href="#cb9-130" aria-hidden="true" tabindex="-1"></a>When within-study varying predictors are detected (<span class="in">`obs_level = TRUE`</span>), scores use the Woodbury expansion of $\boldsymbol{\Sigma}_j^{-1}$ applied to the observation-level residual vector $\mathbf{r}_j$:</span>
+<span id="cb9-131"><a href="#cb9-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-132"><a href="#cb9-132" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-133"><a href="#cb9-133" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j = \frac{\mathbf{r}_j}{\bar{s}_j^2} - \frac{\tau^2\,\bar{r}_j}{\bar{s}_j^2\,v_j}\,\mathbf{1}_{n_j}</span>
+<span id="cb9-134"><a href="#cb9-134" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-135"><a href="#cb9-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-136"><a href="#cb9-136" aria-hidden="true" tabindex="-1"></a>The beta score for study $j$ becomes $\mathbf{s}_j^{(\beta)} = \mathbf{X}_j'\,\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j$, using the full $n_j \times K$ design matrix.</span>
+<span id="cb9-137"><a href="#cb9-137" aria-hidden="true" tabindex="-1"></a>The $\tau^2$ score collapses to the same study-mean expression regardless of path, since $\tau^2$ is a between-study parameter.</span>
+<span id="cb9-138"><a href="#cb9-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-139"><a href="#cb9-139" aria-hidden="true" tabindex="-1"></a><span class="fu">### Conditional Sandwich: Theta Block</span></span>
+<span id="cb9-140"><a href="#cb9-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-141"><a href="#cb9-141" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.conditional_sandwich()`</span> computes per-study conditional variances $V_{\text{cond},j}$ for the CE theta parameters $\theta_j \mid \hat{\boldsymbol{\beta}}$.</span>
+<span id="cb9-142"><a href="#cb9-142" aria-hidden="true" tabindex="-1"></a>With beta fixed, each $\theta_j$ is conditionally independent:</span>
+<span id="cb9-143"><a href="#cb9-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-144"><a href="#cb9-144" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-145"><a href="#cb9-145" aria-hidden="true" tabindex="-1"></a>H_{\theta,j} = \frac{n_j}{\bar{s}_j^2} + \frac{1}{\hat\tau^2}, \qquad</span>
+<span id="cb9-146"><a href="#cb9-146" aria-hidden="true" tabindex="-1"></a>s_{\theta,j} = \frac{n_j}{\bar{s}_j^2}\,r_{\text{cond},j}, \qquad</span>
+<span id="cb9-147"><a href="#cb9-147" aria-hidden="true" tabindex="-1"></a>V_{\text{cond},j} = \frac{s_{\theta,j}^2}{H_{\theta,j}^2}</span>
+<span id="cb9-148"><a href="#cb9-148" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-149"><a href="#cb9-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-150"><a href="#cb9-150" aria-hidden="true" tabindex="-1"></a>where $r_{\text{cond},j} = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}} - \hat\theta_j$.</span>
+<span id="cb9-151"><a href="#cb9-151" aria-hidden="true" tabindex="-1"></a>These per-study scalar variances serve as the CCC theta-block calibration targets.</span>
+<span id="cb9-152"><a href="#cb9-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-153"><a href="#cb9-153" aria-hidden="true" tabindex="-1"></a><span class="fu">### Scalar Small-Sample Correction</span></span>
+<span id="cb9-154"><a href="#cb9-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-155"><a href="#cb9-155" aria-hidden="true" tabindex="-1"></a>The <span class="in">`small_sample = "scalar"`</span> path inflates the HC0 beta-block by a scalar factor derived from Bayesian leverage.</span>
+<span id="cb9-156"><a href="#cb9-156" aria-hidden="true" tabindex="-1"></a>The effective degrees of freedom $p_\text{eff}$ are computed from the trace of the Bayesian hat matrix, yielding:</span>
+<span id="cb9-157"><a href="#cb9-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-158"><a href="#cb9-158" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-159"><a href="#cb9-159" aria-hidden="true" tabindex="-1"></a>c_\beta = \frac{J}{J - p_\text{eff}}, \qquad \mathbf{V}_\text{scalar} = c_\beta \cdot \mathbf{V}_\text{HC0}</span>
+<span id="cb9-160"><a href="#cb9-160" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-161"><a href="#cb9-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-162"><a href="#cb9-162" aria-hidden="true" tabindex="-1"></a>This provides a simple correction that improves coverage when $J$ is small relative to $K$, but lacks the per-study bias adjustment of CR2 and does not provide degrees of freedom for $t$-based inference.</span>
+<span id="cb9-163"><a href="#cb9-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-164"><a href="#cb9-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-165"><a href="#cb9-165" aria-hidden="true" tabindex="-1"></a><span class="fu">## CHE Sandwich Path {#sec-sw-che}</span></span>
+<span id="cb9-166"><a href="#cb9-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-167"><a href="#cb9-167" aria-hidden="true" tabindex="-1"></a>The CHE model analytically integrates out the study-specific effects $\theta_j$, yielding a marginal parameter vector $\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2, \omega^2)$ of dimension $K + 2$.</span>
+<span id="cb9-168"><a href="#cb9-168" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.che_sandwich()`</span> handles this distinct pipeline.</span>
+<span id="cb9-169"><a href="#cb9-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-170"><a href="#cb9-170" aria-hidden="true" tabindex="-1"></a><span class="fu">### Architectural Principle: Reuse via omega2_hat</span></span>
+<span id="cb9-171"><a href="#cb9-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-172"><a href="#cb9-172" aria-hidden="true" tabindex="-1"></a>The central insight of the v0.6.0 implementation is that the CHE working covariance differs from CE only by a substitution in the within-study variance component.</span>
+<span id="cb9-173"><a href="#cb9-173" aria-hidden="true" tabindex="-1"></a>In the CE model, the marginal covariance for study $j$ is:</span>
+<span id="cb9-174"><a href="#cb9-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-175"><a href="#cb9-175" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-176"><a href="#cb9-176" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\Sigma}_j^\text{CE} = \bar{s}_j^2\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-177"><a href="#cb9-177" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-178"><a href="#cb9-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-179"><a href="#cb9-179" aria-hidden="true" tabindex="-1"></a>In the CHE model, integrating out $\theta_j$ with $\theta_j \sim N(\mathbf{x}_j'\boldsymbol{\beta},\, \omega^2)$ yields:</span>
+<span id="cb9-180"><a href="#cb9-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-181"><a href="#cb9-181" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-182"><a href="#cb9-182" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\Sigma}_j^\text{CHE} = (\bar{s}_j^2 + \omega^2)\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-183"><a href="#cb9-183" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-184"><a href="#cb9-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-185"><a href="#cb9-185" aria-hidden="true" tabindex="-1"></a>The substitution $a_j = \bar{s}_j^2 + \hat\omega^2$ (where $\hat\omega^2 = \text{E}<span class="co">[</span><span class="ot">\omega^2 \mid \text{data}</span><span class="co">]</span>$ per Decision D20) allows all CE CR2 infrastructure to be reused without modification.</span>
+<span id="cb9-186"><a href="#cb9-186" aria-hidden="true" tabindex="-1"></a>Every helper function---<span class="in">`.compute_W_j()`</span>, <span class="in">`.compute_wls_bread()`</span>, <span class="in">`.compute_hat_blocks()`</span>, <span class="in">`.compute_cr2_adjustments()`</span>, <span class="in">`.compute_vcr2()`</span>, <span class="in">`.satterthwaite_df()`</span>---accepts an <span class="in">`omega2_hat`</span> parameter that defaults to 0 for CE.</span>
+<span id="cb9-187"><a href="#cb9-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-188"><a href="#cb9-188" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE HC0 Sandwich</span></span>
+<span id="cb9-189"><a href="#cb9-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-190"><a href="#cb9-190" aria-hidden="true" tabindex="-1"></a>The CHE HC0 path constructs the full $(K{+}2) \times (K{+}2)$ sandwich directly.</span>
+<span id="cb9-191"><a href="#cb9-191" aria-hidden="true" tabindex="-1"></a>Scores for $\boldsymbol{\beta}$, $\tau^2$, and $\omega^2$ are computed analytically at the posterior mean using the Woodbury-expanded covariance.</span>
+<span id="cb9-192"><a href="#cb9-192" aria-hidden="true" tabindex="-1"></a>The bread uses <span class="in">`.build_che_hessian()`</span>, which assembles the full Hessian including the $\omega^2$ block.</span>
+<span id="cb9-193"><a href="#cb9-193" aria-hidden="true" tabindex="-1"></a>Unlike the CE path, which uses the observed likelihood Hessian (including residual-dependent terms), <span class="in">`.build_che_hessian()`</span> uses **expected information**---the Hessian with residual terms dropped, retaining only trace-based curvature.</span>
+<span id="cb9-194"><a href="#cb9-194" aria-hidden="true" tabindex="-1"></a>This choice is deliberate: the observed information for the $(K{+}2)$-dimensional Hessian can produce negative diagonal entries for variance-component blocks, yielding a non-PD bread.</span>
+<span id="cb9-195"><a href="#cb9-195" aria-hidden="true" tabindex="-1"></a>Expected information is always PD for well-identified models and is standard practice in REML-type estimation.</span>
+<span id="cb9-196"><a href="#cb9-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-197"><a href="#cb9-197" aria-hidden="true" tabindex="-1"></a>The expected-information Hessian has three nonzero block types:</span>
+<span id="cb9-198"><a href="#cb9-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-199"><a href="#cb9-199" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Beta--beta:** $\sum_j \mathbf{X}_j' \boldsymbol{\Sigma}_j^{-1} \mathbf{X}_j$ (identical to CE, with $a_j = \bar{s}_j^2 + \hat\omega^2$).</span>
+<span id="cb9-200"><a href="#cb9-200" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Variance--variance:** $H_{\tau^2,\tau^2} = \tfrac{1}{2}\sum_j n_j^2 / c_j^2$; $H_{\omega^2,\omega^2} = \tfrac{1}{2}\sum_j [(n_j{-}1)/a_j^2 + 1/c_j^2]$; $H_{\tau^2,\omega^2} = \tfrac{1}{2}\sum_j n_j/c_j^2$.</span>
+<span id="cb9-201"><a href="#cb9-201" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Beta--variance cross-blocks:** identically zero under expected information.</span>
+<span id="cb9-202"><a href="#cb9-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-203"><a href="#cb9-203" aria-hidden="true" tabindex="-1"></a>The stabilized prior Hessian adds diagonal precision: $1/\sigma_\beta^2$ for each beta coefficient, and ridge-capped entries $\min(1/(2\hat\tau^4),\, 10^6)$ and $\min(1/(2\hat\omega^4),\, 10^6)$ for the variance components (see the analogous CE ridge in @sec-sandwich).</span>
+<span id="cb9-204"><a href="#cb9-204" aria-hidden="true" tabindex="-1"></a>If the resulting $\mathbf{H}_\text{post}$ is not positive definite despite expected information, a `nearPD` correction is applied---the only location in the sandwich module where this fallback is used, justified because the bread (unlike $\mathbf{V}_{\text{CR2}}$) is an auxiliary quantity whose slight perturbation does not mask a diagnostic signal (see also @sec-sw-safeguards).</span>
+<span id="cb9-205"><a href="#cb9-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-206"><a href="#cb9-206" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE CR2 Upgrade</span></span>
+<span id="cb9-207"><a href="#cb9-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-208"><a href="#cb9-208" aria-hidden="true" tabindex="-1"></a>When <span class="in">`small_sample = "CR2"`</span>, the CHE path mirrors the CE CR2 pipeline with one difference: the <span class="in">`omega2_hat`</span> parameter flows through:</span>
+<span id="cb9-209"><a href="#cb9-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-210"><a href="#cb9-210" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-211"><a href="#cb9-211" aria-hidden="true" tabindex="-1"></a>bread_info_cr2 <span class="ot">&lt;-</span> <span class="fu">.compute_wls_bread</span>(bm_data, tau2_hat, K, J,</span>
+<span id="cb9-212"><a href="#cb9-212" aria-hidden="true" tabindex="-1"></a>                                      <span class="at">omega2_hat =</span> omega2_hat)</span>
+<span id="cb9-213"><a href="#cb9-213" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-214"><a href="#cb9-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-215"><a href="#cb9-215" aria-hidden="true" tabindex="-1"></a>All subsequent steps---hat blocks, CR2 adjustments, V_CR2, and Satterthwaite df---call the same generic functions as CE.</span>
+<span id="cb9-216"><a href="#cb9-216" aria-hidden="true" tabindex="-1"></a>The CHE V_CR2 replaces the HC0 beta-block as the CCC calibration target.</span>
+<span id="cb9-217"><a href="#cb9-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-218"><a href="#cb9-218" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE Conditional Sandwich</span></span>
+<span id="cb9-219"><a href="#cb9-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-220"><a href="#cb9-220" aria-hidden="true" tabindex="-1"></a>Since the CHE model integrates $\theta_j$ out analytically, there is no explicit theta parameter to calibrate.</span>
+<span id="cb9-221"><a href="#cb9-221" aria-hidden="true" tabindex="-1"></a>The CHE sandwich object sets <span class="in">`V_sand_cond = 0`</span> for all $J$ studies, maintaining structural compatibility with downstream CCC and method dispatch while signaling that no theta-block calibration is needed.</span>
+<span id="cb9-222"><a href="#cb9-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-223"><a href="#cb9-223" aria-hidden="true" tabindex="-1"></a><span class="fu">### Decision D22: Singleton Warning</span></span>
+<span id="cb9-224"><a href="#cb9-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-225"><a href="#cb9-225" aria-hidden="true" tabindex="-1"></a>Before any computation, <span class="in">`.che_sandwich()`</span> checks for singleton studies ($n_j = 1$), where $\tau^2$ and $\omega^2$ are not separately identified from the data.</span>
+<span id="cb9-226"><a href="#cb9-226" aria-hidden="true" tabindex="-1"></a>If all studies are singletons, a warning indicates that posterior separation relies entirely on the prior.</span>
+<span id="cb9-227"><a href="#cb9-227" aria-hidden="true" tabindex="-1"></a>If more than 50\% of studies are singletons, a weaker warning flags potential sensitivity.</span>
+<span id="cb9-228"><a href="#cb9-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-229"><a href="#cb9-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a><span class="fu">## Woodbury Linear Algebra and $\mathbf{W}^{1/2}$ {#sec-sw-woodbury}</span></span>
+<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a>The Woodbury matrix identity is the computational backbone of the sandwich module.</span>
+<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a>Two functions encapsulate the key linear algebra: <span class="in">`.compute_W_j()`</span> for the weight matrix and <span class="in">`.compute_W_j_sqrt()`</span> for its matrix square root.</span>
+<span id="cb9-234"><a href="#cb9-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-235"><a href="#cb9-235" aria-hidden="true" tabindex="-1"></a><span class="fu">### Weight Matrix: `.compute_W_j()`</span></span>
+<span id="cb9-236"><a href="#cb9-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a>The working covariance for study $j$ has compound-symmetric structure:</span>
+<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\Sigma}_j = a_j\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a>where $a_j = \bar{s}_j^2 + \hat\omega^2$ (reducing to $\bar{s}_j^2$ for CE when $\hat\omega^2 = 0$).</span>
+<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a>The Woodbury inverse gives the weight matrix in closed form:</span>
+<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a>\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1} = \frac{1}{a_j}\,\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a>where $c_j = a_j + n_j\tau^2$.</span>
+<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a>For singletons ($n_j = 1$), this simplifies to the scalar $1/(a_j + \tau^2)$.</span>
+<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a>The implementation:</span>
+<span id="cb9-254"><a href="#cb9-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-255"><a href="#cb9-255" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-256"><a href="#cb9-256" aria-hidden="true" tabindex="-1"></a>.compute_W_j <span class="ot">&lt;-</span> <span class="cf">function</span>(s_bar2_j, tau2_hat, n_j, <span class="at">omega2_hat =</span> <span class="dv">0</span>) {</span>
+<span id="cb9-257"><a href="#cb9-257" aria-hidden="true" tabindex="-1"></a>  a_j <span class="ot">&lt;-</span> s_bar2_j <span class="sc">+</span> omega2_hat</span>
+<span id="cb9-258"><a href="#cb9-258" aria-hidden="true" tabindex="-1"></a>  a_j <span class="ot">&lt;-</span> <span class="fu">max</span>(a_j, .Machine<span class="sc">$</span>double.eps)</span>
+<span id="cb9-259"><a href="#cb9-259" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (n_j <span class="sc">==</span> <span class="dv">1</span>L) <span class="fu">return</span>(<span class="fu">matrix</span>(<span class="dv">1</span> <span class="sc">/</span> (a_j <span class="sc">+</span> tau2_hat), <span class="dv">1</span>L, <span class="dv">1</span>L))</span>
+<span id="cb9-260"><a href="#cb9-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-261"><a href="#cb9-261" aria-hidden="true" tabindex="-1"></a>  c_j <span class="ot">&lt;-</span> a_j <span class="sc">+</span> n_j <span class="sc">*</span> tau2_hat</span>
+<span id="cb9-262"><a href="#cb9-262" aria-hidden="true" tabindex="-1"></a>  diag_val <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> a_j</span>
+<span id="cb9-263"><a href="#cb9-263" aria-hidden="true" tabindex="-1"></a>  off_val  <span class="ot">&lt;-</span> <span class="sc">-</span>tau2_hat <span class="sc">/</span> (a_j <span class="sc">*</span> c_j)</span>
+<span id="cb9-264"><a href="#cb9-264" aria-hidden="true" tabindex="-1"></a>  W_j <span class="ot">&lt;-</span> <span class="fu">matrix</span>(off_val, n_j, n_j)</span>
+<span id="cb9-265"><a href="#cb9-265" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(W_j) <span class="ot">&lt;-</span> diag_val <span class="sc">+</span> off_val</span>
+<span id="cb9-266"><a href="#cb9-266" aria-hidden="true" tabindex="-1"></a>  W_j</span>
+<span id="cb9-267"><a href="#cb9-267" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-268"><a href="#cb9-268" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-269"><a href="#cb9-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-270"><a href="#cb9-270" aria-hidden="true" tabindex="-1"></a>The floor on $a_j$ guards against degenerate cases where both sampling variance and $\omega^2$ are near zero.</span>
+<span id="cb9-271"><a href="#cb9-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-272"><a href="#cb9-272" aria-hidden="true" tabindex="-1"></a><span class="fu">### Matrix Square Root: `.compute_W_j_sqrt()` (Decision D24)</span></span>
+<span id="cb9-273"><a href="#cb9-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-274"><a href="#cb9-274" aria-hidden="true" tabindex="-1"></a>The CR2 adjustment requires the symmetrization transform $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}$ (Decision D16).</span>
+<span id="cb9-275"><a href="#cb9-275" aria-hidden="true" tabindex="-1"></a>Rather than computing the general eigendecomposition of $\mathbf{W}_j$ at every study, Decision D24 exploits the compound-symmetric structure.</span>
+<span id="cb9-276"><a href="#cb9-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-277"><a href="#cb9-277" aria-hidden="true" tabindex="-1"></a>The matrix $\mathbf{W}_j = a\,\mathbf{I} + b\,\mathbf{1}\mathbf{1}'$ (where $a = 1/a_j - \tau^2/(a_j c_j)$ and $b = -\tau^2/(a_j c_j)$) has exactly two distinct eigenvalues:</span>
+<span id="cb9-278"><a href="#cb9-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-279"><a href="#cb9-279" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-280"><a href="#cb9-280" aria-hidden="true" tabindex="-1"></a>\lambda_1 = a + n_j b \quad (\text{eigenvector: } \mathbf{1}/\sqrt{n_j}), \qquad</span>
+<span id="cb9-281"><a href="#cb9-281" aria-hidden="true" tabindex="-1"></a>\lambda_2 = a \quad (n_j - 1 \text{ times})</span>
+<span id="cb9-282"><a href="#cb9-282" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-283"><a href="#cb9-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-284"><a href="#cb9-284" aria-hidden="true" tabindex="-1"></a>The square root and inverse square root inherit the same rank-1 structure:</span>
+<span id="cb9-285"><a href="#cb9-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-286"><a href="#cb9-286" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-287"><a href="#cb9-287" aria-hidden="true" tabindex="-1"></a>\mathbf{W}_j^{1/2} = \sqrt{\lambda_2}\,\mathbf{I}_{n_j} + \frac{\sqrt{\lambda_1} - \sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-288"><a href="#cb9-288" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-289"><a href="#cb9-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-290"><a href="#cb9-290" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-291"><a href="#cb9-291" aria-hidden="true" tabindex="-1"></a>\mathbf{W}_j^{-1/2} = \frac{1}{\sqrt{\lambda_2}}\,\mathbf{I}_{n_j} + \frac{1/\sqrt{\lambda_1} - 1/\sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'</span>
+<span id="cb9-292"><a href="#cb9-292" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-293"><a href="#cb9-293" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-294"><a href="#cb9-294" aria-hidden="true" tabindex="-1"></a>This avoids the $O(n_j^3)$ eigendecomposition cost per study.</span>
+<span id="cb9-295"><a href="#cb9-295" aria-hidden="true" tabindex="-1"></a>The implementation constructs both matrices directly from the two eigenvalues:</span>
+<span id="cb9-296"><a href="#cb9-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-297"><a href="#cb9-297" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-298"><a href="#cb9-298" aria-hidden="true" tabindex="-1"></a>sa <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lam2)                              <span class="co"># sqrt of repeated eigenvalue</span></span>
+<span id="cb9-299"><a href="#cb9-299" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lam1)                              <span class="co"># sqrt of rank-1 eigenvalue</span></span>
+<span id="cb9-300"><a href="#cb9-300" aria-hidden="true" tabindex="-1"></a>W_sqrt <span class="ot">&lt;-</span> <span class="fu">matrix</span>((s1 <span class="sc">-</span> sa) <span class="sc">/</span> n_j, n_j, n_j)</span>
+<span id="cb9-301"><a href="#cb9-301" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(W_sqrt) <span class="ot">&lt;-</span> sa <span class="sc">+</span> (s1 <span class="sc">-</span> sa) <span class="sc">/</span> n_j</span>
+<span id="cb9-302"><a href="#cb9-302" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-303"><a href="#cb9-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-304"><a href="#cb9-304" aria-hidden="true" tabindex="-1"></a>A guard checks that both eigenvalues are positive; if not, the function falls back to a general eigendecomposition with eigenvalue flooring.</span>
+<span id="cb9-305"><a href="#cb9-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-306"><a href="#cb9-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-307"><a href="#cb9-307" aria-hidden="true" tabindex="-1"></a><span class="fu">## CR2 Assembly and Satterthwaite df {#sec-sw-cr2}</span></span>
+<span id="cb9-308"><a href="#cb9-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-309"><a href="#cb9-309" aria-hidden="true" tabindex="-1"></a>The CR2 pipeline consists of four steps executed sequentially after the HC0 computation: WLS bread, hat matrix blocks, CR2 adjustment matrices, and V_CR2 assembly, followed by Satterthwaite degrees of freedom.</span>
+<span id="cb9-310"><a href="#cb9-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-311"><a href="#cb9-311" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step A.1: WLS Bread (Decision D15)</span></span>
+<span id="cb9-312"><a href="#cb9-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-313"><a href="#cb9-313" aria-hidden="true" tabindex="-1"></a>Decision D15 mandates that CR2 uses the fixed-effect WLS bread $\mathbf{Q} = (\mathbf{X}'\mathbf{W}\mathbf{X})^{-1}$, not the posterior Hessian.</span>
+<span id="cb9-314"><a href="#cb9-314" aria-hidden="true" tabindex="-1"></a>The posterior Hessian includes prior precision, which is appropriate for the MCMC covariance used in CCC but would distort the frequentist leverage computations that CR2 relies on.</span>
+<span id="cb9-315"><a href="#cb9-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-316"><a href="#cb9-316" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.compute_wls_bread()`</span> handles both study-level and observation-level paths:</span>
+<span id="cb9-317"><a href="#cb9-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-318"><a href="#cb9-318" aria-hidden="true" tabindex="-1"></a>**Study-level** (cluster-constant predictors): Each study contributes a scalar weight $w_j = 1/v_j$ where $v_j = (\bar{s}_j^2 + \hat\omega^2)/n_j + \hat\tau^2$:</span>
+<span id="cb9-319"><a href="#cb9-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-320"><a href="#cb9-320" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-321"><a href="#cb9-321" aria-hidden="true" tabindex="-1"></a>\mathbf{Q} = \left(\sum_{j=1}^{J} w_j\,\bar{\mathbf{x}}_j\,\bar{\mathbf{x}}_j'\right)^{-1}</span>
+<span id="cb9-322"><a href="#cb9-322" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-323"><a href="#cb9-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-324"><a href="#cb9-324" aria-hidden="true" tabindex="-1"></a>**Observation-level** (within-study varying predictors): Each study contributes the full Woodbury weight matrix:</span>
+<span id="cb9-325"><a href="#cb9-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-326"><a href="#cb9-326" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-327"><a href="#cb9-327" aria-hidden="true" tabindex="-1"></a>\mathbf{Q} = \left(\sum_{j=1}^{J} \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{X}_j\right)^{-1}</span>
+<span id="cb9-328"><a href="#cb9-328" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-329"><a href="#cb9-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-330"><a href="#cb9-330" aria-hidden="true" tabindex="-1"></a>The function returns $\mathbf{Q}$ along with the per-study lists $\mathbf{W}_j$ and $\mathbf{X}_j$, which are reused by all downstream CR2 functions.</span>
+<span id="cb9-331"><a href="#cb9-331" aria-hidden="true" tabindex="-1"></a>If $\mathbf{X}'\mathbf{W}\mathbf{X}$ is singular, a generalized inverse via <span class="in">`MASS::ginv()`</span> is used with a diagnostic warning.</span>
+<span id="cb9-332"><a href="#cb9-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-333"><a href="#cb9-333" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step A.2a: Hat Matrix Blocks</span></span>
+<span id="cb9-334"><a href="#cb9-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-335"><a href="#cb9-335" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.compute_hat_blocks()`</span> computes the diagonal blocks of the hat matrix for each study:</span>
+<span id="cb9-336"><a href="#cb9-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-337"><a href="#cb9-337" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-338"><a href="#cb9-338" aria-hidden="true" tabindex="-1"></a>\mathbf{H}_{jj} = \mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j</span>
+<span id="cb9-339"><a href="#cb9-339" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-340"><a href="#cb9-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-341"><a href="#cb9-341" aria-hidden="true" tabindex="-1"></a>For the study-level path, this reduces to the scalar leverage $h_j = \bar{\mathbf{x}}_j'\,\mathbf{Q}\,\bar{\mathbf{x}}_j \cdot w_j$.</span>
+<span id="cb9-342"><a href="#cb9-342" aria-hidden="true" tabindex="-1"></a>A warning is issued if any $h_j &gt; 0.5$, indicating a high-leverage study that may destabilize CR2.</span>
+<span id="cb9-343"><a href="#cb9-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-344"><a href="#cb9-344" aria-hidden="true" tabindex="-1"></a>Note that $\mathbf{H}_{jj}$ is generally not symmetric for the observation-level path.</span>
+<span id="cb9-345"><a href="#cb9-345" aria-hidden="true" tabindex="-1"></a>The symmetrization needed for the CR2 eigendecomposition is handled in the next step via the $\mathbf{W}^{1/2}$ transform.</span>
+<span id="cb9-346"><a href="#cb9-346" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-347"><a href="#cb9-347" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step A.2b: CR2 Adjustment Matrices (Decision D16)</span></span>
+<span id="cb9-348"><a href="#cb9-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-349"><a href="#cb9-349" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.compute_cr2_adjustments()`</span> computes the @bell2002 adjustment matrices $\mathbf{A}_j$ using the $\mathbf{W}^{1/2}$ symmetrization approach (Decision D16).</span>
+<span id="cb9-350"><a href="#cb9-350" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-351"><a href="#cb9-351" aria-hidden="true" tabindex="-1"></a>For the study-level or singleton case, the adjustment is a scalar:</span>
+<span id="cb9-352"><a href="#cb9-352" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-353"><a href="#cb9-353" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-354"><a href="#cb9-354" aria-hidden="true" tabindex="-1"></a>A_j = (1 - h_j)^{-1/2}</span>
+<span id="cb9-355"><a href="#cb9-355" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-356"><a href="#cb9-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-357"><a href="#cb9-357" aria-hidden="true" tabindex="-1"></a>For the observation-level case, the three-step procedure is:</span>
+<span id="cb9-358"><a href="#cb9-358" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-359"><a href="#cb9-359" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Symmetrize:** $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}$</span>
+<span id="cb9-360"><a href="#cb9-360" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Eigendecompose:** $\mathbf{I} - \tilde{\mathbf{H}}_{jj} = \mathbf{V}\,\boldsymbol{\Lambda}\,\mathbf{V}'$, then $\tilde{\mathbf{A}}_j = (\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2} = \mathbf{V}\,\boldsymbol{\Lambda}^{-1/2}\,\mathbf{V}'$</span>
+<span id="cb9-361"><a href="#cb9-361" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Back-transform:** $\mathbf{A}_j = \mathbf{W}_j^{-1/2}\,\tilde{\mathbf{A}}_j\,\mathbf{W}_j^{1/2}$</span>
+<span id="cb9-362"><a href="#cb9-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-363"><a href="#cb9-363" aria-hidden="true" tabindex="-1"></a>Eigenvalues of $\mathbf{I} - \tilde{\mathbf{H}}_{jj}$ below $10^{-10}$ are truncated with a warning, preventing division by near-zero values in the inverse square root.</span>
+<span id="cb9-364"><a href="#cb9-364" aria-hidden="true" tabindex="-1"></a>Leverage values exceeding 0.999 are capped for the scalar path.</span>
+<span id="cb9-365"><a href="#cb9-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-366"><a href="#cb9-366" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step A.3: V_CR2 Assembly</span></span>
+<span id="cb9-367"><a href="#cb9-367" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-368"><a href="#cb9-368" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.compute_vcr2()`</span> assembles the CR2 variance estimator (Decision D12):</span>
+<span id="cb9-369"><a href="#cb9-369" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-370"><a href="#cb9-370" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-371"><a href="#cb9-371" aria-hidden="true" tabindex="-1"></a>\mathbf{V}_\text{CR2} = \mathbf{Q}\left(\sum_{j=1}^{J} \tilde{\mathbf{s}}_j\,\tilde{\mathbf{s}}_j'\right)\mathbf{Q}</span>
+<span id="cb9-372"><a href="#cb9-372" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-373"><a href="#cb9-373" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-374"><a href="#cb9-374" aria-hidden="true" tabindex="-1"></a>where $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{A}_j\,\hat{\mathbf{e}}_j$ are the CR2-adjusted scores and $\hat{\mathbf{e}}_j$ are the WLS residuals.</span>
+<span id="cb9-375"><a href="#cb9-375" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-376"><a href="#cb9-376" aria-hidden="true" tabindex="-1"></a>For the study-level path, the residual is the scalar $r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}$, the adjustment is the scalar $A_j$, and the adjusted score simplifies to $\tilde{\mathbf{s}}_j = \bar{\mathbf{x}}_j \cdot w_j \cdot A_j \cdot r_j$.</span>
+<span id="cb9-377"><a href="#cb9-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-378"><a href="#cb9-378" aria-hidden="true" tabindex="-1"></a>For the observation-level path, the full matrix computation applies: $\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}}$ (the $n_j$-vector of residuals), $\tilde{\mathbf{e}}_j = \mathbf{A}_j\hat{\mathbf{e}}_j$, and $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\tilde{\mathbf{e}}_j$.</span>
+<span id="cb9-379"><a href="#cb9-379" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-380"><a href="#cb9-380" aria-hidden="true" tabindex="-1"></a>The assembled V_CR2 replaces the HC0 beta-block as the CCC calibration target.</span>
+<span id="cb9-381"><a href="#cb9-381" aria-hidden="true" tabindex="-1"></a>This is the critical integration point identified during v0.5.0 development: <span class="in">`marg$V_beta`</span> (not <span class="in">`V_sand_marg`</span>) must be overwritten, since <span class="in">`.assemble_bm_sandwich()`</span> exports <span class="in">`V_beta`</span> as the final <span class="in">`V_sand_marg`</span> field.</span>
+<span id="cb9-382"><a href="#cb9-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-383"><a href="#cb9-383" aria-hidden="true" tabindex="-1"></a><span class="fu">### Step B.1: Satterthwaite Degrees of Freedom (Decision D17)</span></span>
+<span id="cb9-384"><a href="#cb9-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-385"><a href="#cb9-385" aria-hidden="true" tabindex="-1"></a>The function <span class="in">`.satterthwaite_df()`</span> computes per-coefficient degrees of freedom using the trace formula from @bell2002 and @tipton2015.</span>
+<span id="cb9-386"><a href="#cb9-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-387"><a href="#cb9-387" aria-hidden="true" tabindex="-1"></a>For each coefficient $k$, define the $J \times J$ matrix $\mathbf{P}_k$ with elements:</span>
+<span id="cb9-388"><a href="#cb9-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-389"><a href="#cb9-389" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-390"><a href="#cb9-390" aria-hidden="true" tabindex="-1"></a>P_{k,ii} = \mathbf{g}_{ik}'\,\mathbf{W}_i^{-1}\,\mathbf{g}_{ik} - \mathbf{g}_{ik}'\,\mathbf{X}_i\,\mathbf{Q}\,\mathbf{X}_i'\,\mathbf{g}_{ik}</span>
+<span id="cb9-391"><a href="#cb9-391" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-392"><a href="#cb9-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-393"><a href="#cb9-393" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-394"><a href="#cb9-394" aria-hidden="true" tabindex="-1"></a>P_{k,ij} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\,\mathbf{Q}\,(\mathbf{X}_j'\mathbf{g}_{jk}), \quad i \neq j</span>
+<span id="cb9-395"><a href="#cb9-395" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-396"><a href="#cb9-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-397"><a href="#cb9-397" aria-hidden="true" tabindex="-1"></a>where $\mathbf{g}_{jk} = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{c}_k$ and $\mathbf{c}_k$ is the $k$-th standard basis vector.</span>
+<span id="cb9-398"><a href="#cb9-398" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-399"><a href="#cb9-399" aria-hidden="true" tabindex="-1"></a>The Satterthwaite df is then:</span>
+<span id="cb9-400"><a href="#cb9-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-401"><a href="#cb9-401" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-402"><a href="#cb9-402" aria-hidden="true" tabindex="-1"></a>\text{df}_k = \frac{<span class="co">[</span><span class="ot">\text{tr}(\mathbf{P}_k)</span><span class="co">]</span>^2}{\text{tr}(\mathbf{P}_k^2)}</span>
+<span id="cb9-403"><a href="#cb9-403" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb9-404"><a href="#cb9-404" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-405"><a href="#cb9-405" aria-hidden="true" tabindex="-1"></a>The implementation pre-computes $\mathbf{G}_j = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}$ for all studies, then extracts column $k$ as $\mathbf{g}_{jk}$.</span>
+<span id="cb9-406"><a href="#cb9-406" aria-hidden="true" tabindex="-1"></a>The $J \times J$ matrix $\mathbf{P}_k$ is built with diagonal terms involving $\mathbf{W}_j^{-1}\mathbf{g}_{jk}$ (computed via <span class="in">`solve()`</span> for numerical stability) and off-diagonal terms from the cross-products.</span>
+<span id="cb9-407"><a href="#cb9-407" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-408"><a href="#cb9-408" aria-hidden="true" tabindex="-1"></a>The trace $\text{tr}(\mathbf{P}_k^2)$ is computed efficiently as <span class="in">`sum(P_k * P_k)`</span> (the Frobenius inner product of $\mathbf{P}_k$ with itself, which equals the sum of squared elements for a symmetric matrix).</span>
+<span id="cb9-409"><a href="#cb9-409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-410"><a href="#cb9-410" aria-hidden="true" tabindex="-1"></a>Diagnostic safeguards handle three failure modes:</span>
+<span id="cb9-411"><a href="#cb9-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-412"><a href="#cb9-412" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Computation failure (singular $\mathbf{W}_j$): df set to <span class="in">`NA`</span>, replaced by naive $\max(J - K, 1)$.</span>
+<span id="cb9-413"><a href="#cb9-413" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>$\text{df}_k &lt; 1$: Replaced by naive df with a warning.</span>
+<span id="cb9-414"><a href="#cb9-414" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>$\text{df}_k &lt; 4$: Retained but flagged following @tipton2015, who showed that $t$-based inference is unreliable below this threshold.</span>
+<span id="cb9-415"><a href="#cb9-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-416"><a href="#cb9-416" aria-hidden="true" tabindex="-1"></a><span class="fu">### Decision D25: Plug-In Parity</span></span>
+<span id="cb9-417"><a href="#cb9-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-418"><a href="#cb9-418" aria-hidden="true" tabindex="-1"></a>The plug-in parity test (Decision D25) validates the CR2 linear algebra by injecting REML estimates of $\hat\tau^2$ (and $\hat\omega^2$ for CHE) into the bayesRVE sandwich pipeline and comparing the resulting V_CR2 against <span class="in">`clubSandwich::vcovCR()`</span> <span class="co">[</span><span class="ot">@pustejovsky2022</span><span class="co">]</span> applied to a <span class="in">`metafor::rma.mv()`</span> <span class="co">[</span><span class="ot">@viechtbauer2010</span><span class="co">]</span> fit.</span>
+<span id="cb9-419"><a href="#cb9-419" aria-hidden="true" tabindex="-1"></a>Agreement at $10^{-6}$ tolerance isolates the linear algebra from MCMC noise, confirming that the Woodbury, CR2, and Satterthwaite implementations exactly match the reference.</span>
+<span id="cb9-420"><a href="#cb9-420" aria-hidden="true" tabindex="-1"></a>This test is a cornerstone of the verification strategy (@sec-verification).</span>
+<span id="cb9-421"><a href="#cb9-421" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-422"><a href="#cb9-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-423"><a href="#cb9-423" aria-hidden="true" tabindex="-1"></a><span class="fu">## Numerical Safeguards {#sec-sw-safeguards}</span></span>
+<span id="cb9-424"><a href="#cb9-424" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-425"><a href="#cb9-425" aria-hidden="true" tabindex="-1"></a>The sandwich module incorporates multiple defensive measures to ensure numerical stability across the wide range of meta-analytic datasets encountered in practice.</span>
+<span id="cb9-426"><a href="#cb9-426" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-427"><a href="#cb9-427" aria-hidden="true" tabindex="-1"></a><span class="fu">### Generalized Inverse Fallback</span></span>
+<span id="cb9-428"><a href="#cb9-428" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-429"><a href="#cb9-429" aria-hidden="true" tabindex="-1"></a>When $\mathbf{X}'\mathbf{W}\mathbf{X}$ is singular or near-singular (e.g., due to collinear moderators or extreme weight imbalance), <span class="in">`solve()`</span> will fail.</span>
+<span id="cb9-430"><a href="#cb9-430" aria-hidden="true" tabindex="-1"></a>The bread computation wraps the inversion in <span class="in">`tryCatch`</span> and falls back to <span class="in">`MASS::ginv()`</span>:</span>
+<span id="cb9-431"><a href="#cb9-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-432"><a href="#cb9-432" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb9-433"><a href="#cb9-433" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(</span>
+<span id="cb9-434"><a href="#cb9-434" aria-hidden="true" tabindex="-1"></a>  <span class="fu">solve</span>(XtWX),</span>
+<span id="cb9-435"><a href="#cb9-435" aria-hidden="true" tabindex="-1"></a>  <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb9-436"><a href="#cb9-436" aria-hidden="true" tabindex="-1"></a>    cli<span class="sc">::</span><span class="fu">cli_warn</span>(<span class="st">"X'WX is singular; using generalized inverse."</span>)</span>
+<span id="cb9-437"><a href="#cb9-437" aria-hidden="true" tabindex="-1"></a>    MASS<span class="sc">::</span><span class="fu">ginv</span>(XtWX)</span>
+<span id="cb9-438"><a href="#cb9-438" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb9-439"><a href="#cb9-439" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-440"><a href="#cb9-440" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb9-441"><a href="#cb9-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-442"><a href="#cb9-442" aria-hidden="true" tabindex="-1"></a><span class="fu">### Positive-Definiteness Diagnostics</span></span>
+<span id="cb9-443"><a href="#cb9-443" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-444"><a href="#cb9-444" aria-hidden="true" tabindex="-1"></a>The <span class="in">`beta_pd`</span> flag records whether $\mathbf{V}_\beta$ is positive definite.</span>
+<span id="cb9-445"><a href="#cb9-445" aria-hidden="true" tabindex="-1"></a>This diagnostic propagates to the CCC: if <span class="in">`beta_pd = FALSE`</span>, the beta-block CCC transformation is skipped because the Cholesky factorization $\mathbf{L}_2 = \text{chol}(\mathbf{V}_\text{CR2})$ would fail.</span>
+<span id="cb9-446"><a href="#cb9-446" aria-hidden="true" tabindex="-1"></a>The PD check is recomputed after each correction stage (HC0, scalar, CR2) so the flag reflects the final export target.</span>
+<span id="cb9-447"><a href="#cb9-447" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-448"><a href="#cb9-448" aria-hidden="true" tabindex="-1"></a><span class="fu">### Score Balance Check</span></span>
+<span id="cb9-449"><a href="#cb9-449" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-450"><a href="#cb9-450" aria-hidden="true" tabindex="-1"></a>The score sum norm $<span class="sc">\|</span>\sum_j \mathbf{s}_j<span class="sc">\|</span>$ is stored in <span class="in">`diagnostics$score_sum_norm`</span>.</span>
+<span id="cb9-451"><a href="#cb9-451" aria-hidden="true" tabindex="-1"></a>At the posterior mean, the score equation $\sum_j \mathbf{s}_j + \mathbf{s}_\text{prior} = \mathbf{0}$ should hold approximately (exactly for MAP, approximately for posterior mean with informative priors).</span>
+<span id="cb9-452"><a href="#cb9-452" aria-hidden="true" tabindex="-1"></a>Large values indicate numerical issues in score computation.</span>
+<span id="cb9-453"><a href="#cb9-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-454"><a href="#cb9-454" aria-hidden="true" tabindex="-1"></a><span class="fu">### Condition Number Monitoring</span></span>
+<span id="cb9-455"><a href="#cb9-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-456"><a href="#cb9-456" aria-hidden="true" tabindex="-1"></a>The condition number $\kappa(\mathbf{H}_\text{post})$ is computed from the eigenvalue ratio and stored in diagnostics.</span>
+<span id="cb9-457"><a href="#cb9-457" aria-hidden="true" tabindex="-1"></a>Values exceeding $10^{12}$ trigger a warning suggesting stronger priors.</span>
+<span id="cb9-458"><a href="#cb9-458" aria-hidden="true" tabindex="-1"></a>For the CR2 path, $\kappa(\mathbf{Q})$ is similarly monitored via <span class="in">`diagnostics$H_condition`</span>.</span>
+<span id="cb9-459"><a href="#cb9-459" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-460"><a href="#cb9-460" aria-hidden="true" tabindex="-1"></a><span class="fu">### The nearPD Anti-Pattern</span></span>
+<span id="cb9-461"><a href="#cb9-461" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-462"><a href="#cb9-462" aria-hidden="true" tabindex="-1"></a>A deliberate design choice: <span class="in">`nearPD()`</span> is never applied to $\mathbf{V}_\text{CR2}$ or any sandwich variance output.</span>
+<span id="cb9-463"><a href="#cb9-463" aria-hidden="true" tabindex="-1"></a>If the sandwich estimate is not positive definite, this signals a genuine problem---insufficient studies, extreme leverage, or model misspecification---that should be reported to the user, not silently corrected.</span>
+<span id="cb9-464"><a href="#cb9-464" aria-hidden="true" tabindex="-1"></a>Applying <span class="in">`nearPD()`</span> would mask the diagnostic signal and produce artificially smooth confidence intervals with no theoretical backing.</span>
+<span id="cb9-465"><a href="#cb9-465" aria-hidden="true" tabindex="-1"></a>Instead, non-PD beta-blocks cause the CCC to fall back to raw posterior draws, preserving valid Bayesian inference at the cost of losing the sandwich calibration.</span>
+<span id="cb9-466"><a href="#cb9-466" aria-hidden="true" tabindex="-1"></a>(The one exception is <span class="in">`.build_che_hessian()`</span>, which applies <span class="in">`nearPD`</span> to the posterior *bread* matrix $\mathbf{H}_\text{post}$---an auxiliary intermediate, not a sandwich variance estimate---to ensure a valid bread exists for the HC0 inversion.)</span>
+<span id="cb9-467"><a href="#cb9-467" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-468"><a href="#cb9-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-469"><a href="#cb9-469" aria-hidden="true" tabindex="-1"></a><span class="fu">## Design Decision Registry {#sec-sw-decisions}</span></span>
+<span id="cb9-470"><a href="#cb9-470" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-471"><a href="#cb9-471" aria-hidden="true" tabindex="-1"></a>The following table summarizes all design decisions that directly affect the <span class="in">`sandwich()`</span> module.</span>
+<span id="cb9-472"><a href="#cb9-472" aria-hidden="true" tabindex="-1"></a>Each decision is referenced by its identifier (D*n*) from the project development log.</span>
+<span id="cb9-473"><a href="#cb9-473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-474"><a href="#cb9-474" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Decision <span class="pp">|</span> Choice <span class="pp">|</span> Rationale <span class="pp">|</span></span>
+<span id="cb9-475"><a href="#cb9-475" aria-hidden="true" tabindex="-1"></a><span class="pp">|:---------|:-------|:----------|</span></span>
+<span id="cb9-476"><a href="#cb9-476" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D2 <span class="pp">|</span> Blockwise hybrid CCC: beta-block marginal sandwich, theta-block diagonal rescaling <span class="pp">|</span> Avoids Neyman-Scott inconsistency for variance components <span class="pp">|</span></span>
+<span id="cb9-477"><a href="#cb9-477" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D5 <span class="pp">|</span> <span class="in">`rho`</span> handled in <span class="in">`sandwich()`</span>, not in <span class="in">`bm_fit()`</span> <span class="pp">|</span> User controls working correlation at analysis time <span class="pp">|</span></span>
+<span id="cb9-478"><a href="#cb9-478" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D6 <span class="pp">|</span> Within-study varying moderators trigger obs-level scores <span class="pp">|</span> Auto-dispatch via <span class="in">`cluster_constant`</span>; no user action needed <span class="pp">|</span></span>
+<span id="cb9-479"><a href="#cb9-479" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D7 <span class="pp">|</span> Operating envelope $J_{\min} = \max(8, 2K+2)$; fallback to raw posterior <span class="pp">|</span> Prevents ill-conditioned sandwiches with too few clusters <span class="pp">|</span></span>
+<span id="cb9-480"><a href="#cb9-480" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D11 <span class="pp">|</span> CR2 + Satterthwaite implemented independently <span class="pp">|</span> No clubSandwich runtime dependency; full numerical control <span class="pp">|</span></span>
+<span id="cb9-481"><a href="#cb9-481" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D12 <span class="pp">|</span> CCC target = $V_{\text{CR2}}$ (not $V_{\text{HC0}} \cdot c_\beta$) <span class="pp">|</span> CR2 is less biased, especially for heterogeneous cluster sizes <span class="pp">|</span></span>
+<span id="cb9-482"><a href="#cb9-482" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D13 <span class="pp">|</span> Default <span class="in">`small_sample = "CR2"`</span>, default df = Satterthwaite <span class="pp">|</span> Best available finite-sample correction as package default <span class="pp">|</span></span>
+<span id="cb9-483"><a href="#cb9-483" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D15 <span class="pp">|</span> WLS bread $(X'WX)^{-1}$, not posterior Hessian <span class="pp">|</span> Frequentist CR2 requires frequentist bread; prior precision distorts leverage <span class="pp">|</span></span>
+<span id="cb9-484"><a href="#cb9-484" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D16 <span class="pp">|</span> $W^{1/2}$ symmetrization for hat matrix <span class="pp">|</span> Ensures real eigendecomposition for $A_j$ <span class="pp">|</span></span>
+<span id="cb9-485"><a href="#cb9-485" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D17 <span class="pp">|</span> Satterthwaite df via $P_k$ trace formula <span class="pp">|</span> Deterministic, matches @tipton2015 <span class="pp">|</span></span>
+<span id="cb9-486"><a href="#cb9-486" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D20 <span class="pp">|</span> $\hat\omega^2 = E<span class="co">[</span><span class="ot">\omega^2</span><span class="co">]</span>$ (Jensen-safe) <span class="pp">|</span> Correct variance plug-in; consistent with CE convention <span class="pp">|</span></span>
+<span id="cb9-487"><a href="#cb9-487" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D22 <span class="pp">|</span> Singleton non-identifiability warning <span class="pp">|</span> Protects users from misleading CHE results <span class="pp">|</span></span>
+<span id="cb9-488"><a href="#cb9-488" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D24 <span class="pp">|</span> Analytical $W^{1/2}$ via rank-1 structure <span class="pp">|</span> $O(n_j)$ closed form vs $O(n_j^3)$ eigendecomposition <span class="pp">|</span></span>
+<span id="cb9-489"><a href="#cb9-489" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D25 <span class="pp">|</span> Plug-in parity: REML injection matches clubSandwich at $10^{-6}$ <span class="pp">|</span> Isolates linear algebra from MCMC noise <span class="pp">|</span></span>
+<span id="cb9-490"><a href="#cb9-490" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-491"><a href="#cb9-491" aria-hidden="true" tabindex="-1"></a>: Design decisions affecting the sandwich variance estimation module. {#tbl-sw-decisions}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

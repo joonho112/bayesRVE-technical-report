@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>3&nbsp; Introduction and Inferential Architecture – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./ch02-models.html" rel="next">
+<link href="./ch00-notation.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-8b4baf804e461d9b72633f0de59a0cac.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-25a4e8620ae17d49cd0c3861fdf92567.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch01-introduction.html">Part I: Foundations</a></li><li class="breadcrumb-item"><a href="./ch01-introduction.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch00-notation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part I: Foundations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch01-introduction.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch02-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch03-sandwich.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Sandwich Variance Estimation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch04-ccc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch05-envelope.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part II: Software Realization and Verification</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch06-architecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch07-fitting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch08-sandwich-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch09-ccc-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch10-verification.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part III: Empirical Validation</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch11-tsl15-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch12-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch13-mechanics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">CCC Mechanics and Limitations</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-a-proofs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Extended Proofs and Derivations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-b-decisions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Inference-Relevant Design Decisions</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-c-api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">C</span>&nbsp; <span class="chapter-title">API Quick Reference</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-d-reproducibility.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-introduction" id="toc-sec-introduction" class="nav-link active" data-scroll-target="#sec-introduction"><span class="header-section-number">4</span> Introduction and Inferential Architecture</a>
+  <ul>
+  <li><a href="#sec-mismatch" id="toc-sec-mismatch" class="nav-link" data-scroll-target="#sec-mismatch"><span class="header-section-number">4.1</span> The Inferential Mismatch</a></li>
+  <li><a href="#sec-calibration-need" id="toc-sec-calibration-need" class="nav-link" data-scroll-target="#sec-calibration-need"><span class="header-section-number">4.2</span> Why Dependent-Effect Meta-Analysis Needs Calibration</a></li>
+  <li><a href="#sec-three-layer-arch" id="toc-sec-three-layer-arch" class="nav-link" data-scroll-target="#sec-three-layer-arch"><span class="header-section-number">4.3</span> Three-Layer Architecture</a>
+  <ul class="collapse">
+  <li><a href="#layer-1-location-via-posterior-mean" id="toc-layer-1-location-via-posterior-mean" class="nav-link" data-scroll-target="#layer-1-location-via-posterior-mean"><span class="header-section-number">4.3.1</span> Layer 1: Location via Posterior Mean</a></li>
+  <li><a href="#layer-2-spread-via-ccc" id="toc-layer-2-spread-via-ccc" class="nav-link" data-scroll-target="#layer-2-spread-via-ccc"><span class="header-section-number">4.3.2</span> Layer 2: Spread via CCC</a></li>
+  <li><a href="#layer-3-tail-correction-via-satterthwaite-degrees-of-freedom" id="toc-layer-3-tail-correction-via-satterthwaite-degrees-of-freedom" class="nav-link" data-scroll-target="#layer-3-tail-correction-via-satterthwaite-degrees-of-freedom"><span class="header-section-number">4.3.3</span> Layer 3: Tail Correction via Satterthwaite Degrees of Freedom</a></li>
+  <li><a href="#the-sequential-logic" id="toc-the-sequential-logic" class="nav-link" data-scroll-target="#the-sequential-logic"><span class="header-section-number">4.3.4</span> The Sequential Logic</a></li>
+  </ul></li>
+  <li><a href="#sec-claims" id="toc-sec-claims" class="nav-link" data-scroll-target="#sec-claims"><span class="header-section-number">4.4</span> Claims, Guarantees, and Exclusions</a>
+  <ul class="collapse">
+  <li><a href="#sec-envelope-intro" id="toc-sec-envelope-intro" class="nav-link" data-scroll-target="#sec-envelope-intro"><span class="header-section-number">4.4.1</span> Operating Envelope</a></li>
+  <li><a href="#explicit-exclusions" id="toc-explicit-exclusions" class="nav-link" data-scroll-target="#explicit-exclusions"><span class="header-section-number">4.4.2</span> Explicit Exclusions</a></li>
+  </ul></li>
+  <li><a href="#sec-literature" id="toc-sec-literature" class="nav-link" data-scroll-target="#sec-literature"><span class="header-section-number">4.5</span> Connections to the Literature</a>
+  <ul class="collapse">
+  <li><a href="#calibrated-bayes" id="toc-calibrated-bayes" class="nav-link" data-scroll-target="#calibrated-bayes"><span class="header-section-number">4.5.1</span> Calibrated Bayes</a></li>
+  <li><a href="#bayesian-sandwich-adjusted-inference" id="toc-bayesian-sandwich-adjusted-inference" class="nav-link" data-scroll-target="#bayesian-sandwich-adjusted-inference"><span class="header-section-number">4.5.2</span> Bayesian Sandwich-Adjusted Inference</a></li>
+  <li><a href="#sensitivity-to-model-assumptions-the-infinitesimal-jackknife" id="toc-sensitivity-to-model-assumptions-the-infinitesimal-jackknife" class="nav-link" data-scroll-target="#sensitivity-to-model-assumptions-the-infinitesimal-jackknife"><span class="header-section-number">4.5.3</span> Sensitivity to Model Assumptions: The Infinitesimal Jackknife</a></li>
+  <li><a href="#cr2-and-satterthwaite-corrections" id="toc-cr2-and-satterthwaite-corrections" class="nav-link" data-scroll-target="#cr2-and-satterthwaite-corrections"><span class="header-section-number">4.5.4</span> CR2 and Satterthwaite Corrections</a></li>
+  <li><a href="#how-ccc-differs" id="toc-how-ccc-differs" class="nav-link" data-scroll-target="#how-ccc-differs"><span class="header-section-number">4.5.5</span> How CCC Differs</a></li>
+  </ul></li>
+  <li><a href="#sec-roadmap" id="toc-sec-roadmap" class="nav-link" data-scroll-target="#sec-roadmap"><span class="header-section-number">4.6</span> Roadmap</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch01-introduction.html">Part I: Foundations</a></li><li class="breadcrumb-item"><a href="./ch01-introduction.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-introduction" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Introduction and Inferential Architecture</h1>
+<section id="sec-mismatch" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-mismatch"><span class="header-section-number">4.1</span> The Inferential Mismatch</h2>
+<p>Consider a meta-analysis of <span class="math inline">\(J = 20\)</span> studies, each contributing between 2 and 15 effect sizes, for a total of <span class="math inline">\(N = 120\)</span> observations. A Bayesian analyst fits a correlated-effects (CE) working model with a shared between-study variance <span class="math inline">\(\tau^2\)</span> and a working correlation <span class="math inline">\(\rho_{\text{work}} = 0.8\)</span>. The posterior yields <span class="math inline">\(\hat{\beta}_1 = 0.35\)</span> for a moderator coefficient, with a posterior standard deviation of <span class="math inline">\(\text{SD}_{\text{post}} = 0.062\)</span>, producing a 95% equi-tailed credible interval of <span class="math inline">\((0.23, 0.47)\)</span>.</p>
+<p>A frequentist colleague analyzes the same data with robust variance estimation (RVE). Using the CR2 sandwich estimator, she obtains <span class="math inline">\(\hat{\beta}_1 = 0.34\)</span>—close to the posterior mean, as expected with a weakly informative prior—but a standard error of <span class="math inline">\(\text{SE}_{\text{CR2}} = 0.091\)</span>. With Satterthwaite degrees of freedom <span class="math inline">\(\text{df} = 11.3\)</span>, her 95% confidence interval is <span class="math inline">\((0.14, 0.54)\)</span>, substantially wider than the Bayesian interval.</p>
+<p>The discrepancy is not a coding error. The Bayesian interval is narrower because the posterior variance encodes the assumed correlation structure: with <span class="math inline">\(\rho_{\text{work}} = 0.8\)</span>, effect sizes within a study are treated as highly correlated, and the effective sample size is relatively large. But if the true within-study correlation is <span class="math inline">\(\rho_{\text{true}} = 0.4\)</span>, the working model borrows too much information across correlated outcomes within studies, and the posterior is over-concentrated. The sandwich variance, by contrast, does not trust the working model’s correlation structure; it estimates the sampling variability of <span class="math inline">\(\hat{\boldsymbol{\beta}}\)</span> from the empirical cross-study variation of the score contributions, yielding a standard error that is consistent regardless of <span class="math inline">\(\rho_{\text{true}}\)</span>.</p>
+<p>This <em>inferential mismatch</em>—the gap between the model-dependent posterior variance and the misspecification-robust sandwich variance—is the central problem that motivates this report and the bayesRVE package.</p>
+<p>Three features of dependent-effect meta-analysis make the mismatch particularly consequential:</p>
+<ol type="1">
+<li><p><strong>Working model misspecification is the norm, not the exception.</strong> Within-study correlations among effect sizes are almost never known and are typically set to a single working value. Whether the analyst chooses <span class="math inline">\(\rho = 0.6\)</span>, <span class="math inline">\(0.8\)</span>, or estimates <span class="math inline">\(\rho\)</span> from the data, the assumed correlation structure is, at best, an approximation. The posterior variance inherits this approximation; the sandwich variance does not.</p></li>
+<li><p><strong>Small <span class="math inline">\(J\)</span> amplifies the discrepancy.</strong> With many studies (<span class="math inline">\(J &gt; 50\)</span>), the Bayesian and frequentist estimators tend to agree, because the posterior concentrates around the true parameter and its variance converges to the sandwich variance under regularity conditions. With <span class="math inline">\(J \leq 20\)</span>—a common regime in education, psychology, and clinical research—the posterior can be substantially miscalibrated relative to the sandwich variance.</p></li>
+<li><p><strong>Unbalanced study sizes create heterogeneous leverage.</strong> When some studies contribute 2 effect sizes and others contribute 30, the studies with large <span class="math inline">\(n_j\)</span> exert disproportionate influence on the posterior. The sandwich estimator accounts for this through the leverage structure of the design matrix; the posterior variance does not.</p></li>
+</ol>
+<p>The mismatch is not a deficiency of Bayesian inference per se. It is a structural consequence of the fact that the posterior variance measures uncertainty <em>conditional on the model being correct</em>, while the sandwich variance measures uncertainty <em>regardless of whether the model is correct</em>. When the model is correctly specified, the two should agree—and CCC reduces to the identity (Theorem 3, <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>). When it is not, the posterior can be arbitrarily miscalibrated, and the analyst who reports posterior credible intervals without calibration is implicitly asserting a level of model confidence that the data do not support.</p>
+<p>To make this concrete, define the per-coefficient mismatch ratio <span id="eq-mk-mismatch"><span class="math display">\[
+M_k = \frac{\text{SD}_{\text{post},k}}{\text{SE}_{\text{CR2},k}},
+\tag{4.1}\]</span></span> where <span class="math inline">\(\text{SD}_{\text{post},k}\)</span> is the posterior standard deviation and <span class="math inline">\(\text{SE}_{\text{CR2},k}\)</span> is the CR2 sandwich standard error for coefficient <span class="math inline">\(\beta_k\)</span>. When <span class="math inline">\(M_k &lt; 1\)</span>, the posterior is too narrow and credible interval undercoverage is expected. When <span class="math inline">\(M_k &gt; 1\)</span>, the posterior is too wide. When <span class="math inline">\(M_k = 1\)</span>, the model is well-calibrated for that coefficient and no correction is needed. In the example above, <span class="math inline">\(M_1 = 0.062 / 0.091 = 0.68\)</span>, indicating substantial under-dispersion: the posterior width is only 68% of the sandwich-based width. Without calibration, the 95% credible interval would undercover by a wide margin.</p>
+<p>After CCC calibration, the software reports a related but distinct quantity: the calibration ratio <span class="math inline">\(R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)\)</span>, which measures the factor by which CCC adjusted each parameter’s posterior spread. When <span class="math inline">\(M_k &lt; 1\)</span> (posterior too narrow), CCC widens the draws and <span class="math inline">\(R_k &gt; 1\)</span>; the two ratios are approximately reciprocals.</p>
+<p>The magnitude of <span class="math inline">\(M_k\)</span> depends on the interaction of three factors: the degree of within-study correlation misspecification, the number of studies <span class="math inline">\(J\)</span>, and the distribution of study sizes <span class="math inline">\(n_j\)</span>. The simulation study in <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a> explores these interactions systematically.</p>
+</section>
+<section id="sec-calibration-need" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-calibration-need"><span class="header-section-number">4.2</span> Why Dependent-Effect Meta-Analysis Needs Calibration</h2>
+<p>The statistical challenge of dependent effect sizes arises because a single study often contributes more than one effect size estimate. A randomized trial of a brief alcohol intervention might report outcomes on alcohol consumption, alcohol-related problems, and peak blood alcohol concentration, each measured at 3-month and 6-month follow-up, producing six effect sizes from a single study. These estimates share the same participants, the same intervention, and the same study-level characteristics; they are correlated. The within-study correlation matrix is almost never reported, and even when it can be estimated, it is subject to substantial uncertainty.</p>
+<p>The frequentist response to this challenge, developed by <span class="citation" data-cites="hedges2010">Hedges et al. (<a href="#ref-hedges2010" role="doc-biblioref">2010</a>)</span>, is RVE: specify a working model for the marginal mean of the effect sizes, compute point estimates via weighted least squares, and then correct the standard errors using a sandwich (Huber-White) variance estimator that is consistent under arbitrary within-study dependence. The key insight is that one need not know the within-study correlations to obtain valid inference about the regression coefficients—the sandwich estimator absorbs the unknown dependence into the cross-study variation of the score contributions. With the CR2 small-sample correction <span class="citation" data-cites="tipton2015 bell2002">(<a href="#ref-bell2002" role="doc-biblioref">Bell &amp; McCaffrey, 2002</a>; <a href="#ref-tipton2015" role="doc-biblioref">Tipton, 2015</a>)</span> and Satterthwaite degrees of freedom, this approach provides confidence intervals with accurate coverage even when <span class="math inline">\(J\)</span> is modest.</p>
+<p>Bayesian meta-analysts have no analogous robustification. The standard approach is to specify a hierarchical model—either a CE model with a single <span class="math inline">\(\tau^2\)</span> and a working correlation, or a correlated-hierarchical-effects (CHE) model with both between-study heterogeneity <span class="math inline">\(\tau^2\)</span> and within-study heterogeneity <span class="math inline">\(\omega^2\)</span>—fit the model via MCMC, and report posterior summaries. The posterior variance of the regression coefficients depends on the assumed model, including the parameterization of the within-study dependence. When this parameterization is wrong, the credible intervals may have coverage far from nominal.</p>
+<p>This gap is not merely academic. The increasing popularity of Bayesian meta-analytic software means that applied researchers are routinely reporting posterior credible intervals for regression coefficients in dependent-effect meta-analyses without any check on whether those intervals have adequate frequentist coverage. The methodological literature has, to date, offered no general-purpose correction.</p>
+<p>The need for calibration connects to a broader intellectual tradition. <span class="citation" data-cites="little2006 little2012">Little (<a href="#ref-little2006" role="doc-biblioref">2006</a>, <a href="#ref-little2012" role="doc-biblioref">2012</a>)</span> articulated the philosophy of <em>Calibrated Bayes</em>: Bayesian models should be evaluated and, where necessary, adjusted to ensure that their posterior inferences have acceptable frequentist repeated-sampling properties. This is not a rejection of Bayesian inference but an extension of it. A Bayesian analyst who values coherent probability statements should also value calibration—the property that a 95% credible interval, averaged over the data-generating process, contains the true parameter approximately 95% of the time.</p>
+<p><span class="citation" data-cites="rubin1984">Rubin (<a href="#ref-rubin1984" role="doc-biblioref">1984</a>)</span> anticipated a similar idea in arguing that Bayesian inference should be assessed by its frequentist operating characteristics. The two traditions—Bayesian posterior inference and frequentist robust variance estimation—have developed largely in parallel, each with genuine strengths that the other lacks. Bayesian methods give a full posterior distribution with shrinkage and probabilistic interpretation; RVE gives coverage guarantees under misspecification.</p>
+<p>The Three-Layer Calibration framework developed in this report operationalizes the Calibrated Bayes vision for dependent-effect meta-analysis: retain the Bayesian point estimate (Layer 1), replace the model-dependent spread with a sandwich-robust alternative (Layer 2), and correct the tail behavior for small samples (Layer 3). CCC is the mechanism that makes Layer 2 concrete.</p>
+</section>
+<section id="sec-three-layer-arch" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-three-layer-arch"><span class="header-section-number">4.3</span> Three-Layer Architecture</h2>
+<p>The bayesRVE inference pipeline consists of three calibration layers, applied sequentially. Each layer addresses a distinct aspect of the inferential mismatch described in <a href="#sec-mismatch" class="quarto-xref"><span class="quarto-unresolved-ref">sec-mismatch</span></a>.</p>
+<section id="layer-1-location-via-posterior-mean" class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="layer-1-location-via-posterior-mean"><span class="header-section-number">4.3.1</span> Layer 1: Location via Posterior Mean</h3>
+<p>The posterior mean <span class="math inline">\(\hat{\boldsymbol{\beta}} = \mathbb{E}[\boldsymbol{\beta} \mid \mathbf{y}]\)</span> serves as the point estimate. This estimate incorporates <em>partial pooling</em> across studies: extreme study-level estimates are shrunk toward the grand mean, with the degree of shrinkage determined by the ratio of within-study to between-study variance. Partial pooling is a well-established advantage of hierarchical models, and there is no reason to abandon it when calibrating the uncertainty.</p>
+<p>Importantly, CCC preserves the posterior mean exactly (Theorem 1, <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>). The point estimate after calibration is identical to the point estimate before calibration. Layer 1 is therefore costless within the calibration framework—the analyst obtains the benefits of Bayesian shrinkage without any sacrifice in terms of the subsequent calibration.</p>
+</section>
+<section id="layer-2-spread-via-ccc" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="layer-2-spread-via-ccc"><span class="header-section-number">4.3.2</span> Layer 2: Spread via CCC</h3>
+<p>The Cholesky Calibration Correction is an affine transformation applied to the MCMC posterior draws: <span id="eq-ccc-intro"><span class="math display">\[
+\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}\bigl(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}\bigr), \quad s = 1, \ldots, S,
+\tag{4.2}\]</span></span> where <span class="math inline">\(\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})\)</span> and <span class="math inline">\(\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})\)</span> are the lower-triangular Cholesky factors of the posterior covariance and the CR2 sandwich variance, respectively.</p>
+<p>CCC replaces the model-dependent posterior dispersion with the sandwich-robust alternative. Within the beta-block, the covariance of the calibrated draws equals the CR2 sandwich variance <em>exactly</em>: <span class="math inline">\(\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}\)</span>. This is a finite-sample algebraic identity, not an asymptotic approximation (Theorem 2, applied to the beta-block; see <a href="#sec-ccc-blockwise" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc-blockwise</span></a> for the full blockwise structure). When the model is correctly specified so that <span class="math inline">\(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}^{(\beta)} = \mathbf{V}_{\text{CR2}}^{(\beta)}\)</span>, CCC reduces to the identity transformation and changes nothing (Theorem 3, <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>). There is no penalty for applying CCC when it is not needed.</p>
+<p>In the scalar case (<span class="math inline">\(K = 1\)</span>), CCC reduces to a simple rescaling of the centered draws by the factor <span class="math inline">\(1/M_k\)</span> from <a href="#eq-mk-mismatch" class="quarto-xref">Equation&nbsp;<span class="quarto-unresolved-ref">eq-mk-mismatch</span></a>. When <span class="math inline">\(M_k &lt; 1\)</span> (posterior too narrow), the factor is greater than 1 and CCC widens the interval. When <span class="math inline">\(M_k &gt; 1\)</span> (posterior too wide), CCC narrows it. The multivariate case requires the full Cholesky machinery to handle correlations between coefficients, but the intuition is the same: CCC rescales and rotates the posterior draws to match the sandwich covariance structure.</p>
+</section>
+<section id="layer-3-tail-correction-via-satterthwaite-degrees-of-freedom" class="level3" data-number="4.3.3">
+<h3 data-number="4.3.3" class="anchored" data-anchor-id="layer-3-tail-correction-via-satterthwaite-degrees-of-freedom"><span class="header-section-number">4.3.3</span> Layer 3: Tail Correction via Satterthwaite Degrees of Freedom</h3>
+<p>Even with the correct standard error, the reference distribution matters. With <span class="math inline">\(J = 15\)</span> studies and <span class="math inline">\(K = 3\)</span> predictors, using a normal reference distribution (<span class="math inline">\(z\)</span>-critical values) for the confidence interval can lead to undercoverage, because the sandwich variance estimator has substantial sampling variability. Satterthwaite degrees of freedom approximate the effective sample size for each coefficient, yielding a <span class="math inline">\(t\)</span>-distribution reference: <span id="eq-ccc-t-intro"><span class="math display">\[
+\hat{\beta}_k \pm t_{\alpha/2,\,\text{df}_k} \cdot \text{SD}(\beta_k^*).
+\tag{4.3}\]</span></span></p>
+<p>The degrees of freedom are computed from the CR2 adjustment matrices (see <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a> for details) and can differ across coefficients. In the CE model, the intercept may have <span class="math inline">\(\text{df} = 18\)</span> while a moderator with missing values in some studies might have <span class="math inline">\(\text{df} = 7\)</span>. Layer 3 ensures that the confidence interval accounts for this heterogeneity in information content.</p>
+<p>We refer to the resulting intervals as <strong>CCC-<span class="math inline">\(t\)</span> intervals</strong>. The simulation evidence in <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a> demonstrates that CCC-<span class="math inline">\(t\)</span> intervals achieve coverage within one percentage point of nominal (e.g., 94.5–95.3% at the 95% level), matching the coverage of frequentist CR2 confidence intervals based on REML estimation. By contrast, CCC-<span class="math inline">\(z\)</span> intervals (which use normal quantiles instead of <span class="math inline">\(t\)</span>-quantiles) undercover at 91–94% in the same conditions, confirming that Layer 3 is essential, not merely a theoretical refinement.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Architecture Diagram: Three-Layer Calibration Pipeline
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The complete pipeline proceeds in four function calls, with each layer contributing a distinct ingredient to the final inference:</p>
+<pre><code>                         bayesRVE Pipeline
+ ──────────────────────────────────────────────────────────
+ bm_fit()    →   MCMC posterior draws {ψ^(s)}, s = 1,...,S
+                    │
+                  Layer 1: Posterior mean ψ̂           [LOCATION]
+                    │            (shrinkage, partial pooling)
+                    │
+ sandwich()  →   V_CR2, df_k  (from clustered score contributions)
+                    │
+ ccc()       →   Layer 2: Affine transform            [SPREAD]
+                    │        ψ*(s) = ψ̂ + L₂ L₁⁻¹(ψ(s) − ψ̂)
+                    │            (Cov_S(β*) = V_CR2^(β) exactly)
+                    │
+ summary()   →   Layer 3: t(df_k) reference           [TAILS]
+                             β̂_k ± t_{α/2, df_k} · SD(β*_k)
+                                 (small-sample correction)
+ ──────────────────────────────────────────────────────────
+
+ Input:  y_i, v_i, X_i, study labels, working ρ
+ Output: CCC-t intervals
+         (Bayesian location, sandwich width, Satterthwaite tails)</code></pre>
+<p><strong>Why the order matters.</strong> Layer 1 must precede Layer 2 because CCC is centered at the posterior mean; changing the point estimate after CCC would violate the center-preservation property (Theorem 1). Layer 2 must precede Layer 3 because the Satterthwaite degrees of freedom are properties of the sandwich variance estimator, not of the posterior; they are meaningful only after the spread has been calibrated to the sandwich target. Reversing any pair of layers produces either mathematically incoherent or operationally suboptimal inference.</p>
+</div>
+</div>
+</section>
+<section id="the-sequential-logic" class="level3" data-number="4.3.4">
+<h3 data-number="4.3.4" class="anchored" data-anchor-id="the-sequential-logic"><span class="header-section-number">4.3.4</span> The Sequential Logic</h3>
+<p>The three layers address three distinct sources of the inferential mismatch:</p>
+<div id="tbl-three-layers" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-three-layers-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.1: Three-Layer Calibration: what each layer contributes.
+</figcaption>
+<div aria-describedby="tbl-three-layers-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 17%">
+<col style="width: 27%">
+<col style="width: 27%">
+<col style="width: 27%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Layer</th>
+<th style="text-align: left;">Addresses</th>
+<th style="text-align: left;">Mechanism</th>
+<th style="text-align: left;">Guarantee</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">1 (Location)</td>
+<td style="text-align: left;">Estimation efficiency</td>
+<td style="text-align: left;">Bayesian shrinkage / partial pooling</td>
+<td style="text-align: left;"><span class="math inline">\(\hat{\boldsymbol{\beta}}\)</span> preserved exactly (Thm 1)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2 (Spread)</td>
+<td style="text-align: left;">Variance miscalibration</td>
+<td style="text-align: left;">CCC affine transformation</td>
+<td style="text-align: left;"><span class="math inline">\(\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}\)</span> exactly (Thm 2, beta-block)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">3 (Tails)</td>
+<td style="text-align: left;">Small-sample reference distribution</td>
+<td style="text-align: left;">Satterthwaite <span class="math inline">\(\text{df}_k\)</span></td>
+<td style="text-align: left;">Coverage correction for finite <span class="math inline">\(J\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>No single layer suffices. Without Layer 2, the posterior spread is model-dependent and potentially miscalibrated. Without Layer 3, the intervals undercover when <span class="math inline">\(J\)</span> is small. Without Layer 1, one loses the shrinkage benefits of Bayesian estimation entirely. The three layers are not merely conceptual divisions; they correspond to separable computations with independent failure modes and independent test suites. A failure in one layer—say, a misspecified Satterthwaite approximation at very small <span class="math inline">\(J\)</span>—does not compromise the other layers. Improvements to any single layer (e.g., replacing Satterthwaite with a bootstrap-based degrees of freedom) can be incorporated without modifying the remaining layers.</p>
+</section>
+</section>
+<section id="sec-claims" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-claims"><span class="header-section-number">4.4</span> Claims, Guarantees, and Exclusions</h2>
+<p>Scientific software should be explicit about what it guarantees, what it provides as a diagnostic, and what remains the subject of ongoing empirical investigation. <a href="#tbl-guarantees" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-guarantees</span></a> organizes the claims made by bayesRVE into three categories.</p>
+<div id="tbl-guarantees" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-guarantees-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4.2: What bayesRVE guarantees (exact theorems), provides diagnostically (ratios), and supports with simulation evidence (coverage).
+</figcaption>
+<div aria-describedby="tbl-guarantees-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 26%">
+<col style="width: 26%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Claim</th>
+<th style="text-align: left;">Category</th>
+<th style="text-align: left;">Evidence</th>
+<th style="text-align: left;">Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CCC preserves posterior mean</td>
+<td style="text-align: left;">Exact theorem</td>
+<td style="text-align: left;">Machine-precision verification</td>
+<td style="text-align: left;"><a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>, Thm 1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><span class="math inline">\(\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}\)</span> (beta-block)</td>
+<td style="text-align: left;">Exact theorem</td>
+<td style="text-align: left;">Machine-precision verification</td>
+<td style="text-align: left;"><a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>, Thm 2</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCC <span class="math inline">\(= \mathbf{I}\)</span> under correct specification</td>
+<td style="text-align: left;">Exact theorem</td>
+<td style="text-align: left;">Machine-precision verification</td>
+<td style="text-align: left;"><a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>, Thm 3</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CR2 variance matches clubSandwich (plug-in)</td>
+<td style="text-align: left;">Numerical parity</td>
+<td style="text-align: left;"><span class="math inline">\(&lt; 10^{-6}\)</span> tolerance</td>
+<td style="text-align: left;"><a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Satterthwaite df matches clubSandwich (plug-in)</td>
+<td style="text-align: left;">Numerical parity</td>
+<td style="text-align: left;"><span class="math inline">\(&lt; 10^{-6}\)</span> tolerance</td>
+<td style="text-align: left;"><a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><span class="math inline">\(R_k\)</span> quantifies per-coefficient miscalibration</td>
+<td style="text-align: left;">Diagnostic</td>
+<td style="text-align: left;">Always available</td>
+<td style="text-align: left;"><a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(\lVert\mathbf{A} - \mathbf{I}\rVert_F\)</span> measures CCC magnitude</td>
+<td style="text-align: left;">Diagnostic</td>
+<td style="text-align: left;">Always available; no universal threshold</td>
+<td style="text-align: left;"><a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCC-<span class="math inline">\(t\)</span> coverage <span class="math inline">\(\approx\)</span> 95%</td>
+<td style="text-align: left;">Simulation evidence</td>
+<td style="text-align: left;">94.5–95.3% across 24 conditions</td>
+<td style="text-align: left;"><a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCC SD / CR2 SE <span class="math inline">\(\approx 1.0\)</span> on TSL15 data</td>
+<td style="text-align: left;">Empirical</td>
+<td style="text-align: left;">Confirmed (<span class="math inline">\(J = 107\)</span>, <span class="math inline">\(N = 1{,}198\)</span>)</td>
+<td style="text-align: left;"><a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div class="callout callout-style-default callout-note callout-titled" title="Exact vs. Approximate Guarantees">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Exact vs.&nbsp;Approximate Guarantees
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Theorems 1–3 are stated generically in <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>. In the bayesRVE pipeline, CCC is applied blockwise (<a href="#sec-ccc-blockwise" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc-blockwise</span></a>), so the operational guarantees are:</p>
+<ol type="1">
+<li><strong>Exact: posterior-mean preservation (Thm 1).</strong> <span class="math inline">\(\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}\)</span> to machine precision. Holds independently per block.</li>
+<li><strong>Exact: beta-block sample covariance matching (Thm 2).</strong> <span class="math inline">\(\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}\)</span>, including all off-diagonal elements. Finite-sample algebraic identity.</li>
+<li><strong>Exact: scalar theta variance matching (CE only).</strong> Each <span class="math inline">\(\operatorname{Var}_S(\theta_j^*) = V_{\text{sand,cond}}^{(\theta_j)}\)</span> via diagonal rescaling. Cross-covariances among <span class="math inline">\(\theta_j\)</span> and the <span class="math inline">\(\boldsymbol{\beta}\)</span>–<span class="math inline">\(\boldsymbol{\theta}\)</span> cross-block are not targeted.</li>
+<li><strong>Approximate: frequentist coverage.</strong> CCC-<span class="math inline">\(t\)</span> intervals achieve nominal coverage only asymptotically. For finite <span class="math inline">\(J\)</span>, Satterthwaite df and the normal posterior approximation introduce error. Simulation evidence: 94.5–95.3% at the 95% level across 24 conditions.</li>
+</ol>
+<p>For the CHE model, <span class="math inline">\(\boldsymbol{\theta}\)</span> is analytically marginalized; CCC operates on the beta-block only. See <a href="#sec-env-exact" class="quarto-xref"><span class="quarto-unresolved-ref">sec-env-exact</span></a> for the full exact-versus-asymptotic analysis.</p>
+</div>
+</div>
+<p>The distinction between these categories matters for interpretation. The theorems hold as finite-sample algebraic identities and are verified at machine precision on synthetic data; they carry no distributional assumptions and require only positive definiteness of the input matrices. The plug-in parity results isolate the bayesRVE linear algebra from MCMC sampling noise by injecting known (REML) variance components; they verify that the code implements the intended formulas. The simulation-based coverage results are subject to Monte Carlo error and to the specific conditions studied (24 scenarios varying <span class="math inline">\(J\)</span>, <span class="math inline">\(\rho_{\text{true}}\)</span>, model specification); they provide evidence of adequate performance across a range of realistic settings but do not constitute a universal guarantee.</p>
+<section id="sec-envelope-intro" class="level3" data-number="4.4.1">
+<h3 data-number="4.4.1" class="anchored" data-anchor-id="sec-envelope-intro"><span class="header-section-number">4.4.1</span> Operating Envelope</h3>
+<p>The theoretical properties of CCC (Theorems 1–3) hold for any positive-definite inputs, but the practical reliability of the sandwich variance estimator—and hence of the calibrated intervals—depends on having enough independent clusters (studies). bayesRVE enforces the constraint <span id="eq-envelope"><span class="math display">\[
+J_{\min} = \max(8,\; 2K + 2),
+\tag{4.4}\]</span></span> where <span class="math inline">\(J\)</span> is the number of studies and <span class="math inline">\(K\)</span> is the number of regression coefficients. Below this threshold, the CR2 sandwich variance may not be positive definite, the Satterthwaite degrees of freedom may be excessively small or negative, and the resulting intervals are unreliable. The package emits a warning when <span class="math inline">\(J\)</span> is within 20% of the boundary and an error when <span class="math inline">\(J &lt; J_{\min}\)</span>. The rationale and justification of this envelope are given in <a href="#sec-envelope" class="quarto-xref"><span class="quarto-unresolved-ref">sec-envelope</span></a>.</p>
+<p>The lower bound of 8 studies is a practical floor: with fewer than 8 clusters, the sandwich estimator’s finite-sample bias is too large for the CR2 correction to overcome reliably. The <span class="math inline">\(2K + 2\)</span> term ensures that the degrees-of-freedom numerator remains positive for all <span class="math inline">\(K\)</span> coefficients. Together, these constraints define the regime in which Three-Layer Calibration can be expected to perform well.</p>
+</section>
+<section id="explicit-exclusions" class="level3" data-number="4.4.2">
+<h3 data-number="4.4.2" class="anchored" data-anchor-id="explicit-exclusions"><span class="header-section-number">4.4.2</span> Explicit Exclusions</h3>
+<p>The following capabilities are outside the scope of bayesRVE version 0.6.0:</p>
+<ul>
+<li><p><strong>Multi-parameter hypothesis tests.</strong> Wald and <span class="math inline">\(F\)</span>-tests for joint hypotheses (e.g., testing that a set of moderator coefficients are jointly zero) require the full sandwich covariance matrix and an appropriate <span class="math inline">\(F\)</span>-distribution approximation. This is the primary target for version 0.7.0.</p></li>
+<li><p><strong>Prior sensitivity analysis.</strong> The current implementation uses default weakly informative priors for <span class="math inline">\(\tau^2\)</span> (and <span class="math inline">\(\omega^2\)</span> in the CHE model). Systematic investigation of how the prior on variance components affects the CCC-calibrated intervals is deferred to future work.</p></li>
+<li><p><strong>Multivariate meta-analysis.</strong> bayesRVE handles dependent effect sizes through the sandwich variance approach, which treats the within-study dependence as a nuisance. True multivariate meta-analysis, in which the correlation structure is itself a quantity of interest, requires a different modeling framework.</p></li>
+<li><p><strong>Network meta-analysis.</strong> Extensions to indirect comparisons and network structures are not currently supported.</p></li>
+<li><p><strong>Nonlinear meta-regression.</strong> The CCC transformation is defined for the coefficient vector <span class="math inline">\(\boldsymbol{\beta}\)</span> of a linear meta-regression. Extensions to nonlinear link functions would require additional development of both the sandwich estimator and its small-sample corrections.</p></li>
+<li><p><strong>Non-exchangeable within-study structures.</strong> The current implementation assumes exchangeable working correlation within studies; autoregressive or unstructured working correlations are not supported.</p></li>
+</ul>
+</section>
+</section>
+<section id="sec-literature" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="sec-literature"><span class="header-section-number">4.5</span> Connections to the Literature</h2>
+<p>The Three-Layer Calibration framework draws on, and contributes to, several distinct research traditions. This section situates bayesRVE within its intellectual context and clarifies how it relates to existing work.</p>
+<section id="calibrated-bayes" class="level3" data-number="4.5.1">
+<h3 data-number="4.5.1" class="anchored" data-anchor-id="calibrated-bayes"><span class="header-section-number">4.5.1</span> Calibrated Bayes</h3>
+<p><span class="citation" data-cites="little2006 little2012">Little (<a href="#ref-little2006" role="doc-biblioref">2006</a>, <a href="#ref-little2012" role="doc-biblioref">2012</a>)</span> proposed Calibrated Bayes as a philosophy of inference in which Bayesian models are evaluated by their frequentist operating characteristics and adjusted when calibration fails. The motivating context was survey sampling, where complex designs induce dependencies that are difficult to model correctly. Little argued that a good Bayesian model should produce posterior intervals with approximately nominal frequentist coverage, and that failure to achieve this constitutes evidence of model misspecification requiring correction.</p>
+<p>bayesRVE is, to our knowledge, the first concrete implementation of Calibrated Bayes for meta-analysis with dependent effect sizes. The CCC transformation mechanizes Little’s prescription: the posterior is evaluated against a frequentist target (the CR2 sandwich variance), and when the two disagree, the posterior spread is adjusted to match. The posterior mean is retained because Bayesian point estimates are generally well-calibrated even under mild misspecification; it is the variance—and hence the interval width—that requires correction.</p>
+</section>
+<section id="bayesian-sandwich-adjusted-inference" class="level3" data-number="4.5.2">
+<h3 data-number="4.5.2" class="anchored" data-anchor-id="bayesian-sandwich-adjusted-inference"><span class="header-section-number">4.5.2</span> Bayesian Sandwich-Adjusted Inference</h3>
+<p><span class="citation" data-cites="williams2020">Williams &amp; Savitsky (<a href="#ref-williams2020" role="doc-biblioref">2021</a>)</span> and <span class="citation" data-cites="leonnovelo2019">León-Novelo &amp; Savitsky (<a href="#ref-leonnovelo2019" role="doc-biblioref">2019</a>)</span> developed methods for adjusting Bayesian posterior inference using sandwich variance estimators in the context of survey data. Their approach shares the fundamental insight that model-based posterior variances can be replaced with design-consistent (sandwich) alternatives without abandoning Bayesian point estimates.</p>
+<p>The technical implementation differs in two important respects. First, the survey-sampling methods operate on the asymptotic posterior distribution by replacing the Fisher information matrix with the sandwich matrix, while CCC operates directly on the MCMC draws via an affine transformation. This direct-draw approach allows CCC to handle finite-sample effects through the CR2 correction without additional asymptotic arguments. Second, the survey methods do not incorporate a small-sample correction for the reference distribution; CCC’s Layer 3 (Satterthwaite degrees of freedom) addresses this gap, which is particularly important when the number of clusters <span class="math inline">\(J\)</span> is small.</p>
+</section>
+<section id="sensitivity-to-model-assumptions-the-infinitesimal-jackknife" class="level3" data-number="4.5.3">
+<h3 data-number="4.5.3" class="anchored" data-anchor-id="sensitivity-to-model-assumptions-the-infinitesimal-jackknife"><span class="header-section-number">4.5.3</span> Sensitivity to Model Assumptions: The Infinitesimal Jackknife</h3>
+<p><span class="citation" data-cites="giordano2024">Giordano &amp; Broderick (<a href="#ref-giordano2024" role="doc-biblioref">2024</a>)</span> developed the infinitesimal jackknife (IJ) for Bayesian models, providing a fast approximation to the sensitivity of posterior expectations with respect to data perturbations. Like CCC, the IJ uses a sandwich-type covariance to assess the robustness of posterior inference. The key distinction is that the IJ is <em>diagnostic</em>—it measures how much posterior summaries change under infinitesimal reweighting of observations—while CCC is <em>corrective</em>—it modifies the posterior to achieve a specific frequentist target.</p>
+<p>In principle, the IJ could be used to determine <em>whether</em> calibration is needed, while CCC would implement the correction. bayesRVE currently applies CCC in an always-on mode, which is justified by Theorem 3: when the model is correctly specified and correction is not needed, CCC reduces to the identity and changes nothing. The two approaches are complementary, and a formal integration of IJ diagnostics with CCC correction represents a productive direction for future work.</p>
+</section>
+<section id="cr2-and-satterthwaite-corrections" class="level3" data-number="4.5.4">
+<h3 data-number="4.5.4" class="anchored" data-anchor-id="cr2-and-satterthwaite-corrections"><span class="header-section-number">4.5.4</span> CR2 and Satterthwaite Corrections</h3>
+<p>The CR2 bias correction for cluster-robust variance estimators was developed by <span class="citation" data-cites="bell2002">Bell &amp; McCaffrey (<a href="#ref-bell2002" role="doc-biblioref">2002</a>)</span> and extended to the meta-analytic setting by <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span> and <span class="citation" data-cites="tipton2015b">Tipton &amp; Pustejovsky (<a href="#ref-tipton2015b" role="doc-biblioref">2015</a>)</span>. The correction involves multiplying the residual for each study by an adjustment matrix that accounts for the leverage of that study’s design rows, ensuring that the expected value of the sandwich estimator equals the true covariance under the working model. The Satterthwaite approximation then matches the first two moments of the resulting test statistic to a <span class="math inline">\(t\)</span>-distribution, yielding degrees of freedom that reflect the effective number of independent pieces of information available for each coefficient.</p>
+<p>bayesRVE implements the CR2 correction and Satterthwaite approximation independently, without runtime dependence on the clubSandwich package. This design choice serves two purposes: first, the entire inference pipeline is self-contained and can be audited without external dependencies; second, plug-in parity tests—injecting REML variance components into bayesRVE and verifying agreement with clubSandwich at <span class="math inline">\(10^{-6}\)</span> tolerance—cleanly isolate the linear algebra from MCMC sampling noise, providing a definitive verification path (see <a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a>).</p>
+</section>
+<section id="how-ccc-differs" class="level3" data-number="4.5.5">
+<h3 data-number="4.5.5" class="anchored" data-anchor-id="how-ccc-differs"><span class="header-section-number">4.5.5</span> How CCC Differs</h3>
+<p>CCC is distinguished from the approaches reviewed above in three respects. First, it operates on MCMC draws rather than on asymptotic distributions, making it compatible with complex hierarchical models that lack closed-form posteriors. Second, it combines the sandwich adjustment (Layer 2) with small-sample corrections (Layer 3) in a unified framework, rather than treating them as separate problems. Third, it is implemented as a general-purpose R package that handles both CE and CHE working models, with the CHE extension requiring only the substitution <span class="math inline">\(\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2\)</span> in the weight matrices (<a href="#sec-models" class="quarto-xref"><span class="quarto-unresolved-ref">sec-models</span></a>)—no new mathematical machinery is needed. This algebraic simplicity is a consequence of the fact that <span class="math inline">\(\omega^2\)</span> enters the marginal variance of the CHE model additively, so the entire CR2 infrastructure can be reused with a single parameter substitution.</p>
+</section>
+</section>
+<section id="sec-roadmap" class="level2" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="sec-roadmap"><span class="header-section-number">4.6</span> Roadmap</h2>
+<p>The remainder of this report is organized in three parts.</p>
+<p><strong>Part I: Foundations</strong> (Chapters 2–5) develops the statistical theory. <a href="#sec-models" class="quarto-xref"><span class="quarto-unresolved-ref">sec-models</span></a> defines the CE and CHE working models and their Stan implementations. <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a> derives the CR2 sandwich variance estimator and Satterthwaite degrees of freedom. <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a> presents the CCC transformation, its algebraic properties (Theorems 1–3), and the blockwise structure required for the CHE model. <a href="#sec-envelope" class="quarto-xref"><span class="quarto-unresolved-ref">sec-envelope</span></a> establishes the operating envelope, the <span class="math inline">\(J_{\min}\)</span> constraint, and the fallback logic for edge cases.</p>
+<p><strong>Part II: Software</strong> (Chapters 6–10) documents the bayesRVE package internals. Each chapter covers one major component: the package architecture and object contracts (<a href="#sec-architecture" class="quarto-xref"><span class="quarto-unresolved-ref">sec-architecture</span></a>), the Stan model compilation and fitting interface (<a href="#sec-fitting" class="quarto-xref"><span class="quarto-unresolved-ref">sec-fitting</span></a>), the sandwich variance computation pipeline (<a href="#sec-sandwich-impl" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich-impl</span></a>), the CCC transformation engine and S3 methods (<a href="#sec-ccc-impl" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc-impl</span></a>), and the multi-tier verification strategy (<a href="#sec-verification" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verification</span></a>). Cross-references to specific source files and test cases are provided throughout.</p>
+<p><strong>Part III: Validation</strong> (Chapters 11–13) presents the empirical evidence. <a href="#sec-tsl15-design" class="quarto-xref"><span class="quarto-unresolved-ref">sec-tsl15-design</span></a> describes the <span class="citation" data-cites="tannersmith2015">Tanner-Smith &amp; Lipsey (<a href="#ref-tannersmith2015" role="doc-biblioref">2015</a>)</span> dataset (<span class="math inline">\(J = 107\)</span> studies, <span class="math inline">\(N = 1{,}198\)</span> effect sizes) and the five-estimator comparison design. <a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a> presents the main findings, including the CCC/CR2 SE ratio analysis across six categories of dependent variables for both CE and CHE models. <a href="#sec-mechanics" class="quarto-xref"><span class="quarto-unresolved-ref">sec-mechanics</span></a> examines the mechanics of CCC calibration—how the transformation matrix <span class="math inline">\(\mathbf{A}\)</span>, the shrinkage ratio <span class="math inline">\(R_k\)</span>, and the Satterthwaite degrees of freedom vary across conditions and what they reveal about the interplay between Bayesian and robust inference.</p>
+<p>The parts are designed to be largely self-contained. A reader interested only in the statistical theory can read Part I without reference to the software. A code reviewer can focus on Part II with occasional forward references to the verification strategy. An empirically oriented reader can proceed directly from this introduction to Part III.</p>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-bell2002" class="csl-entry" role="listitem">
+Bell, R. M., &amp; McCaffrey, D. F. (2002). Bias reduction in standard errors for linear regression with multi-stage samples. <em>Survey Methodology</em>, <em>28</em>(2), 169–181.
+</div>
+<div id="ref-giordano2024" class="csl-entry" role="listitem">
+Giordano, R., &amp; Broderick, T. (2024). <em>The <span>B</span>ayesian infinitesimal jackknife for variance</em>. <a href="https://arxiv.org/abs/2305.06466">https://arxiv.org/abs/2305.06466</a>
+</div>
+<div id="ref-hedges2010" class="csl-entry" role="listitem">
+Hedges, L. V., Tipton, E., &amp; Johnson, M. C. (2010). Robust variance estimation in meta-regression with dependent effect size estimates. <em>Research Synthesis Methods</em>, <em>1</em>(1), 39–65. <a href="https://doi.org/10.1002/jrsm.5">https://doi.org/10.1002/jrsm.5</a>
+</div>
+<div id="ref-leonnovelo2019" class="csl-entry" role="listitem">
+León-Novelo, L. G., &amp; Savitsky, T. D. (2019). Fully <span>B</span>ayesian estimation under informative sampling with unattenuated dependence. <em>Electronic Journal of Statistics</em>, <em>13</em>(1), 1608–1645. <a href="https://doi.org/10.1214/19-EJS1538">https://doi.org/10.1214/19-EJS1538</a>
+</div>
+<div id="ref-little2006" class="csl-entry" role="listitem">
+Little, R. J. (2006). Calibrated <span>B</span>ayes: A <span>B</span>ayes/<span>F</span>requentist roadmap. <em>The American Statistician</em>, <em>60</em>(3), 213–223. <a href="https://doi.org/10.1198/000313006X117837">https://doi.org/10.1198/000313006X117837</a>
+</div>
+<div id="ref-little2012" class="csl-entry" role="listitem">
+Little, R. J. (2012). Calibrated <span>B</span>ayes, an alternative inferential paradigm for official statistics. <em>Journal of Official Statistics</em>, <em>28</em>(3), 309–334.
+</div>
+<div id="ref-rubin1984" class="csl-entry" role="listitem">
+Rubin, D. B. (1984). Bayesianly justifiable and relevant frequency calculations for the applied statistician. <em>The Annals of Statistics</em>, <em>12</em>(4), 1151–1172. <a href="https://doi.org/10.1214/aos/1176346785">https://doi.org/10.1214/aos/1176346785</a>
+</div>
+<div id="ref-tannersmith2015" class="csl-entry" role="listitem">
+Tanner-Smith, E. E., &amp; Lipsey, M. W. (2015). Brief alcohol interventions for adolescents and young adults: A systematic review and meta-analysis. <em>Journal of Substance Abuse Treatment</em>, <em>51</em>, 1–18. <a href="https://doi.org/10.1016/j.jsat.2014.09.001">https://doi.org/10.1016/j.jsat.2014.09.001</a>
+</div>
+<div id="ref-tipton2015" class="csl-entry" role="listitem">
+Tipton, E. (2015). Small sample adjustments for robust variance estimation with meta-regression. <em>Psychological Methods</em>, <em>20</em>(3), 375–393. <a href="https://doi.org/10.1037/met0000011">https://doi.org/10.1037/met0000011</a>
+</div>
+<div id="ref-tipton2015b" class="csl-entry" role="listitem">
+Tipton, E., &amp; Pustejovsky, J. E. (2015). Small-sample adjustments for tests of moderators and model fit using robust variance estimation in meta-regression. <em>Journal of Educational and Behavioral Statistics</em>, <em>40</em>(6), 604–634. <a href="https://doi.org/10.3102/1076998615606099">https://doi.org/10.3102/1076998615606099</a>
+</div>
+<div id="ref-williams2020" class="csl-entry" role="listitem">
+Williams, M. R., &amp; Savitsky, T. D. (2021). Uncertainty estimation for pseudo-<span>B</span>ayesian inference under complex sampling. <em>International Statistical Review</em>, <em>89</em>(1), 72–107. <a href="https://doi.org/10.1111/insr.12376">https://doi.org/10.1111/insr.12376</a>
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./ch00-notation.html" class="pagination-link" aria-label="Notation, Acronyms, and Object Map">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./ch02-models.html" class="pagination-link" aria-label="Statistical Models and Stan Implementation">
+        <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Introduction and Inferential Architecture"</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu"># Introduction and Inferential Architecture {#sec-introduction}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Inferential Mismatch {#sec-mismatch}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>Consider a meta-analysis of $J = 20$ studies, each contributing between 2 and 15 effect sizes, for a total of $N = 120$ observations. A Bayesian analyst fits a correlated-effects (CE) working model with a shared between-study variance $\tau^2$ and a working correlation $\rho_{\text{work}} = 0.8$. The posterior yields $\hat{\beta}_1 = 0.35$ for a moderator coefficient, with a posterior standard deviation of $\text{SD}_{\text{post}} = 0.062$, producing a 95% equi-tailed credible interval of $(0.23, 0.47)$.</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>A frequentist colleague analyzes the same data with robust variance estimation (RVE). Using the CR2 sandwich estimator, she obtains $\hat{\beta}_1 = 0.34$---close to the posterior mean, as expected with a weakly informative prior---but a standard error of $\text{SE}_{\text{CR2}} = 0.091$. With Satterthwaite degrees of freedom $\text{df} = 11.3$, her 95% confidence interval is $(0.14, 0.54)$, substantially wider than the Bayesian interval.</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>The discrepancy is not a coding error. The Bayesian interval is narrower because the posterior variance encodes the assumed correlation structure: with $\rho_{\text{work}} = 0.8$, effect sizes within a study are treated as highly correlated, and the effective sample size is relatively large. But if the true within-study correlation is $\rho_{\text{true}} = 0.4$, the working model borrows too much information across correlated outcomes within studies, and the posterior is over-concentrated. The sandwich variance, by contrast, does not trust the working model's correlation structure; it estimates the sampling variability of $\hat{\boldsymbol{\beta}}$ from the empirical cross-study variation of the score contributions, yielding a standard error that is consistent regardless of $\rho_{\text{true}}$.</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>This *inferential mismatch*---the gap between the model-dependent posterior variance and the misspecification-robust sandwich variance---is the central problem that motivates this report and the bayesRVE package.</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>Three features of dependent-effect meta-analysis make the mismatch particularly consequential:</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Working model misspecification is the norm, not the exception.** Within-study correlations among effect sizes are almost never known and are typically set to a single working value. Whether the analyst chooses $\rho = 0.6$, $0.8$, or estimates $\rho$ from the data, the assumed correlation structure is, at best, an approximation. The posterior variance inherits this approximation; the sandwich variance does not.</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Small $J$ amplifies the discrepancy.** With many studies ($J &gt; 50$), the Bayesian and frequentist estimators tend to agree, because the posterior concentrates around the true parameter and its variance converges to the sandwich variance under regularity conditions. With $J \leq 20$---a common regime in education, psychology, and clinical research---the posterior can be substantially miscalibrated relative to the sandwich variance.</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Unbalanced study sizes create heterogeneous leverage.** When some studies contribute 2 effect sizes and others contribute 30, the studies with large $n_j$ exert disproportionate influence on the posterior. The sandwich estimator accounts for this through the leverage structure of the design matrix; the posterior variance does not.</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>The mismatch is not a deficiency of Bayesian inference per se. It is a structural consequence of the fact that the posterior variance measures uncertainty *conditional on the model being correct*, while the sandwich variance measures uncertainty *regardless of whether the model is correct*. When the model is correctly specified, the two should agree---and CCC reduces to the identity (Theorem 3, @sec-ccc). When it is not, the posterior can be arbitrarily miscalibrated, and the analyst who reports posterior credible intervals without calibration is implicitly asserting a level of model confidence that the data do not support.</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>To make this concrete, define the per-coefficient mismatch ratio</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>M_k = \frac{\text{SD}_{\text{post},k}}{\text{SE}_{\text{CR2},k}},</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>$$ {#eq-mk-mismatch}</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>where $\text{SD}_{\text{post},k}$ is the posterior standard deviation and $\text{SE}_{\text{CR2},k}$ is the CR2 sandwich standard error for coefficient $\beta_k$. When $M_k &lt; 1$, the posterior is too narrow and credible interval undercoverage is expected. When $M_k &gt; 1$, the posterior is too wide. When $M_k = 1$, the model is well-calibrated for that coefficient and no correction is needed. In the example above, $M_1 = 0.062 / 0.091 = 0.68$, indicating substantial under-dispersion: the posterior width is only 68% of the sandwich-based width. Without calibration, the 95% credible interval would undercover by a wide margin.</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>After CCC calibration, the software reports a related but distinct quantity: the calibration ratio $R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)$, which measures the factor by which CCC adjusted each parameter's posterior spread. When $M_k &lt; 1$ (posterior too narrow), CCC widens the draws and $R_k &gt; 1$; the two ratios are approximately reciprocals.</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>The magnitude of $M_k$ depends on the interaction of three factors: the degree of within-study correlation misspecification, the number of studies $J$, and the distribution of study sizes $n_j$. The simulation study in @sec-verification explores these interactions systematically.</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why Dependent-Effect Meta-Analysis Needs Calibration {#sec-calibration-need}</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>The statistical challenge of dependent effect sizes arises because a single study often contributes more than one effect size estimate. A randomized trial of a brief alcohol intervention might report outcomes on alcohol consumption, alcohol-related problems, and peak blood alcohol concentration, each measured at 3-month and 6-month follow-up, producing six effect sizes from a single study. These estimates share the same participants, the same intervention, and the same study-level characteristics; they are correlated. The within-study correlation matrix is almost never reported, and even when it can be estimated, it is subject to substantial uncertainty.</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>The frequentist response to this challenge, developed by @hedges2010, is RVE: specify a working model for the marginal mean of the effect sizes, compute point estimates via weighted least squares, and then correct the standard errors using a sandwich (Huber-White) variance estimator that is consistent under arbitrary within-study dependence. The key insight is that one need not know the within-study correlations to obtain valid inference about the regression coefficients---the sandwich estimator absorbs the unknown dependence into the cross-study variation of the score contributions. With the CR2 small-sample correction <span class="co">[</span><span class="ot">@tipton2015; @bell2002</span><span class="co">]</span> and Satterthwaite degrees of freedom, this approach provides confidence intervals with accurate coverage even when $J$ is modest.</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>Bayesian meta-analysts have no analogous robustification. The standard approach is to specify a hierarchical model---either a CE model with a single $\tau^2$ and a working correlation, or a correlated-hierarchical-effects (CHE) model with both between-study heterogeneity $\tau^2$ and within-study heterogeneity $\omega^2$---fit the model via MCMC, and report posterior summaries. The posterior variance of the regression coefficients depends on the assumed model, including the parameterization of the within-study dependence. When this parameterization is wrong, the credible intervals may have coverage far from nominal.</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>This gap is not merely academic. The increasing popularity of Bayesian meta-analytic software means that applied researchers are routinely reporting posterior credible intervals for regression coefficients in dependent-effect meta-analyses without any check on whether those intervals have adequate frequentist coverage. The methodological literature has, to date, offered no general-purpose correction.</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>The need for calibration connects to a broader intellectual tradition. @little2006 <span class="co">[</span><span class="ot">-@little2012</span><span class="co">]</span> articulated the philosophy of *Calibrated Bayes*: Bayesian models should be evaluated and, where necessary, adjusted to ensure that their posterior inferences have acceptable frequentist repeated-sampling properties. This is not a rejection of Bayesian inference but an extension of it. A Bayesian analyst who values coherent probability statements should also value calibration---the property that a 95% credible interval, averaged over the data-generating process, contains the true parameter approximately 95% of the time.</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>@rubin1984 anticipated a similar idea in arguing that Bayesian inference should be assessed by its frequentist operating characteristics. The two traditions---Bayesian posterior inference and frequentist robust variance estimation---have developed largely in parallel, each with genuine strengths that the other lacks. Bayesian methods give a full posterior distribution with shrinkage and probabilistic interpretation; RVE gives coverage guarantees under misspecification.</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>The Three-Layer Calibration framework developed in this report operationalizes the Calibrated Bayes vision for dependent-effect meta-analysis: retain the Bayesian point estimate (Layer 1), replace the model-dependent spread with a sandwich-robust alternative (Layer 2), and correct the tail behavior for small samples (Layer 3). CCC is the mechanism that makes Layer 2 concrete.</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="fu">## Three-Layer Architecture {#sec-three-layer-arch}</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>The bayesRVE inference pipeline consists of three calibration layers, applied sequentially. Each layer addresses a distinct aspect of the inferential mismatch described in @sec-mismatch.</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="fu">### Layer 1: Location via Posterior Mean</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>The posterior mean $\hat{\boldsymbol{\beta}} = \mathbb{E}<span class="co">[</span><span class="ot">\boldsymbol{\beta} \mid \mathbf{y}</span><span class="co">]</span>$ serves as the point estimate. This estimate incorporates *partial pooling* across studies: extreme study-level estimates are shrunk toward the grand mean, with the degree of shrinkage determined by the ratio of within-study to between-study variance. Partial pooling is a well-established advantage of hierarchical models, and there is no reason to abandon it when calibrating the uncertainty.</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>Importantly, CCC preserves the posterior mean exactly (Theorem 1, @sec-ccc). The point estimate after calibration is identical to the point estimate before calibration. Layer 1 is therefore costless within the calibration framework---the analyst obtains the benefits of Bayesian shrinkage without any sacrifice in terms of the subsequent calibration.</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a><span class="fu">### Layer 2: Spread via CCC</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>The Cholesky Calibration Correction is an affine transformation applied to the MCMC posterior draws:</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}\bigl(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}\bigr), \quad s = 1, \ldots, S,</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>$$ {#eq-ccc-intro}</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>where $\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})$ and $\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})$ are the lower-triangular Cholesky factors of the posterior covariance and the CR2 sandwich variance, respectively.</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>CCC replaces the model-dependent posterior dispersion with the sandwich-robust alternative. Within the beta-block, the covariance of the calibrated draws equals the CR2 sandwich variance *exactly*: $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$. This is a finite-sample algebraic identity, not an asymptotic approximation (Theorem 2, applied to the beta-block; see @sec-ccc-blockwise for the full blockwise structure). When the model is correctly specified so that $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}^{(\beta)} = \mathbf{V}_{\text{CR2}}^{(\beta)}$, CCC reduces to the identity transformation and changes nothing (Theorem 3, @sec-ccc). There is no penalty for applying CCC when it is not needed.</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>In the scalar case ($K = 1$), CCC reduces to a simple rescaling of the centered draws by the factor $1/M_k$ from @eq-mk-mismatch. When $M_k &lt; 1$ (posterior too narrow), the factor is greater than 1 and CCC widens the interval. When $M_k &gt; 1$ (posterior too wide), CCC narrows it. The multivariate case requires the full Cholesky machinery to handle correlations between coefficients, but the intuition is the same: CCC rescales and rotates the posterior draws to match the sandwich covariance structure.</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a><span class="fu">### Layer 3: Tail Correction via Satterthwaite Degrees of Freedom</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>Even with the correct standard error, the reference distribution matters. With $J = 15$ studies and $K = 3$ predictors, using a normal reference distribution ($z$-critical values) for the confidence interval can lead to undercoverage, because the sandwich variance estimator has substantial sampling variability. Satterthwaite degrees of freedom approximate the effective sample size for each coefficient, yielding a $t$-distribution reference:</span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>\hat{\beta}_k \pm t_{\alpha/2,\,\text{df}_k} \cdot \text{SD}(\beta_k^*).</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>$$ {#eq-ccc-t-intro}</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>The degrees of freedom are computed from the CR2 adjustment matrices (see @sec-sandwich for details) and can differ across coefficients. In the CE model, the intercept may have $\text{df} = 18$ while a moderator with missing values in some studies might have $\text{df} = 7$. Layer 3 ensures that the confidence interval accounts for this heterogeneity in information content.</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>We refer to the resulting intervals as **CCC-$t$ intervals**. The simulation evidence in @sec-verification demonstrates that CCC-$t$ intervals achieve coverage within one percentage point of nominal (e.g., 94.5--95.3% at the 95% level), matching the coverage of frequentist CR2 confidence intervals based on REML estimation. By contrast, CCC-$z$ intervals (which use normal quantiles instead of $t$-quantiles) undercover at 91--94% in the same conditions, confirming that Layer 3 is essential, not merely a theoretical refinement.</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architecture Diagram: Three-Layer Calibration Pipeline</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>The complete pipeline proceeds in four function calls, with each layer contributing a distinct ingredient to the final inference:</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a><span class="in">                         bayesRVE Pipeline</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a><span class="in"> ──────────────────────────────────────────────────────────</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a><span class="in"> bm_fit()    →   MCMC posterior draws {ψ^(s)}, s = 1,...,S</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a><span class="in">                    │</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="in">                  Layer 1: Posterior mean ψ̂           [LOCATION]</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a><span class="in">                    │            (shrinkage, partial pooling)</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a><span class="in">                    │</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a><span class="in"> sandwich()  →   V_CR2, df_k  (from clustered score contributions)</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a><span class="in">                    │</span></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a><span class="in"> ccc()       →   Layer 2: Affine transform            [SPREAD]</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a><span class="in">                    │        ψ*(s) = ψ̂ + L₂ L₁⁻¹(ψ(s) − ψ̂)</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a><span class="in">                    │            (Cov_S(β*) = V_CR2^(β) exactly)</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a><span class="in">                    │</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a><span class="in"> summary()   →   Layer 3: t(df_k) reference           [TAILS]</span></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a><span class="in">                             β̂_k ± t_{α/2, df_k} · SD(β*_k)</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a><span class="in">                                 (small-sample correction)</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a><span class="in"> ──────────────────────────────────────────────────────────</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a><span class="in"> Input:  y_i, v_i, X_i, study labels, working ρ</span></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a><span class="in"> Output: CCC-t intervals</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="in">         (Bayesian location, sandwich width, Satterthwaite tails)</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>**Why the order matters.** Layer 1 must precede Layer 2 because CCC is centered at the posterior mean; changing the point estimate after CCC would violate the center-preservation property (Theorem 1). Layer 2 must precede Layer 3 because the Satterthwaite degrees of freedom are properties of the sandwich variance estimator, not of the posterior; they are meaningful only after the spread has been calibrated to the sandwich target. Reversing any pair of layers produces either mathematically incoherent or operationally suboptimal inference.</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Sequential Logic</span></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>The three layers address three distinct sources of the inferential mismatch:</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Layer <span class="pp">|</span> Addresses <span class="pp">|</span> Mechanism <span class="pp">|</span> Guarantee <span class="pp">|</span></span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="pp">|:------|:----------|:----------|:----------|</span></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1 (Location) <span class="pp">|</span> Estimation efficiency <span class="pp">|</span> Bayesian shrinkage / partial pooling <span class="pp">|</span> $\hat{\boldsymbol{\beta}}$ preserved exactly (Thm 1) <span class="pp">|</span></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 2 (Spread) <span class="pp">|</span> Variance miscalibration <span class="pp">|</span> CCC affine transformation <span class="pp">|</span> $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$ exactly (Thm 2, beta-block) <span class="pp">|</span></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 3 (Tails) <span class="pp">|</span> Small-sample reference distribution <span class="pp">|</span> Satterthwaite $\text{df}_k$ <span class="pp">|</span> Coverage correction for finite $J$ <span class="pp">|</span></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>: Three-Layer Calibration: what each layer contributes. {#tbl-three-layers}</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>No single layer suffices. Without Layer 2, the posterior spread is model-dependent and potentially miscalibrated. Without Layer 3, the intervals undercover when $J$ is small. Without Layer 1, one loses the shrinkage benefits of Bayesian estimation entirely. The three layers are not merely conceptual divisions; they correspond to separable computations with independent failure modes and independent test suites. A failure in one layer---say, a misspecified Satterthwaite approximation at very small $J$---does not compromise the other layers. Improvements to any single layer (e.g., replacing Satterthwaite with a bootstrap-based degrees of freedom) can be incorporated without modifying the remaining layers.</span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a><span class="fu">## Claims, Guarantees, and Exclusions {#sec-claims}</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>Scientific software should be explicit about what it guarantees, what it provides as a diagnostic, and what remains the subject of ongoing empirical investigation. @tbl-guarantees organizes the claims made by bayesRVE into three categories.</span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Claim <span class="pp">|</span> Category <span class="pp">|</span> Evidence <span class="pp">|</span> Reference <span class="pp">|</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a><span class="pp">|:------|:---------|:---------|:----------|</span></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC preserves posterior mean <span class="pp">|</span> Exact theorem <span class="pp">|</span> Machine-precision verification <span class="pp">|</span> @sec-ccc, Thm 1 <span class="pp">|</span></span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$ (beta-block) <span class="pp">|</span> Exact theorem <span class="pp">|</span> Machine-precision verification <span class="pp">|</span> @sec-ccc, Thm 2 <span class="pp">|</span></span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC $= \mathbf{I}$ under correct specification <span class="pp">|</span> Exact theorem <span class="pp">|</span> Machine-precision verification <span class="pp">|</span> @sec-ccc, Thm 3 <span class="pp">|</span></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CR2 variance matches clubSandwich (plug-in) <span class="pp">|</span> Numerical parity <span class="pp">|</span> $&lt; 10^{-6}$ tolerance <span class="pp">|</span> @sec-verification <span class="pp">|</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Satterthwaite df matches clubSandwich (plug-in) <span class="pp">|</span> Numerical parity <span class="pp">|</span> $&lt; 10^{-6}$ tolerance <span class="pp">|</span> @sec-verification <span class="pp">|</span></span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $R_k$ quantifies per-coefficient miscalibration <span class="pp">|</span> Diagnostic <span class="pp">|</span> Always available <span class="pp">|</span> @sec-ccc <span class="pp">|</span></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\lVert\mathbf{A} - \mathbf{I}\rVert_F$ measures CCC magnitude <span class="pp">|</span> Diagnostic <span class="pp">|</span> Always available; no universal threshold <span class="pp">|</span> @sec-ccc <span class="pp">|</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC-$t$ coverage $\approx$ 95% <span class="pp">|</span> Simulation evidence <span class="pp">|</span> 94.5--95.3% across 24 conditions <span class="pp">|</span> @sec-verification <span class="pp">|</span></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC SD / CR2 SE $\approx 1.0$ on TSL15 data <span class="pp">|</span> Empirical <span class="pp">|</span> Confirmed ($J = 107$, $N = 1{,}198$) <span class="pp">|</span> @sec-results <span class="pp">|</span></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>: What bayesRVE guarantees (exact theorems), provides diagnostically (ratios), and supports with simulation evidence (coverage). {#tbl-guarantees}</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="Exact vs. Approximate Guarantees"}</span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>Theorems 1--3 are stated generically in @sec-ccc. In the bayesRVE pipeline, CCC is applied blockwise (@sec-ccc-blockwise), so the operational guarantees are:</span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Exact: posterior-mean preservation (Thm 1).** $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ to machine precision. Holds independently per block.</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Exact: beta-block sample covariance matching (Thm 2).** $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$, including all off-diagonal elements. Finite-sample algebraic identity.</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Exact: scalar theta variance matching (CE only).** Each $\operatorname{Var}_S(\theta_j^*) = V_{\text{sand,cond}}^{(\theta_j)}$ via diagonal rescaling. Cross-covariances among $\theta_j$ and the $\boldsymbol{\beta}$--$\boldsymbol{\theta}$ cross-block are not targeted.</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Approximate: frequentist coverage.** CCC-$t$ intervals achieve nominal coverage only asymptotically. For finite $J$, Satterthwaite df and the normal posterior approximation introduce error. Simulation evidence: 94.5--95.3% at the 95% level across 24 conditions.</span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>For the CHE model, $\boldsymbol{\theta}$ is analytically marginalized; CCC operates on the beta-block only. See @sec-env-exact for the full exact-versus-asymptotic analysis.</span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>The distinction between these categories matters for interpretation. The theorems hold as finite-sample algebraic identities and are verified at machine precision on synthetic data; they carry no distributional assumptions and require only positive definiteness of the input matrices. The plug-in parity results isolate the bayesRVE linear algebra from MCMC sampling noise by injecting known (REML) variance components; they verify that the code implements the intended formulas. The simulation-based coverage results are subject to Monte Carlo error and to the specific conditions studied (24 scenarios varying $J$, $\rho_{\text{true}}$, model specification); they provide evidence of adequate performance across a range of realistic settings but do not constitute a universal guarantee.</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a><span class="fu">### Operating Envelope {#sec-envelope-intro}</span></span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a>The theoretical properties of CCC (Theorems 1--3) hold for any positive-definite inputs, but the practical reliability of the sandwich variance estimator---and hence of the calibrated intervals---depends on having enough independent clusters (studies). bayesRVE enforces the constraint</span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>J_{\min} = \max(8,\; 2K + 2),</span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>$$ {#eq-envelope}</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>where $J$ is the number of studies and $K$ is the number of regression coefficients. Below this threshold, the CR2 sandwich variance may not be positive definite, the Satterthwaite degrees of freedom may be excessively small or negative, and the resulting intervals are unreliable. The package emits a warning when $J$ is within 20% of the boundary and an error when $J &lt; J_{\min}$. The rationale and justification of this envelope are given in @sec-envelope.</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>The lower bound of 8 studies is a practical floor: with fewer than 8 clusters, the sandwich estimator's finite-sample bias is too large for the CR2 correction to overcome reliably. The $2K + 2$ term ensures that the degrees-of-freedom numerator remains positive for all $K$ coefficients. Together, these constraints define the regime in which Three-Layer Calibration can be expected to perform well.</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a><span class="fu">### Explicit Exclusions</span></span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>The following capabilities are outside the scope of bayesRVE version 0.6.0:</span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Multi-parameter hypothesis tests.** Wald and $F$-tests for joint hypotheses (e.g., testing that a set of moderator coefficients are jointly zero) require the full sandwich covariance matrix and an appropriate $F$-distribution approximation. This is the primary target for version 0.7.0.</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Prior sensitivity analysis.** The current implementation uses default weakly informative priors for $\tau^2$ (and $\omega^2$ in the CHE model). Systematic investigation of how the prior on variance components affects the CCC-calibrated intervals is deferred to future work.</span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Multivariate meta-analysis.** bayesRVE handles dependent effect sizes through the sandwich variance approach, which treats the within-study dependence as a nuisance. True multivariate meta-analysis, in which the correlation structure is itself a quantity of interest, requires a different modeling framework.</span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Network meta-analysis.** Extensions to indirect comparisons and network structures are not currently supported.</span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Nonlinear meta-regression.** The CCC transformation is defined for the coefficient vector $\boldsymbol{\beta}$ of a linear meta-regression. Extensions to nonlinear link functions would require additional development of both the sandwich estimator and its small-sample corrections.</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Non-exchangeable within-study structures.** The current implementation assumes exchangeable working correlation within studies; autoregressive or unstructured working correlations are not supported.</span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a><span class="fu">## Connections to the Literature {#sec-literature}</span></span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>The Three-Layer Calibration framework draws on, and contributes to, several distinct research traditions. This section situates bayesRVE within its intellectual context and clarifies how it relates to existing work.</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a><span class="fu">### Calibrated Bayes</span></span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>@little2006 <span class="co">[</span><span class="ot">-@little2012</span><span class="co">]</span> proposed Calibrated Bayes as a philosophy of inference in which Bayesian models are evaluated by their frequentist operating characteristics and adjusted when calibration fails. The motivating context was survey sampling, where complex designs induce dependencies that are difficult to model correctly. Little argued that a good Bayesian model should produce posterior intervals with approximately nominal frequentist coverage, and that failure to achieve this constitutes evidence of model misspecification requiring correction.</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>bayesRVE is, to our knowledge, the first concrete implementation of Calibrated Bayes for meta-analysis with dependent effect sizes. The CCC transformation mechanizes Little's prescription: the posterior is evaluated against a frequentist target (the CR2 sandwich variance), and when the two disagree, the posterior spread is adjusted to match. The posterior mean is retained because Bayesian point estimates are generally well-calibrated even under mild misspecification; it is the variance---and hence the interval width---that requires correction.</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bayesian Sandwich-Adjusted Inference</span></span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>@williams2020 and @leonnovelo2019 developed methods for adjusting Bayesian posterior inference using sandwich variance estimators in the context of survey data. Their approach shares the fundamental insight that model-based posterior variances can be replaced with design-consistent (sandwich) alternatives without abandoning Bayesian point estimates.</span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>The technical implementation differs in two important respects. First, the survey-sampling methods operate on the asymptotic posterior distribution by replacing the Fisher information matrix with the sandwich matrix, while CCC operates directly on the MCMC draws via an affine transformation. This direct-draw approach allows CCC to handle finite-sample effects through the CR2 correction without additional asymptotic arguments. Second, the survey methods do not incorporate a small-sample correction for the reference distribution; CCC's Layer 3 (Satterthwaite degrees of freedom) addresses this gap, which is particularly important when the number of clusters $J$ is small.</span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a><span class="fu">### Sensitivity to Model Assumptions: The Infinitesimal Jackknife</span></span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>@giordano2024 developed the infinitesimal jackknife (IJ) for Bayesian models, providing a fast approximation to the sensitivity of posterior expectations with respect to data perturbations. Like CCC, the IJ uses a sandwich-type covariance to assess the robustness of posterior inference. The key distinction is that the IJ is *diagnostic*---it measures how much posterior summaries change under infinitesimal reweighting of observations---while CCC is *corrective*---it modifies the posterior to achieve a specific frequentist target.</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>In principle, the IJ could be used to determine *whether* calibration is needed, while CCC would implement the correction. bayesRVE currently applies CCC in an always-on mode, which is justified by Theorem 3: when the model is correctly specified and correction is not needed, CCC reduces to the identity and changes nothing. The two approaches are complementary, and a formal integration of IJ diagnostics with CCC correction represents a productive direction for future work.</span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a><span class="fu">### CR2 and Satterthwaite Corrections</span></span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a>The CR2 bias correction for cluster-robust variance estimators was developed by @bell2002 and extended to the meta-analytic setting by @tipton2015 and @tipton2015b. The correction involves multiplying the residual for each study by an adjustment matrix that accounts for the leverage of that study's design rows, ensuring that the expected value of the sandwich estimator equals the true covariance under the working model. The Satterthwaite approximation then matches the first two moments of the resulting test statistic to a $t$-distribution, yielding degrees of freedom that reflect the effective number of independent pieces of information available for each coefficient.</span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>bayesRVE implements the CR2 correction and Satterthwaite approximation independently, without runtime dependence on the clubSandwich package. This design choice serves two purposes: first, the entire inference pipeline is self-contained and can be audited without external dependencies; second, plug-in parity tests---injecting REML variance components into bayesRVE and verifying agreement with clubSandwich at $10^{-6}$ tolerance---cleanly isolate the linear algebra from MCMC sampling noise, providing a definitive verification path (see @sec-verification).</span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a><span class="fu">### How CCC Differs</span></span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>CCC is distinguished from the approaches reviewed above in three respects. First, it operates on MCMC draws rather than on asymptotic distributions, making it compatible with complex hierarchical models that lack closed-form posteriors. Second, it combines the sandwich adjustment (Layer 2) with small-sample corrections (Layer 3) in a unified framework, rather than treating them as separate problems. Third, it is implemented as a general-purpose R package that handles both CE and CHE working models, with the CHE extension requiring only the substitution $\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2$ in the weight matrices (@sec-models)---no new mathematical machinery is needed. This algebraic simplicity is a consequence of the fact that $\omega^2$ enters the marginal variance of the CHE model additively, so the entire CR2 infrastructure can be reused with a single parameter substitution.</span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a><span class="fu">## Roadmap {#sec-roadmap}</span></span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>The remainder of this report is organized in three parts.</span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>**Part I: Foundations** (Chapters 2--5) develops the statistical theory. @sec-models defines the CE and CHE working models and their Stan implementations. @sec-sandwich derives the CR2 sandwich variance estimator and Satterthwaite degrees of freedom. @sec-ccc presents the CCC transformation, its algebraic properties (Theorems 1--3), and the blockwise structure required for the CHE model. @sec-envelope establishes the operating envelope, the $J_{\min}$ constraint, and the fallback logic for edge cases.</span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a>**Part II: Software** (Chapters 6--10) documents the bayesRVE package internals. Each chapter covers one major component: the package architecture and object contracts (@sec-architecture), the Stan model compilation and fitting interface (@sec-fitting), the sandwich variance computation pipeline (@sec-sandwich-impl), the CCC transformation engine and S3 methods (@sec-ccc-impl), and the multi-tier verification strategy (@sec-verification). Cross-references to specific source files and test cases are provided throughout.</span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a>**Part III: Validation** (Chapters 11--13) presents the empirical evidence. @sec-tsl15-design describes the @tannersmith2015 dataset ($J = 107$ studies, $N = 1{,}198$ effect sizes) and the five-estimator comparison design. @sec-results presents the main findings, including the CCC/CR2 SE ratio analysis across six categories of dependent variables for both CE and CHE models. @sec-mechanics examines the mechanics of CCC calibration---how the transformation matrix $\mathbf{A}$, the shrinkage ratio $R_k$, and the Satterthwaite degrees of freedom vary across conditions and what they reveal about the interplay between Bayesian and robust inference.</span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>The parts are designed to be largely self-contained. A reader interested only in the statistical theory can read Part I without reference to the software. A code reviewer can focus on Part II with occasional forward references to the verification strategy. An empirically oriented reader can proceed directly from this introduction to Part III.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

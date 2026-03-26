@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>12&nbsp; Verification – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./ch11-tsl15-design.html" rel="next">
+<link href="./ch09-ccc-impl.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-8b4baf804e461d9b72633f0de59a0cac.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-25a4e8620ae17d49cd0c3861fdf92567.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch06-architecture.html">Part II: Software Realization and Verification</a></li><li class="breadcrumb-item"><a href="./ch10-verification.html"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch00-notation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part I: Foundations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch01-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch02-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch03-sandwich.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Sandwich Variance Estimation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch04-ccc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch05-envelope.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part II: Software Realization and Verification</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch06-architecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch07-fitting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch08-sandwich-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch09-ccc-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch10-verification.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part III: Empirical Validation</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch11-tsl15-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch12-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch13-mechanics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">CCC Mechanics and Limitations</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-a-proofs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Extended Proofs and Derivations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-b-decisions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Inference-Relevant Design Decisions</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-c-api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">C</span>&nbsp; <span class="chapter-title">API Quick Reference</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-d-reproducibility.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-verification" id="toc-sec-verification" class="nav-link active" data-scroll-target="#sec-verification"><span class="header-section-number">12.1</span> Theorem-to-Code Verification Map</a></li>
+  <li><a href="#sec-verify-tier0" id="toc-sec-verify-tier0" class="nav-link" data-scroll-target="#sec-verify-tier0"><span class="header-section-number">12.2</span> Algebraic Verification (Tier 0)</a>
+  <ul>
+  <li><a href="#the-six-point-verification-suite" id="toc-the-six-point-verification-suite" class="nav-link" data-scroll-target="#the-six-point-verification-suite"><span class="header-section-number">12.2.1</span> The six-point verification suite</a></li>
+  <li><a href="#che-tier-0-invariants" id="toc-che-tier-0-invariants" class="nav-link" data-scroll-target="#che-tier-0-invariants"><span class="header-section-number">12.2.2</span> CHE Tier 0 invariants</a></li>
+  </ul></li>
+  <li><a href="#sec-verify-parity" id="toc-sec-verify-parity" class="nav-link" data-scroll-target="#sec-verify-parity"><span class="header-section-number">12.3</span> Known-Answer and Parity Benchmarks (Tier 1–2)</a>
+  <ul>
+  <li><a href="#tier-1-algebraic-known-answer-tests" id="toc-tier-1-algebraic-known-answer-tests" class="nav-link" data-scroll-target="#tier-1-algebraic-known-answer-tests"><span class="header-section-number">12.3.1</span> Tier 1: Algebraic known-answer tests</a></li>
+  <li><a href="#tier-1-d25-plug-in-parity" id="toc-tier-1-d25-plug-in-parity" class="nav-link" data-scroll-target="#tier-1-d25-plug-in-parity"><span class="header-section-number">12.3.2</span> Tier 1: D25 plug-in parity</a></li>
+  <li><a href="#tier-2-live-fit-comparison" id="toc-tier-2-live-fit-comparison" class="nav-link" data-scroll-target="#tier-2-live-fit-comparison"><span class="header-section-number">12.3.3</span> Tier 2: Live-fit comparison</a></li>
+  </ul></li>
+  <li><a href="#sec-verify-reduction" id="toc-sec-verify-reduction" class="nav-link" data-scroll-target="#sec-verify-reduction"><span class="header-section-number">12.4</span> Reduction Checks</a>
+  <ul>
+  <li><a href="#the-gate-1-protocol" id="toc-the-gate-1-protocol" class="nav-link" data-scroll-target="#the-gate-1-protocol"><span class="header-section-number">12.4.1</span> The Gate 1 protocol</a></li>
+  <li><a href="#gate-1-assertions" id="toc-gate-1-assertions" class="nav-link" data-scroll-target="#gate-1-assertions"><span class="header-section-number">12.4.2</span> Gate 1 assertions</a></li>
+  <li><a href="#why-gate-1-is-decisive" id="toc-why-gate-1-is-decisive" class="nav-link" data-scroll-target="#why-gate-1-is-decisive"><span class="header-section-number">12.4.3</span> Why Gate 1 is decisive</a></li>
+  </ul></li>
+  <li><a href="#sec-verify-interop" id="toc-sec-verify-interop" class="nav-link" data-scroll-target="#sec-verify-interop"><span class="header-section-number">12.5</span> Interoperability with metafor and clubSandwich</a>
+  <ul>
+  <li><a href="#compare_with_cr2" id="toc-compare_with_cr2" class="nav-link" data-scroll-target="#compare_with_cr2"><span class="header-section-number">12.5.1</span> <code>compare_with_cr2()</code></a></li>
+  <li><a href="#from_metafor" id="toc-from_metafor" class="nav-link" data-scroll-target="#from_metafor"><span class="header-section-number">12.5.2</span> <code>from_metafor()</code></a></li>
+  <li><a href="#expected-discrepancies" id="toc-expected-discrepancies" class="nav-link" data-scroll-target="#expected-discrepancies"><span class="header-section-number">12.5.3</span> Expected discrepancies</a></li>
+  </ul></li>
+  <li><a href="#sec-verify-acceptance" id="toc-sec-verify-acceptance" class="nav-link" data-scroll-target="#sec-verify-acceptance"><span class="header-section-number">12.6</span> Acceptance Criteria</a>
+  <ul>
+  <li><a href="#what-each-gate-proves" id="toc-what-each-gate-proves" class="nav-link" data-scroll-target="#what-each-gate-proves"><span class="header-section-number">12.6.1</span> What each gate proves</a></li>
+  <li><a href="#verification-is-not-validation" id="toc-verification-is-not-validation" class="nav-link" data-scroll-target="#verification-is-not-validation"><span class="header-section-number">12.6.2</span> Verification is not validation</a></li>
+  </ul></li>
+  <li><a href="#sec-verify-sim3" id="toc-sec-verify-sim3" class="nav-link" data-scroll-target="#sec-verify-sim3"><span class="header-section-number">12.7</span> Simulation Validation Bridge (sim3)</a>
+  <ul>
+  <li><a href="#design" id="toc-design" class="nav-link" data-scroll-target="#design"><span class="header-section-number">12.7.1</span> Design</a></li>
+  <li><a href="#coverage-results" id="toc-coverage-results" class="nav-link" data-scroll-target="#coverage-results"><span class="header-section-number">12.7.2</span> Coverage Results</a></li>
+  <li><a href="#score-parity-test-planned" id="toc-score-parity-test-planned" class="nav-link" data-scroll-target="#score-parity-test-planned"><span class="header-section-number">12.7.3</span> Score Parity Test (Planned)</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch06-architecture.html">Part II: Software Realization and Verification</a></li><li class="breadcrumb-item"><a href="./ch10-verification.html"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Software correctness in bayesRVE rests on a layered verification strategy that connects every mathematical claim to executable tests. This chapter presents the complete theorem-to-code verification map, describes each verification tier, and documents the acceptance criteria that gate every release.</p>
+<p>The test suite comprises 2,701 passing assertions organized into five tiers of increasing realism: algebraic invariants on synthetic data (Tier 0), known-answer benchmarks against closed-form solutions (Tier 1), parity benchmarks against external software (Tier 2), live-fit integration tests (Tier 3), and full-pipeline acceptance gates.</p>
+<section id="sec-verification" class="level2" data-number="12.1">
+<h2 data-number="12.1" class="anchored" data-anchor-id="sec-verification"><span class="header-section-number">12.1</span> Theorem-to-Code Verification Map</h2>
+<p><a href="#tbl-verify-map" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-verify-map</span></a> provides a comprehensive mapping from every verifiable mathematical property to its implementation site, the test that exercises it, and the evidence level achieved. Each row answers three questions: <em>where</em> is the property implemented, <em>how</em> is it tested, and <em>how tight</em> is the tolerance?</p>
+<div id="tbl-verify-map" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verify-map-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.1: Theorem-to-code verification map. Every verifiable property of bayesRVE is tested at the tightest feasible tolerance.
+</figcaption>
+<div aria-describedby="tbl-verify-map-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 33%">
+<col style="width: 23%">
+<col style="width: 13%">
+<col style="width: 15%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Property</th>
+<th style="text-align: left;">Mathematical Statement</th>
+<th style="text-align: left;">Implementation</th>
+<th style="text-align: left;">Test ID</th>
+<th style="text-align: left;">Tolerance</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Theorem 1 (Center Preservation)</td>
+<td style="text-align: left;"><span class="math inline">\(\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}\)</span></td>
+<td style="text-align: left;"><code>.ccc_beta_block()</code></td>
+<td style="text-align: left;">V1 in <code>.verify_ccc()</code></td>
+<td style="text-align: left;"><span class="math inline">\(&lt; 10^{-6}\)</span> (machine)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Theorem 2 (Diagonal Variance)</td>
+<td style="text-align: left;"><span class="math inline">\(\operatorname{Var}(\beta_k^*) = [V_{\mathrm{CR2}}]_{kk}\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(A_\beta = L_2 L_1^{-1}\)</span></td>
+<td style="text-align: left;">V2 in <code>.verify_ccc()</code></td>
+<td style="text-align: left;">5% (MCMC noise)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Theorem 2 (Off-Diagonal Covariance)</td>
+<td style="text-align: left;"><span class="math inline">\(\operatorname{Cov}(\boldsymbol{\beta}^*) = V_{\mathrm{CR2}}\)</span></td>
+<td style="text-align: left;"><code>.ccc_beta_block()</code></td>
+<td style="text-align: left;">V4 in <code>.verify_ccc()</code>, C4-01</td>
+<td style="text-align: left;">10–15% (MCMC)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Theorem 3 (Identity Limit)</td>
+<td style="text-align: left;"><span class="math inline">\(A_\beta = I_K\)</span> when <span class="math inline">\(\hat\Sigma = V_{\mathrm{CR2}}\)</span></td>
+<td style="text-align: left;"><code>.ccc_beta_block()</code></td>
+<td style="text-align: left;">V6 in <code>.verify_ccc()</code></td>
+<td style="text-align: left;">Frobenius <span class="math inline">\(\approx 0\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Theta Variance Recovery</td>
+<td style="text-align: left;"><span class="math inline">\(\operatorname{Var}(\theta_j^*) = V_{\mathrm{cond},j}\)</span></td>
+<td style="text-align: left;"><code>.ccc_theta_block()</code></td>
+<td style="text-align: left;">V3 in <code>.verify_ccc()</code></td>
+<td style="text-align: left;">5%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D24 (<span class="math inline">\(W^{1/2}\)</span> Squaring)</td>
+<td style="text-align: left;"><span class="math inline">\(W_j^{1/2} W_j^{1/2} = W_j\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j_sqrt()</code></td>
+<td style="text-align: left;">G1-08, G1-09</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 100\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D24 (<span class="math inline">\(W^{1/2}\)</span> Inverse)</td>
+<td style="text-align: left;"><span class="math inline">\(W_j^{1/2} W_j^{-1/2} = I\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j_sqrt()</code></td>
+<td style="text-align: left;">G1-08, G1-09</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 100\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D25 (Plug-in <span class="math inline">\(V_{\mathrm{CR2}}\)</span>)</td>
+<td style="text-align: left;">REML <span class="math inline">\(\to V_{\mathrm{CR2}}\)</span> = clubSandwich</td>
+<td style="text-align: left;"><code>.compute_vcr2()</code></td>
+<td style="text-align: left;">T1-04a, T1-04c</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D25 (Plug-in <span class="math inline">\(\mathrm{df}\)</span>)</td>
+<td style="text-align: left;">REML <span class="math inline">\(\to \mathrm{df}\)</span> = clubSandwich</td>
+<td style="text-align: left;"><code>.satterthwaite_df()</code></td>
+<td style="text-align: left;">T1-04b, T1-04c</td>
+<td style="text-align: left;">0.1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D25 (Bread <span class="math inline">\(Q\)</span>)</td>
+<td style="text-align: left;"><span class="math inline">\((X'WX)^{-1}\)</span> algebraic</td>
+<td style="text-align: left;"><code>.compute_wls_bread()</code></td>
+<td style="text-align: left;">T1-04d</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-10}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Gate 1 (<span class="math inline">\(W_j\)</span> Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(W_j(\omega^2\!=\!0) = W_j^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j()</code></td>
+<td style="text-align: left;">G1-01</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 10\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Gate 1 (Bread Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(Q(\omega^2\!=\!0) = Q^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_wls_bread()</code></td>
+<td style="text-align: left;">G1-02, G1-03</td>
+<td style="text-align: left;"><span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Gate 1 (Hat Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(H_j(\omega^2\!=\!0) = H_j^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_hat_blocks()</code></td>
+<td style="text-align: left;">G1-04</td>
+<td style="text-align: left;"><span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Gate 1 (<span class="math inline">\(A_j\)</span> Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(A_j(\omega^2\!=\!0) = A_j^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_cr2_adjustments()</code></td>
+<td style="text-align: left;">G1-05</td>
+<td style="text-align: left;"><span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Gate 1 (<span class="math inline">\(V_{\mathrm{CR2}}\)</span> Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}}(\omega^2\!=\!0) = V_{\mathrm{CR2}}^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_vcr2()</code></td>
+<td style="text-align: left;">G1-06</td>
+<td style="text-align: left;"><span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Gate 1 (<span class="math inline">\(\mathrm{df}\)</span> Reduction)</td>
+<td style="text-align: left;"><span class="math inline">\(\mathrm{df}(\omega^2\!=\!0) = \mathrm{df}^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.satterthwaite_df()</code></td>
+<td style="text-align: left;">G1-07</td>
+<td style="text-align: left;"><span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Gate 1 (Separation)</td>
+<td style="text-align: left;"><span class="math inline">\(W_j(\omega^2\!&gt;\!0) \neq W_j^{\mathrm{CE}}\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j()</code></td>
+<td style="text-align: left;">G1-01b</td>
+<td style="text-align: left;">strict inequality</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Singleton Formula</td>
+<td style="text-align: left;"><span class="math inline">\(W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)\)</span> for <span class="math inline">\(n_j = 1\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j()</code></td>
+<td style="text-align: left;">T1-01</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 10\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Study-Level Variance</td>
+<td style="text-align: left;"><span class="math inline">\(v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2\)</span></td>
+<td style="text-align: left;"><code>.compute_wls_bread()</code></td>
+<td style="text-align: left;">T1-02</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 10\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D24 Singleton <span class="math inline">\(W^{1/2}\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(W^{1/2}\)</span> correct at <span class="math inline">\(n_j = 1\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j_sqrt()</code></td>
+<td style="text-align: left;">T1-03</td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 10\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CR2 <span class="math inline">\(\neq\)</span> HC0</td>
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}} \neq V_{\mathrm{HC0}}\)</span></td>
+<td style="text-align: left;">sandwich pipeline</td>
+<td style="text-align: left;">T0-2a/b/c, REGRESSION tests</td>
+<td style="text-align: left;">strict inequality</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CR2 Inflation</td>
+<td style="text-align: left;"><span class="math inline">\(\operatorname{tr}(V_{\mathrm{CR2}}) \geq 0.99 \cdot \operatorname{tr}(V_{\mathrm{HC0}})\)</span></td>
+<td style="text-align: left;">sandwich pipeline</td>
+<td style="text-align: left;">T0-2e</td>
+<td style="text-align: left;">1% tolerance</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}}\)</span> Symmetry + PD</td>
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}} = V_{\mathrm{CR2}}^T\)</span>, all eigenvalues <span class="math inline">\(&gt; 0\)</span></td>
+<td style="text-align: left;"><code>.compute_vcr2()</code></td>
+<td style="text-align: left;">T0-2d, C3-01</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-12}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">df Populated</td>
+<td style="text-align: left;"><span class="math inline">\(\mathrm{df}_k &gt; 0\)</span> for all <span class="math inline">\(k\)</span></td>
+<td style="text-align: left;"><code>.satterthwaite_df()</code></td>
+<td style="text-align: left;">T0-3a/b/c</td>
+<td style="text-align: left;">strict positivity</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Theta Suppression (CHE)</td>
+<td style="text-align: left;"><code>summary$theta = NULL</code> for CHE</td>
+<td style="text-align: left;"><code>summary.bm_ccc()</code></td>
+<td style="text-align: left;">T0-4a/b/c/d/e</td>
+<td style="text-align: left;">structural</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCC-t <span class="math inline">\(\geq\)</span> CCC-q</td>
+<td style="text-align: left;"><span class="math inline">\(t\)</span>-interval <span class="math inline">\(\geq\)</span> normal interval at small <span class="math inline">\(J\)</span></td>
+<td style="text-align: left;"><code>confint.bm_ccc()</code></td>
+<td style="text-align: left;">C7-01</td>
+<td style="text-align: left;">1% tolerance</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Object Contract</td>
+<td style="text-align: left;">All required fields present and typed</td>
+<td style="text-align: left;">Full pipeline</td>
+<td style="text-align: left;">C0-01, C0-02</td>
+<td style="text-align: left;">structural</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The map reveals a deliberate design: algebraic properties that hold exactly in infinite precision are tested at machine precision (<span class="math inline">\(\sim 2.2 \times 10^{-16}\)</span>, with a practical tolerance of <span class="math inline">\(\sim 2.2 \times 10^{-13}\)</span>), while properties that involve MCMC sampling noise are tested at 5–15% tolerance. No property falls through without a test.</p>
+</section>
+<section id="sec-verify-tier0" class="level2" data-number="12.2">
+<h2 data-number="12.2" class="anchored" data-anchor-id="sec-verify-tier0"><span class="header-section-number">12.2</span> Algebraic Verification (Tier 0)</h2>
+<p>Tier 0 tests verify CCC invariants on <em>fixed, deterministic</em> inputs with no MCMC stochasticity. Because there is no sampling noise, deviations from the theoretical values expose implementation bugs rather than statistical variability. A Tier 0 failure is a release blocker.</p>
+<section id="the-six-point-verification-suite" class="level3" data-number="12.2.1">
+<h3 data-number="12.2.1" class="anchored" data-anchor-id="the-six-point-verification-suite"><span class="header-section-number">12.2.1</span> The six-point verification suite</h3>
+<p>Every call to <code>ccc()</code> internally invokes <code>.verify_ccc()</code>, which checks six properties:</p>
+<div id="tbl-verify-suite" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-verify-suite-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.2: The <code>.verify_ccc()</code> six-point verification suite.
+</figcaption>
+<div aria-describedby="tbl-verify-suite-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 26%">
+<col style="width: 26%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Check</th>
+<th style="text-align: left;">Property</th>
+<th style="text-align: left;">Severity</th>
+<th style="text-align: left;">Tolerance</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">V1</td>
+<td style="text-align: left;">Center preservation: <span class="math inline">\(\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}\)</span></td>
+<td style="text-align: left;">Error on fail</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">V2</td>
+<td style="text-align: left;">Beta diagonal variance: <span class="math inline">\(\operatorname{Var}(\beta_k^*)/[V_{\mathrm{CR2}}]_{kk} \in [0.95, 1.05]\)</span></td>
+<td style="text-align: left;">Warning on fail</td>
+<td style="text-align: left;">5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">V3</td>
+<td style="text-align: left;">Theta variance: <span class="math inline">\(\operatorname{Var}(\theta_j^*)/V_{\mathrm{cond},j} \in [0.95, 1.05]\)</span></td>
+<td style="text-align: left;">Warning on fail</td>
+<td style="text-align: left;">5%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">V4</td>
+<td style="text-align: left;">Beta covariance (full matrix): <span class="math inline">\(\|\operatorname{Cov}(\boldsymbol{\beta}^*) - V_{\mathrm{CR2}}\|_F / \|V_{\mathrm{CR2}}\|_F &lt; 0.05\)</span></td>
+<td style="text-align: left;">Warning on fail</td>
+<td style="text-align: left;">5% (relative Frobenius)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">V5</td>
+<td style="text-align: left;">Aggregate center (alias of V1)</td>
+<td style="text-align: left;">Error on fail</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">V6</td>
+<td style="text-align: left;">Diagnostic consistency: <span class="math inline">\(\|A_\beta - I_K\|_F\)</span> consistent with Frobenius norm</td>
+<td style="text-align: left;">Error on fail</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The distinction between error and warning severity reflects the distinction between algebraic identities (V1, V5, V6), which must hold at machine precision, and stochastic properties (V2, V3, V4), which depend on <span class="math inline">\(S\)</span> and may deviate at small sample sizes.</p>
+</section>
+<section id="che-tier-0-invariants" class="level3" data-number="12.2.2">
+<h3 data-number="12.2.2" class="anchored" data-anchor-id="che-tier-0-invariants"><span class="header-section-number">12.2.2</span> CHE Tier 0 invariants</h3>
+<p>The CHE-specific Tier 0 suite (<code>test-che-cr2-tier0.R</code>) tests four invariants across three scenarios (<span class="math inline">\(J = 10, K = 1\)</span>; <span class="math inline">\(J = 15, K = 2\)</span>; <span class="math inline">\(J = 20, K = 2\)</span>):</p>
+<p><strong>T0-1: No fallback to scalar.</strong> The CR2 pipeline must complete without falling back to the scalar correction. Each scenario verifies <code>sw$small_sample == "CR2"</code> and <code>sw$fallback == FALSE</code>.</p>
+<p><strong>T0-2: CR2 differs from HC0.</strong> The bias-corrected variance <span class="math inline">\(V_{\mathrm{CR2}}\)</span> must not be identical to the uncorrected <span class="math inline">\(V_{\mathrm{HC0}}\)</span>. Additional sub-checks confirm symmetry (<span class="math inline">\(\|V - V^T\| &lt; 10^{-12}\)</span>), positive definiteness (all eigenvalues <span class="math inline">\(&gt; 0\)</span>), and that CR2 inflates relative to HC0 (<span class="math inline">\([V_{\mathrm{CR2}}]_{kk} \geq 0.99 \cdot [V_{\mathrm{HC0}}]_{kk}\)</span>).</p>
+<p><strong>T0-3: Satterthwaite degrees of freedom are populated.</strong> Each coefficient must have a finite, positive df value, and the df source must report <code>"satterthwaite"</code>. An upper bound check ensures <span class="math inline">\(\mathrm{df}_k &lt; 10 \cdot J\)</span> as a sanity guard.</p>
+<p><strong>T0-4: No theta leakage in CHE output.</strong> The CHE model does not expose individual study random effects in its summary output. This is verified both structurally (<code>summary$theta == NULL</code>) and by scanning printed output for forbidden tokens (<code>"theta"</code>, <code>"Conditional"</code>, <code>"widened"</code>, <code>"narrowed"</code>).</p>
+<p>These invariants are enforced across all three scenarios, producing a total of 19 test assertions in the T0 suite alone.</p>
+</section>
+</section>
+<section id="sec-verify-parity" class="level2" data-number="12.3">
+<h2 data-number="12.3" class="anchored" data-anchor-id="sec-verify-parity"><span class="header-section-number">12.3</span> Known-Answer and Parity Benchmarks (Tier 1–2)</h2>
+<section id="tier-1-algebraic-known-answer-tests" class="level3" data-number="12.3.1">
+<h3 data-number="12.3.1" class="anchored" data-anchor-id="tier-1-algebraic-known-answer-tests"><span class="header-section-number">12.3.1</span> Tier 1: Algebraic known-answer tests</h3>
+<p>Tier 1 tests isolate individual computational components with fixed (non-MCMC) inputs and compare them against closed-form analytical solutions.</p>
+<p><strong>T1-01: Singleton formula.</strong> For a study with <span class="math inline">\(n_j = 1\)</span>, the weight matrix reduces to a scalar: <span class="math inline">\(W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)\)</span>. This is verified across a grid of 27 parameter combinations (<span class="math inline">\(\bar{s}_j^2 \in \{0.03, 0.07, 0.12\}\)</span>, <span class="math inline">\(\tau^2 \in \{0, 0.02, 0.10\}\)</span>, <span class="math inline">\(\omega^2 \in \{0, 0.01, 0.05\}\)</span>) at machine precision.</p>
+<p><strong>T1-02: Study-level variance formula.</strong> For the study-level (cluster-constant) path, the marginal variance <span class="math inline">\(v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2\)</span> is verified by constructing a minimal <code>bm_data</code> object and comparing <code>W_list[[j]]</code> against <span class="math inline">\(1/v_j\)</span>. The bread matrix <span class="math inline">\(Q = (X'WX)^{-1}\)</span> is independently recomputed and compared at <span class="math inline">\(10^{-10}\)</span> tolerance.</p>
+<p><strong>T1-03: Singleton <span class="math inline">\(W^{1/2}\)</span>.</strong> The analytical Woodbury formula for <span class="math inline">\(W_j^{1/2}\)</span> (Decision D24) is verified at <span class="math inline">\(n_j = 1\)</span> by checking <span class="math inline">\(W^{1/2} W^{1/2} = W_j\)</span> and <span class="math inline">\(W^{1/2} W^{-1/2} = I\)</span> at machine precision.</p>
+</section>
+<section id="tier-1-d25-plug-in-parity" class="level3" data-number="12.3.2">
+<h3 data-number="12.3.2" class="anchored" data-anchor-id="tier-1-d25-plug-in-parity"><span class="header-section-number">12.3.2</span> Tier 1: D25 plug-in parity</h3>
+<p>Decision D25 mandates that when REML point estimates of <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> are injected into bayesRVE’s CR2 helpers, the resulting <span class="math inline">\(V_{\mathrm{CR2}}\)</span> must match clubSandwich’s <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span> output at <span class="math inline">\(10^{-6}\)</span> tolerance. This isolates the linear algebra from MCMC noise and serves as the strongest available external cross-validation.</p>
+<p>The D25 test protocol:</p>
+<ol type="1">
+<li>Generate synthetic data with constant <span class="math inline">\(v_{ij}\)</span> within each study (ensuring <span class="math inline">\(\bar{s}_j^2 = v_{ij}\)</span> exactly, eliminating the averaging discrepancy).</li>
+<li>Fit a CHE model in metafor <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> (<code>rma.mv</code> with <code>~ 1 | studyid/obsid</code>, REML).</li>
+<li>Extract <span class="math inline">\(\hat\tau^2_{\mathrm{REML}}\)</span>, <span class="math inline">\(\hat\omega^2_{\mathrm{REML}}\)</span>, and <span class="math inline">\(\hat{\boldsymbol{\beta}}_{\mathrm{REML}}\)</span>.</li>
+<li>Compute clubSandwich’s <span class="math inline">\(V_{\mathrm{CR2}}\)</span> and Satterthwaite df as the reference.</li>
+<li>Inject the same REML estimates into bayesRVE’s internal helpers (<code>.compute_wls_bread()</code>, <code>.compute_cr2_adjustments()</code>, <code>.compute_vcr2()</code>, <code>.satterthwaite_df()</code>).</li>
+<li>Compare element-by-element.</li>
+</ol>
+<p>Four sub-tests cover this:</p>
+<div id="tbl-d25-parity" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-d25-parity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.3: D25 plug-in parity tests.
+</figcaption>
+<div aria-describedby="tbl-d25-parity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 17%">
+<col style="width: 28%">
+<col style="width: 22%">
+<col style="width: 31%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Test</th>
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Target</th>
+<th style="text-align: left;">Tolerance</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">T1-04a</td>
+<td style="text-align: left;"><span class="math inline">\(J = 15\)</span>, <span class="math inline">\(K = 2\)</span>, balanced</td>
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}}\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">T1-04b</td>
+<td style="text-align: left;"><span class="math inline">\(J = 15\)</span>, <span class="math inline">\(K = 2\)</span>, balanced</td>
+<td style="text-align: left;">Satterthwaite df</td>
+<td style="text-align: left;">0.1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">T1-04c</td>
+<td style="text-align: left;"><span class="math inline">\(J = 25\)</span>, <span class="math inline">\(K = 3\)</span>, unbalanced</td>
+<td style="text-align: left;"><span class="math inline">\(V_{\mathrm{CR2}}\)</span> and df</td>
+<td style="text-align: left;"><span class="math inline">\(10^{-6}\)</span> / 0.1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">T1-04d</td>
+<td style="text-align: left;"><span class="math inline">\(J = 15\)</span>, <span class="math inline">\(K = 2\)</span>, balanced</td>
+<td style="text-align: left;">Bread <span class="math inline">\(Q\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(10^{-10}\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The <span class="math inline">\(10^{-6}\)</span> tolerance on <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is six orders of magnitude tighter than the MCMC noise floor, confirming that the two implementations share the same linear algebra. The slightly looser tolerance on df (0.1) reflects minor numerical differences in the matrix derivative computations used by the Satterthwaite approximation.</p>
+</section>
+<section id="tier-2-live-fit-comparison" class="level3" data-number="12.3.3">
+<h3 data-number="12.3.3" class="anchored" data-anchor-id="tier-2-live-fit-comparison"><span class="header-section-number">12.3.3</span> Tier 2: Live-fit comparison</h3>
+<p>Tier 2 tests fit the same data with both bayesRVE (<code>bm_fit</code> + <code>sandwich</code>) and metafor + clubSandwich, then compare the sandwich standard errors and Satterthwaite degrees of freedom. Unlike D25, these comparisons do <em>not</em> inject REML point estimates—bayesRVE uses posterior means of <span class="math inline">\(\tau^2\)</span> (and <span class="math inline">\(\omega^2\)</span>), introducing a legitimate discrepancy.</p>
+<p>The Tier 2 tolerance is 15% for standard errors and 3 for degrees of freedom. These bounds reflect three sources of expected disagreement:</p>
+<ol type="1">
+<li><p><strong>Bread difference.</strong> bayesRVE centers at the posterior mean <span class="math inline">\(\hat{\boldsymbol{\beta}}_{\mathrm{Bayes}}\)</span>; metafor uses REML <span class="math inline">\(\hat{\boldsymbol{\beta}}_{\mathrm{REML}}\)</span>. The weights <span class="math inline">\(W_j\)</span> differ because <span class="math inline">\(\hat\tau^2_{\mathrm{Bayes}} \neq \hat\tau^2_{\mathrm{REML}}\)</span>.</p></li>
+<li><p><strong>Within-study variance averaging.</strong> bayesRVE’s CE model uses <span class="math inline">\(\bar{s}_j^2 = n_j^{-1} \sum_i v_{ij}\)</span>; metafor’s observation-level likelihood uses individual <span class="math inline">\(v_{ij}\)</span>. These are asymptotically equivalent but differ at finite sample sizes.</p></li>
+<li><p><strong>Residual centering.</strong> bayesRVE computes residuals from posterior mean estimates; clubSandwich from REML estimates.</p></li>
+</ol>
+<p>The Tier 2 tests (<code>test-cr2-satterthwaite.R</code>, Tests 1–2) confirm that bayesRVE’s sandwich SEs fall within 15% of clubSandwich on balanced data (<span class="math inline">\(J = 15\)</span>, <span class="math inline">\(n_j = 3\)</span>) and that Satterthwaite df agree within 3 on moderately larger data (<span class="math inline">\(J = 20\)</span>, <span class="math inline">\(n_j = 5\)</span>).</p>
+</section>
+</section>
+<section id="sec-verify-reduction" class="level2" data-number="12.4">
+<h2 data-number="12.4" class="anchored" data-anchor-id="sec-verify-reduction"><span class="header-section-number">12.4</span> Reduction Checks</h2>
+<p>Gate 1 verifies that CHE with <span class="math inline">\(\omega^2 = 0\)</span> reduces exactly to CE at machine precision. This is the strongest structural evidence that the CHE generalization is correct, because it confirms that every CHE-specific code path degenerates to the CE code path when the additional variance component vanishes.</p>
+<section id="the-gate-1-protocol" class="level3" data-number="12.4.1">
+<h3 data-number="12.4.1" class="anchored" data-anchor-id="the-gate-1-protocol"><span class="header-section-number">12.4.1</span> The Gate 1 protocol</h3>
+<p>The test file <code>test-gate1-omega0-equivalence.R</code> defines a synthetic dataset with <span class="math inline">\(J = 8\)</span> studies, <span class="math inline">\(K = 2\)</span> predictors, and known sampling variances. No MCMC is involved: the tests call internal helper functions directly with fixed parameter values (<span class="math inline">\(\tau^2 = 0.04\)</span>, <span class="math inline">\(\boldsymbol{\beta} = (0.3, -0.1)\)</span>).</p>
+<p>The machine precision tolerance is <span class="math inline">\(\epsilon_{\mathrm{mach}} \times 1000 \approx 2.2 \times 10^{-13}\)</span>, tight enough to detect any implementation error while accommodating floating-point rounding.</p>
+</section>
+<section id="gate-1-assertions" class="level3" data-number="12.4.2">
+<h3 data-number="12.4.2" class="anchored" data-anchor-id="gate-1-assertions"><span class="header-section-number">12.4.2</span> Gate 1 assertions</h3>
+<div id="tbl-gate1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gate1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.4: Gate 1 reduction assertions. G1-01 through G1-09 traverse the full CR2 pipeline from <span class="math inline">\(W_j\)</span> to df.
+</figcaption>
+<div aria-describedby="tbl-gate1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 17%">
+<col style="width: 14%">
+<col style="width: 41%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Test</th>
+<th style="text-align: left;">Component</th>
+<th style="text-align: left;">CE Call</th>
+<th style="text-align: left;">CHE Call (<span class="math inline">\(\omega^2 = 0\)</span>)</th>
+<th style="text-align: left;">Assertion</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">G1-01</td>
+<td style="text-align: left;"><span class="math inline">\(W_j\)</span></td>
+<td style="text-align: left;"><code>.compute_W_j(s, \tau^2, n)</code></td>
+<td style="text-align: left;"><code>.compute_W_j(s, \tau^2, n, \omega^2\!=\!0)$ | Element-wise $\approx$ at $\epsilon_{\mathrm{mach}} \times 10$ | | G1-01b | $W_j$ (separation) |</code>.compute_W_j(s, ^2, n)$</td>
+<td style="text-align: left;"><code>.compute_W_j(s, \tau^2, n, \omega^2\!=\!0.03)$ | Strict $\neq$ | | G1-02 | Bread $Q$ (obs-level) |</code>.compute_wls_bread(, ^2, K, J)$</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G1-03</td>
+<td style="text-align: left;">Bread <span class="math inline">\(Q\)</span> (study-level)</td>
+<td style="text-align: left;">Same, <code>cluster_constant = TRUE</code></td>
+<td style="text-align: left;">Same + <span class="math inline">\(\omega^2 = 0\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(Q\)</span>, <span class="math inline">\(W_{\mathrm{list}}\)</span> match</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G1-04</td>
+<td style="text-align: left;">Hat blocks <span class="math inline">\(H_j\)</span></td>
+<td style="text-align: left;"><code>.compute_hat_blocks()</code></td>
+<td style="text-align: left;">Same inputs from CHE bread</td>
+<td style="text-align: left;"><span class="math inline">\(H_j\)</span> match at <span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">G1-05</td>
+<td style="text-align: left;">CR2 adjustments <span class="math inline">\(A_j\)</span></td>
+<td style="text-align: left;"><code>.compute_cr2_adjustments()$ | Same inputs from CHE bread | $A_j$ match at $2.2 \times 10^{-13}$ | | G1-06 | $V_{\mathrm{CR2}}$ |</code>.compute_vcr2()$</td>
+<td style="text-align: left;">Same with CHE inputs</td>
+<td style="text-align: left;">Full matrix match at <span class="math inline">\(2.2 \times 10^{-13}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">G1-07</td>
+<td style="text-align: left;">Satterthwaite df</td>
+<td style="text-align: left;"><code>.satterthwaite_df()$ | Same with CHE inputs | Vector match at $2.2 \times 10^{-13}$ | | G1-08 | $W^{1/2}$ squaring (CE) |</code>.compute_W_j_sqrt()<code>| $W^{1/2} W^{1/2} = W_j$ | $\epsilon_{\mathrm{mach}} \times 100$ | | G1-09 | $W^{1/2}$ squaring (CHE) |</code>.compute_W_j_sqrt()` with <span class="math inline">\(\omega^2 &gt; 0\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(W^{1/2} W^{1/2} = W_j\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(\epsilon_{\mathrm{mach}} \times 100\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The Gate 1 tests exercise both the observation-level path (<code>cluster_constant = FALSE</code>) and the study-level path (<code>cluster_constant = TRUE</code>), and cover a grid of <span class="math inline">\(\bar{s}_j^2 \times n_j\)</span> combinations in G1-01. Including the G1-01b separation check, the suite contains over 75 individual assertions.</p>
+</section>
+<section id="why-gate-1-is-decisive" class="level3" data-number="12.4.3">
+<h3 data-number="12.4.3" class="anchored" data-anchor-id="why-gate-1-is-decisive"><span class="header-section-number">12.4.3</span> Why Gate 1 is decisive</h3>
+<p>The CHE CR2 implementation shares all code paths with CE CR2; the only difference is that CHE passes <code>omega2_hat</code> to <code>.compute_W_j()</code>, which absorbs it into the effective sampling variance <span class="math inline">\(a_j = \bar{s}_j^2 + \omega^2\)</span>. Gate 1 confirms that setting <span class="math inline">\(\omega^2 = 0\)</span> makes the CHE path algebraically identical to the CE path. If the CHE code introduced any extraneous computation, numerical drift, or incorrect branching, the machine-precision tolerance would immediately detect it.</p>
+</section>
+</section>
+<section id="sec-verify-interop" class="level2" data-number="12.5">
+<h2 data-number="12.5" class="anchored" data-anchor-id="sec-verify-interop"><span class="header-section-number">12.5</span> Interoperability with metafor and clubSandwich</h2>
+<p>bayesRVE provides two utilities for bridging with the frequentist meta-analysis ecosystem, specifically metafor <span class="citation" data-cites="viechtbauer2010">(<a href="#ref-viechtbauer2010" role="doc-biblioref">Viechtbauer, 2010</a>)</span> and clubSandwich <span class="citation" data-cites="pustejovsky2022">(<a href="#ref-pustejovsky2022" role="doc-biblioref">Pustejovsky &amp; Tipton, 2022</a>)</span>.</p>
+<section id="compare_with_cr2" class="level3" data-number="12.5.1">
+<h3 data-number="12.5.1" class="anchored" data-anchor-id="compare_with_cr2"><span class="header-section-number">12.5.1</span> <code>compare_with_cr2()</code></h3>
+<p>This diagnostic function fits the same data with <code>metafor::rma.mv()</code> (REML) and computes <code>clubSandwich::vcovCR()</code> (CR2), then produces a side-by-side comparison of standard errors. The output includes:</p>
+<ul>
+<li>Per-coefficient bayesRVE SE and clubSandwich SE</li>
+<li>Relative difference <span class="math inline">\((\mathrm{SE}_{\mathrm{bayes}} - \mathrm{SE}_{\mathrm{club}})/\mathrm{SE}_{\mathrm{club}}\)</span></li>
+<li>Variance component comparison (<span class="math inline">\(\hat\tau^2_{\mathrm{Bayes}}\)</span> vs <span class="math inline">\(\hat\tau^2_{\mathrm{REML}}\)</span>)</li>
+<li>The metafor fit object for user inspection</li>
+</ul>
+<p>The function handles both CE and CHE models and automatically constructs the appropriate metafor call.</p>
+</section>
+<section id="from_metafor" class="level3" data-number="12.5.2">
+<h3 data-number="12.5.2" class="anchored" data-anchor-id="from_metafor"><span class="header-section-number">12.5.2</span> <code>from_metafor()</code></h3>
+<p>This utility extracts data from an existing metafor fit into the format expected by <code>bm_fit()</code>, enabling users to transition from a frequentist to a Bayesian analysis without reformatting their data.</p>
+</section>
+<section id="expected-discrepancies" class="level3" data-number="12.5.3">
+<h3 data-number="12.5.3" class="anchored" data-anchor-id="expected-discrepancies"><span class="header-section-number">12.5.3</span> Expected discrepancies</h3>
+<p>As documented in the B2 benchmark (v0.3.0), bayesRVE’s CE model operates on study-level sufficient statistics while metafor uses the observation-level likelihood. These are asymptotically equivalent but differ at finite sample sizes. The canonical discrepancy is 10–15% in SE and up to 3 in Satterthwaite df.</p>
+<p>Three specific sources contribute:</p>
+<ol type="1">
+<li><p><strong>Point estimates.</strong> Posterior mean <span class="math inline">\(\hat{\boldsymbol{\beta}}\)</span> and <span class="math inline">\(\hat\tau^2\)</span> differ from REML estimates, especially at small <span class="math inline">\(J\)</span>.</p></li>
+<li><p><strong>Variance averaging.</strong> bayesRVE uses <span class="math inline">\(\bar{s}_j^2\)</span>; metafor uses individual <span class="math inline">\(v_{ij}\)</span>. This matters when <span class="math inline">\(v_{ij}\)</span> varies substantially within studies.</p></li>
+<li><p><strong>CR2 adjustment matrices.</strong> The <span class="math inline">\(A_j\)</span> matrices depend on the hat matrix, which in turn depends on the weights. Different <span class="math inline">\(\hat\tau^2\)</span> values produce different <span class="math inline">\(A_j\)</span>.</p></li>
+</ol>
+<p>The D25 plug-in parity test (<a href="#sec-verify-parity" class="quarto-xref"><span class="quarto-unresolved-ref">sec-verify-parity</span></a>) eliminates sources 1 and 3 by injecting REML values, confirming that the remaining discrepancy is zero to <span class="math inline">\(10^{-6}\)</span>. This isolates source 2 as the sole contributor to live-fit differences, and source 2 vanishes when <span class="math inline">\(v_{ij}\)</span> is constant within studies.</p>
+</section>
+</section>
+<section id="sec-verify-acceptance" class="level2" data-number="12.6">
+<h2 data-number="12.6" class="anchored" data-anchor-id="sec-verify-acceptance"><span class="header-section-number">12.6</span> Acceptance Criteria</h2>
+<p>Every bayesRVE release must satisfy the following gates before merging. <a href="#tbl-acceptance" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-acceptance</span></a> summarizes the status as of v0.6.0.</p>
+<div id="tbl-acceptance" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-acceptance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.5: Acceptance criteria for bayesRVE v0.6.0.
+</figcaption>
+<div aria-describedby="tbl-acceptance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 17%">
+<col style="width: 31%">
+<col style="width: 28%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Gate</th>
+<th style="text-align: left;">Criterion</th>
+<th style="text-align: left;">Evidence</th>
+<th style="text-align: left;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Gate 1</td>
+<td style="text-align: left;">CHE(<span class="math inline">\(\omega^2 = 0\)</span>) <span class="math inline">\(\equiv\)</span> CE at machine precision</td>
+<td style="text-align: left;">G1-01 through G1-09, <span class="math inline">\(&gt; 75\)</span> assertions</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tier 0</td>
+<td style="text-align: left;">All CCC invariants (V1–V6) at machine precision</td>
+<td style="text-align: left;"><code>.verify_ccc()</code> in every <code>ccc()</code> call</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tier 0</td>
+<td style="text-align: left;">CHE T0-1 through T0-4 across 3 scenarios</td>
+<td style="text-align: left;"><code>test-che-cr2-tier0.R</code>, 19 assertions</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tier 1</td>
+<td style="text-align: left;">D25 <span class="math inline">\(V_{\mathrm{CR2}}\)</span> parity at <span class="math inline">\(10^{-6}\)</span></td>
+<td style="text-align: left;">T1-04a, T1-04c (2 scenarios)</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tier 1</td>
+<td style="text-align: left;">D25 Satterthwaite df parity at 0.1</td>
+<td style="text-align: left;">T1-04b, T1-04c</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tier 1</td>
+<td style="text-align: left;">Known-answer formulas at machine precision</td>
+<td style="text-align: left;">T1-01, T1-02, T1-03</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tier 2</td>
+<td style="text-align: left;">Live-fit SE within 15% of clubSandwich</td>
+<td style="text-align: left;"><code>test-cr2-satterthwaite.R</code>, Tests 1–2</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tier 2</td>
+<td style="text-align: left;">Live-fit df within 3 of clubSandwich</td>
+<td style="text-align: left;"><code>test-cr2-satterthwaite.R</code>, Test 2</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Gate 3</td>
+<td style="text-align: left;">TSL15 CCC/CR2 SE ratio <span class="math inline">\(\in [0.9, 1.1]\)</span></td>
+<td style="text-align: left;">Real-data analysis, 6 DV categories</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Contract</td>
+<td style="text-align: left;">All S3 fields present and correctly typed</td>
+<td style="text-align: left;">C0-01, C0-02, C1–C14</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Regression</td>
+<td style="text-align: left;">CCC uses <span class="math inline">\(V_{\mathrm{CR2}}\)</span>, not <span class="math inline">\(V_{\mathrm{HC0}}\)</span></td>
+<td style="text-align: left;">REGRESSION tests (3 assertions)</td>
+<td style="text-align: left;">Pass</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Full suite</td>
+<td style="text-align: left;">2,701 tests pass, 0 failures</td>
+<td style="text-align: left;"><code>devtools::test()</code></td>
+<td style="text-align: left;">Pass</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="what-each-gate-proves" class="level3" data-number="12.6.1">
+<h3 data-number="12.6.1" class="anchored" data-anchor-id="what-each-gate-proves"><span class="header-section-number">12.6.1</span> What each gate proves</h3>
+<p><strong>Gate 1</strong> proves that CHE is a correct generalization of CE. It does <em>not</em> prove that CE itself is correct—that requires D25 and the Tier 2 comparison.</p>
+<p><strong>Tier 0</strong> proves that the CCC transformation has the claimed algebraic properties (center preservation, covariance matching, identity limit). It does <em>not</em> prove that the sandwich target <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is correctly computed—that is the role of D25.</p>
+<p><strong>D25 (Tier 1)</strong> proves that bayesRVE’s CR2 linear algebra is identical to clubSandwich’s when given the same inputs. It does <em>not</em> prove that posterior-mean centering yields valid frequentist inference—that is a statistical claim validated by the simulation study (sim3).</p>
+<p><strong>Tier 2</strong> proves that the full pipeline (MCMC + sandwich + CCC) produces results in the same ballpark as the frequentist standard. The 15% tolerance is a consequence of using posterior means rather than REML, not a sign of implementation error.</p>
+<p><strong>Gate 3</strong> proves that Three-Layer Calibration works on real data at the scale and complexity of a published meta-analysis. It does <em>not</em> prove coverage guarantees—those come from simulation.</p>
+</section>
+<section id="verification-is-not-validation" class="level3" data-number="12.6.2">
+<h3 data-number="12.6.2" class="anchored" data-anchor-id="verification-is-not-validation"><span class="header-section-number">12.6.2</span> Verification is not validation</h3>
+<p>The verification framework documented in this chapter establishes that the software correctly implements the mathematical specification. It does not establish that the mathematical specification is statistically appropriate for all meta-analytic settings. Validation—the question of whether CCC-t confidence intervals achieve nominal coverage across realistic data-generating processes—is addressed through the simulation study (sim3).</p>
+<p>The distinction matters: a perfectly verified implementation of a flawed method would pass all tests in this chapter but fail the simulation benchmarks. Conversely, a correct method with a buggy implementation would fail Tier 0 or D25 long before reaching the simulation stage. The layered strategy ensures that each tier catches a distinct class of problems, and that no single tier is asked to do more than it can.</p>
+</section>
+</section>
+<section id="sec-verify-sim3" class="level2" data-number="12.7">
+<h2 data-number="12.7" class="anchored" data-anchor-id="sec-verify-sim3"><span class="header-section-number">12.7</span> Simulation Validation Bridge (sim3)</h2>
+<p>The verification tiers above establish that bayesRVE correctly implements its mathematical specification. They cannot establish that the specification itself yields valid frequentist inference. That question—whether CCC-<span class="math inline">\(t\)</span> confidence intervals achieve nominal 95% coverage across realistic data-generating processes—is answered by the sim3 comprehensive simulation study.</p>
+<section id="design" class="level3" data-number="12.7.1">
+<h3 data-number="12.7.1" class="anchored" data-anchor-id="design"><span class="header-section-number">12.7.1</span> Design</h3>
+<p>sim3 comprises 24 conditions with 500 replications each (11,600 total fits), organized into four scenarios.</p>
+<div id="tbl-sim3-design" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sim3-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.6: sim3 design: 24 conditions across four scenarios testing correct specification (S1), misspecification (S2–S3), and outlier robustness (S4).
+</figcaption>
+<div aria-describedby="tbl-sim3-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">DGP</th>
+<th style="text-align: left;">Fitted Model</th>
+<th style="text-align: center;">Conditions</th>
+<th style="text-align: left;"><span class="math inline">\(J\)</span></th>
+<th style="text-align: left;"><span class="math inline">\(\tau\)</span></th>
+<th style="text-align: left;"><span class="math inline">\(\omega\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">S1</td>
+<td style="text-align: left;">CHE</td>
+<td style="text-align: left;">CHE</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;">10, 20, 40, 60</td>
+<td style="text-align: left;">0.1, 0.2</td>
+<td style="text-align: left;">0.1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">S2</td>
+<td style="text-align: left;">CHE</td>
+<td style="text-align: left;">CE (misspec)</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;">10, 20, 40, 60</td>
+<td style="text-align: left;">0.1, 0.2</td>
+<td style="text-align: left;">0.1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">S3</td>
+<td style="text-align: left;">Large <span class="math inline">\(\omega\)</span></td>
+<td style="text-align: left;">CE</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: left;">10, 20, 40</td>
+<td style="text-align: left;">0.1, 0.2</td>
+<td style="text-align: left;">0.3</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">S4</td>
+<td style="text-align: left;">Contaminated</td>
+<td style="text-align: left;">CE</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">20, 40</td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">—</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="coverage-results" class="level3" data-number="12.7.2">
+<h3 data-number="12.7.2" class="anchored" data-anchor-id="coverage-results"><span class="header-section-number">12.7.2</span> Coverage Results</h3>
+<div id="tbl-sim3-coverage" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sim3-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;12.7: sim3 coverage summary at the 95% nominal level.
+</figcaption>
+<div aria-describedby="tbl-sim3-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">CE (16 conditions)</th>
+<th style="text-align: left;">CHE (8 conditions)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CCC-<span class="math inline">\(t\)</span> (Three-Layer)</td>
+<td style="text-align: left;">93.4%–96.4%</td>
+<td style="text-align: left;">94.0%–96.2%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCC-<span class="math inline">\(q\)</span> (Normal quantile)</td>
+<td style="text-align: left;">91.8%–95.8%</td>
+<td style="text-align: left;">92.2%–95.8%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CR2 (frequentist reference)</td>
+<td style="text-align: left;">92.8%–96.4%</td>
+<td style="text-align: left;">93.2%–96.4%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>Three findings are central. First, <strong>CCC-<span class="math inline">\(t\)</span> closely tracks CR2 coverage</strong> across all 24 conditions, confirming that the Bayesian calibrated posterior provides frequentist-valid inference. Second, <strong>Layer 3 is essential at small <span class="math inline">\(J\)</span></strong>: CCC-<span class="math inline">\(q\)</span> undercoverage reaches 91.8% at <span class="math inline">\(J = 10\)</span>, motivating Satterthwaite df as the default in <code>confint.bm_ccc()</code>. Third, the CCC calibration consistently <em>shrinks</em> the posterior (<span class="math inline">\(R_k &lt; 1\)</span>), but the heavier <span class="math inline">\(t\)</span>-distribution tails compensate, achieving nominal coverage.</p>
+</section>
+<section id="score-parity-test-planned" class="level3" data-number="12.7.3">
+<h3 data-number="12.7.3" class="anchored" data-anchor-id="score-parity-test-planned"><span class="header-section-number">12.7.3</span> Score Parity Test (Planned)</h3>
+<p>A planned Tier 1 test will verify that the Stan generated-quantities <code>score_beta[j,k]</code> and the R-side analytic score computation in <code>sandwich.R</code> produce identical values at fixed parameter values. The test protocol uses <code>cmdstanr</code>’s <code>$generate_quantities()</code> method to evaluate the GQ block without MCMC, then compares element-wise against the R-side Woodbury-based score at <span class="math inline">\(10^{-10}\)</span> tolerance. This would close the last gap in the score-to-sandwich verification chain: D25 verifies downstream CR2 algebra, but the upstream score matrix has not yet been cross-validated across languages.</p>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-pustejovsky2022" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2022). Meta-analysis with robust variance estimation: Expanding the range of working models. <em>Prevention Science</em>, <em>23</em>(3), 425–438. <a href="https://doi.org/10.1007/s11121-021-01246-3">https://doi.org/10.1007/s11121-021-01246-3</a>
+</div>
+<div id="ref-viechtbauer2010" class="csl-entry" role="listitem">
+Viechtbauer, W. (2010). Conducting meta-analyses in <span>R</span> with the <strong>metafor</strong> package. <em>Journal of Statistical Software</em>, <em>36</em>(3), 1–48. <a href="https://doi.org/10.18637/jss.v036.i03">https://doi.org/10.18637/jss.v036.i03</a>
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./ch09-ccc-impl.html" class="pagination-link" aria-label="CCC Implementation and Inferential Outputs">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./ch11-tsl15-design.html" class="pagination-link" aria-label="Real-Data Validation: Experimental Design">
+        <span class="nav-page-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Verification"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>Software correctness in bayesRVE rests on a layered verification strategy that connects every mathematical claim to executable tests.</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>This chapter presents the complete theorem-to-code verification map, describes each verification tier, and documents the acceptance criteria that gate every release.</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>The test suite comprises 2,701 passing assertions organized into five tiers of increasing realism: algebraic invariants on synthetic data (Tier 0), known-answer benchmarks against closed-form solutions (Tier 1), parity benchmarks against external software (Tier 2), live-fit integration tests (Tier 3), and full-pipeline acceptance gates.</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">## Theorem-to-Code Verification Map {#sec-verification}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>@tbl-verify-map provides a comprehensive mapping from every verifiable mathematical property to its implementation site, the test that exercises it, and the evidence level achieved.</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Each row answers three questions: *where* is the property implemented, *how* is it tested, and *how tight* is the tolerance?</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Property <span class="pp">|</span> Mathematical Statement <span class="pp">|</span> Implementation <span class="pp">|</span> Test ID <span class="pp">|</span> Tolerance <span class="pp">|</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|:---------|:----------------------|:---------------|:--------|:----------|</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theorem 1 (Center Preservation) <span class="pp">|</span> $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ <span class="pp">|</span> <span class="in">`.ccc_beta_block()`</span> <span class="pp">|</span> V1 in <span class="in">`.verify_ccc()`</span> <span class="pp">|</span> $&lt; 10^{-6}$ (machine) <span class="pp">|</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theorem 2 (Diagonal Variance) <span class="pp">|</span> $\operatorname{Var}(\beta_k^*) = <span class="co">[</span><span class="ot">V_{\mathrm{CR2}}</span><span class="co">]</span>_{kk}$ | $A_\beta = L_2 L_1^{-1}$ <span class="pp">|</span> V2 in <span class="in">`.verify_ccc()`</span> <span class="pp">|</span> 5% (MCMC noise) <span class="pp">|</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theorem 2 (Off-Diagonal Covariance) <span class="pp">|</span> $\operatorname{Cov}(\boldsymbol{\beta}^*) = V_{\mathrm{CR2}}$ <span class="pp">|</span> <span class="in">`.ccc_beta_block()`</span> <span class="pp">|</span> V4 in <span class="in">`.verify_ccc()`</span>, C4-01 <span class="pp">|</span> 10--15% (MCMC) <span class="pp">|</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theorem 3 (Identity Limit) <span class="pp">|</span> $A_\beta = I_K$ when $\hat\Sigma = V_{\mathrm{CR2}}$ <span class="pp">|</span> <span class="in">`.ccc_beta_block()`</span> <span class="pp">|</span> V6 in <span class="in">`.verify_ccc()`</span> <span class="pp">|</span> Frobenius $\approx 0$ <span class="pp">|</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theta Variance Recovery <span class="pp">|</span> $\operatorname{Var}(\theta_j^*) = V_{\mathrm{cond},j}$ <span class="pp">|</span> <span class="in">`.ccc_theta_block()`</span> <span class="pp">|</span> V3 in <span class="in">`.verify_ccc()`</span> <span class="pp">|</span> 5% <span class="pp">|</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D24 ($W^{1/2}$ Squaring) <span class="pp">|</span> $W_j^{1/2} W_j^{1/2} = W_j$ <span class="pp">|</span> <span class="in">`.compute_W_j_sqrt()`</span> <span class="pp">|</span> G1-08, G1-09 <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 100$ <span class="pp">|</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D24 ($W^{1/2}$ Inverse) <span class="pp">|</span> $W_j^{1/2} W_j^{-1/2} = I$ <span class="pp">|</span> <span class="in">`.compute_W_j_sqrt()`</span> <span class="pp">|</span> G1-08, G1-09 <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 100$ <span class="pp">|</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D25 (Plug-in $V_{\mathrm{CR2}}$) <span class="pp">|</span> REML $\to V_{\mathrm{CR2}}$ = clubSandwich <span class="pp">|</span> <span class="in">`.compute_vcr2()`</span> <span class="pp">|</span> T1-04a, T1-04c <span class="pp">|</span> $10^{-6}$ <span class="pp">|</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D25 (Plug-in $\mathrm{df}$) <span class="pp">|</span> REML $\to \mathrm{df}$ = clubSandwich <span class="pp">|</span> <span class="in">`.satterthwaite_df()`</span> <span class="pp">|</span> T1-04b, T1-04c <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D25 (Bread $Q$) <span class="pp">|</span> $(X'WX)^{-1}$ algebraic <span class="pp">|</span> <span class="in">`.compute_wls_bread()`</span> <span class="pp">|</span> T1-04d <span class="pp">|</span> $10^{-10}$ <span class="pp">|</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 ($W_j$ Reduction) <span class="pp">|</span> $W_j(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = W_j^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_W_j()`</span> <span class="pp">|</span> G1-01 <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 10$ <span class="pp">|</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 (Bread Reduction) <span class="pp">|</span> $Q(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = Q^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_wls_bread()`</span> <span class="pp">|</span> G1-02, G1-03 <span class="pp">|</span> $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 (Hat Reduction) <span class="pp">|</span> $H_j(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = H_j^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_hat_blocks()`</span> <span class="pp">|</span> G1-04 <span class="pp">|</span> $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 ($A_j$ Reduction) <span class="pp">|</span> $A_j(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = A_j^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_cr2_adjustments()`</span> <span class="pp">|</span> G1-05 <span class="pp">|</span> $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 ($V_{\mathrm{CR2}}$ Reduction) <span class="pp">|</span> $V_{\mathrm{CR2}}(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = V_{\mathrm{CR2}}^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_vcr2()`</span> <span class="pp">|</span> G1-06 <span class="pp">|</span> $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 ($\mathrm{df}$ Reduction) <span class="pp">|</span> $\mathrm{df}(\omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0) = \mathrm{df}^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.satterthwaite_df()`</span> <span class="pp">|</span> G1-07 <span class="pp">|</span> $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 (Separation) <span class="pp">|</span> $W_j(\omega^2<span class="sc">\!</span>&gt;<span class="sc">\!</span>0) \neq W_j^{\mathrm{CE}}$ <span class="pp">|</span> <span class="in">`.compute_W_j()`</span> <span class="pp">|</span> G1-01b <span class="pp">|</span> strict inequality <span class="pp">|</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Singleton Formula <span class="pp">|</span> $W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)$ for $n_j = 1$ | `.compute_W_j()` | T1-01 | $\epsilon_{\mathrm{mach}} \times 10$ <span class="pp">|</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Study-Level Variance <span class="pp">|</span> $v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2$ | `.compute_wls_bread()` | T1-02 | $\epsilon_{\mathrm{mach}} \times 10$ <span class="pp">|</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> D24 Singleton $W^{1/2}$ <span class="pp">|</span> $W^{1/2}$ correct at $n_j = 1$ <span class="pp">|</span> <span class="in">`.compute_W_j_sqrt()`</span> <span class="pp">|</span> T1-03 <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 10$ <span class="pp">|</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CR2 $\neq$ HC0 <span class="pp">|</span> $V_{\mathrm{CR2}} \neq V_{\mathrm{HC0}}$ <span class="pp">|</span> sandwich pipeline <span class="pp">|</span> T0-2a/b/c, REGRESSION tests <span class="pp">|</span> strict inequality <span class="pp">|</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CR2 Inflation <span class="pp">|</span> $\operatorname{tr}(V_{\mathrm{CR2}}) \geq 0.99 \cdot \operatorname{tr}(V_{\mathrm{HC0}})$ <span class="pp">|</span> sandwich pipeline <span class="pp">|</span> T0-2e <span class="pp">|</span> 1% tolerance <span class="pp">|</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $V_{\mathrm{CR2}}$ Symmetry + PD <span class="pp">|</span> $V_{\mathrm{CR2}} = V_{\mathrm{CR2}}^T$, all eigenvalues $&gt; 0$ <span class="pp">|</span> <span class="in">`.compute_vcr2()`</span> <span class="pp">|</span> T0-2d, C3-01 <span class="pp">|</span> $10^{-12}$ <span class="pp">|</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> df Populated <span class="pp">|</span> $\mathrm{df}_k &gt; 0$ for all $k$ <span class="pp">|</span> <span class="in">`.satterthwaite_df()`</span> <span class="pp">|</span> T0-3a/b/c <span class="pp">|</span> strict positivity <span class="pp">|</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Theta Suppression (CHE) <span class="pp">|</span> <span class="in">`summary$theta = NULL`</span> for CHE <span class="pp">|</span> <span class="in">`summary.bm_ccc()`</span> <span class="pp">|</span> T0-4a/b/c/d/e <span class="pp">|</span> structural <span class="pp">|</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC-t $\geq$ CCC-q <span class="pp">|</span> $t$-interval $\geq$ normal interval at small $J$ <span class="pp">|</span> <span class="in">`confint.bm_ccc()`</span> <span class="pp">|</span> C7-01 <span class="pp">|</span> 1% tolerance <span class="pp">|</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Object Contract <span class="pp">|</span> All required fields present and typed <span class="pp">|</span> Full pipeline <span class="pp">|</span> C0-01, C0-02 <span class="pp">|</span> structural <span class="pp">|</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>: Theorem-to-code verification map. Every verifiable property of bayesRVE is tested at the tightest feasible tolerance. {#tbl-verify-map}</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>The map reveals a deliberate design: algebraic properties that hold exactly in infinite precision are tested at machine precision ($\sim 2.2 \times 10^{-16}$, with a practical tolerance of $\sim 2.2 \times 10^{-13}$), while properties that involve MCMC sampling noise are tested at 5--15% tolerance.</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>No property falls through without a test.</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="fu">## Algebraic Verification (Tier 0) {#sec-verify-tier0}</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>Tier 0 tests verify CCC invariants on *fixed, deterministic* inputs with no MCMC stochasticity.</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>Because there is no sampling noise, deviations from the theoretical values expose implementation bugs rather than statistical variability.</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>A Tier 0 failure is a release blocker.</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="fu">### The six-point verification suite</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>Every call to <span class="in">`ccc()`</span> internally invokes <span class="in">`.verify_ccc()`</span>, which checks six properties:</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Check <span class="pp">|</span> Property <span class="pp">|</span> Severity <span class="pp">|</span> Tolerance <span class="pp">|</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a><span class="pp">|:------|:---------|:---------|:----------|</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V1 <span class="pp">|</span> Center preservation: $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ <span class="pp">|</span> Error on fail <span class="pp">|</span> $10^{-6}$ <span class="pp">|</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V2 <span class="pp">|</span> Beta diagonal variance: $\operatorname{Var}(\beta_k^*)/<span class="co">[</span><span class="ot">V_{\mathrm{CR2}}</span><span class="co">]</span>_{kk} \in <span class="co">[</span><span class="ot">0.95, 1.05</span><span class="co">]</span>$ <span class="pp">|</span> Warning on fail <span class="pp">|</span> 5% <span class="pp">|</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V3 <span class="pp">|</span> Theta variance: $\operatorname{Var}(\theta_j^*)/V_{\mathrm{cond},j} \in <span class="co">[</span><span class="ot">0.95, 1.05</span><span class="co">]</span>$ <span class="pp">|</span> Warning on fail <span class="pp">|</span> 5% <span class="pp">|</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V4 <span class="pp">|</span> Beta covariance (full matrix): $<span class="sc">\|</span>\operatorname{Cov}(\boldsymbol{\beta}^*) - V_{\mathrm{CR2}}<span class="sc">\|</span>_F / \|V_{\mathrm{CR2}}<span class="sc">\|</span>_F &lt; 0.05$ <span class="pp">|</span> Warning on fail <span class="pp">|</span> 5% (relative Frobenius) <span class="pp">|</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V5 <span class="pp">|</span> Aggregate center (alias of V1) <span class="pp">|</span> Error on fail <span class="pp">|</span> $10^{-6}$ <span class="pp">|</span></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> V6 <span class="pp">|</span> Diagnostic consistency: $<span class="sc">\|</span>A_\beta - I_K<span class="sc">\|</span>_F$ consistent with Frobenius norm <span class="pp">|</span> Error on fail <span class="pp">|</span> $10^{-6}$ <span class="pp">|</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>: The <span class="in">`.verify_ccc()`</span> six-point verification suite. {#tbl-verify-suite}</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>The distinction between error and warning severity reflects the distinction between algebraic identities (V1, V5, V6), which must hold at machine precision, and stochastic properties (V2, V3, V4), which depend on $S$ and may deviate at small sample sizes.</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE Tier 0 invariants</span></span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>The CHE-specific Tier 0 suite (<span class="in">`test-che-cr2-tier0.R`</span>) tests four invariants across three scenarios ($J = 10, K = 1$; $J = 15, K = 2$; $J = 20, K = 2$):</span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a>**T0-1: No fallback to scalar.**</span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>The CR2 pipeline must complete without falling back to the scalar correction.</span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>Each scenario verifies <span class="in">`sw$small_sample == "CR2"`</span> and <span class="in">`sw$fallback == FALSE`</span>.</span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>**T0-2: CR2 differs from HC0.**</span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>The bias-corrected variance $V_{\mathrm{CR2}}$ must not be identical to the uncorrected $V_{\mathrm{HC0}}$.</span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a>Additional sub-checks confirm symmetry ($<span class="sc">\|</span>V - V^T<span class="sc">\|</span> &lt; 10^{-12}$), positive definiteness (all eigenvalues $&gt; 0$), and that CR2 inflates relative to HC0 ($<span class="co">[</span><span class="ot">V_{\mathrm{CR2}}</span><span class="co">]</span>_{kk} \geq 0.99 \cdot [V_{\mathrm{HC0}}]_{kk}$).</span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>**T0-3: Satterthwaite degrees of freedom are populated.**</span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>Each coefficient must have a finite, positive df value, and the df source must report <span class="in">`"satterthwaite"`</span>.</span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>An upper bound check ensures $\mathrm{df}_k &lt; 10 \cdot J$ as a sanity guard.</span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>**T0-4: No theta leakage in CHE output.**</span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>The CHE model does not expose individual study random effects in its summary output.</span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a>This is verified both structurally (<span class="in">`summary$theta == NULL`</span>) and by scanning printed output for forbidden tokens (<span class="in">`"theta"`</span>, <span class="in">`"Conditional"`</span>, <span class="in">`"widened"`</span>, <span class="in">`"narrowed"`</span>).</span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a>These invariants are enforced across all three scenarios, producing a total of 19 test assertions in the T0 suite alone.</span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a><span class="fu">## Known-Answer and Parity Benchmarks (Tier 1--2) {#sec-verify-parity}</span></span>
+<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a><span class="fu">### Tier 1: Algebraic known-answer tests</span></span>
+<span id="cb1-100"><a href="#cb1-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-101"><a href="#cb1-101" aria-hidden="true" tabindex="-1"></a>Tier 1 tests isolate individual computational components with fixed (non-MCMC) inputs and compare them against closed-form analytical solutions.</span>
+<span id="cb1-102"><a href="#cb1-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-103"><a href="#cb1-103" aria-hidden="true" tabindex="-1"></a>**T1-01: Singleton formula.**</span>
+<span id="cb1-104"><a href="#cb1-104" aria-hidden="true" tabindex="-1"></a>For a study with $n_j = 1$, the weight matrix reduces to a scalar: $W_j = 1/(\bar{s}_j^2 + \omega^2 + \tau^2)$.</span>
+<span id="cb1-105"><a href="#cb1-105" aria-hidden="true" tabindex="-1"></a>This is verified across a grid of 27 parameter combinations ($\bar{s}_j^2 \in <span class="sc">\{</span>0.03, 0.07, 0.12<span class="sc">\}</span>$, $\tau^2 \in <span class="sc">\{</span>0, 0.02, 0.10<span class="sc">\}</span>$, $\omega^2 \in <span class="sc">\{</span>0, 0.01, 0.05<span class="sc">\}</span>$) at machine precision.</span>
+<span id="cb1-106"><a href="#cb1-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-107"><a href="#cb1-107" aria-hidden="true" tabindex="-1"></a>**T1-02: Study-level variance formula.**</span>
+<span id="cb1-108"><a href="#cb1-108" aria-hidden="true" tabindex="-1"></a>For the study-level (cluster-constant) path, the marginal variance $v_j = (\bar{s}_j^2 + \omega^2)/n_j + \tau^2$ is verified by constructing a minimal <span class="in">`bm_data`</span> object and comparing <span class="in">`W_list[[j]]`</span> against $1/v_j$.</span>
+<span id="cb1-109"><a href="#cb1-109" aria-hidden="true" tabindex="-1"></a>The bread matrix $Q = (X'WX)^{-1}$ is independently recomputed and compared at $10^{-10}$ tolerance.</span>
+<span id="cb1-110"><a href="#cb1-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-111"><a href="#cb1-111" aria-hidden="true" tabindex="-1"></a>**T1-03: Singleton $W^{1/2}$.**</span>
+<span id="cb1-112"><a href="#cb1-112" aria-hidden="true" tabindex="-1"></a>The analytical Woodbury formula for $W_j^{1/2}$ (Decision D24) is verified at $n_j = 1$ by checking $W^{1/2} W^{1/2} = W_j$ and $W^{1/2} W^{-1/2} = I$ at machine precision.</span>
+<span id="cb1-113"><a href="#cb1-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a><span class="fu">### Tier 1: D25 plug-in parity</span></span>
+<span id="cb1-115"><a href="#cb1-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a>Decision D25 mandates that when REML point estimates of $\tau^2$ and $\omega^2$ are injected into bayesRVE's CR2 helpers, the resulting $V_{\mathrm{CR2}}$ must match clubSandwich's <span class="co">[</span><span class="ot">@pustejovsky2022</span><span class="co">]</span> output at $10^{-6}$ tolerance.</span>
+<span id="cb1-117"><a href="#cb1-117" aria-hidden="true" tabindex="-1"></a>This isolates the linear algebra from MCMC noise and serves as the strongest available external cross-validation.</span>
+<span id="cb1-118"><a href="#cb1-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-119"><a href="#cb1-119" aria-hidden="true" tabindex="-1"></a>The D25 test protocol:</span>
+<span id="cb1-120"><a href="#cb1-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-121"><a href="#cb1-121" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Generate synthetic data with constant $v_{ij}$ within each study (ensuring $\bar{s}_j^2 = v_{ij}$ exactly, eliminating the averaging discrepancy).</span>
+<span id="cb1-122"><a href="#cb1-122" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Fit a CHE model in metafor <span class="co">[</span><span class="ot">@viechtbauer2010</span><span class="co">]</span> (<span class="in">`rma.mv`</span> with <span class="in">`~ 1 | studyid/obsid`</span>, REML).</span>
+<span id="cb1-123"><a href="#cb1-123" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Extract $\hat\tau^2_{\mathrm{REML}}$, $\hat\omega^2_{\mathrm{REML}}$, and $\hat{\boldsymbol{\beta}}_{\mathrm{REML}}$.</span>
+<span id="cb1-124"><a href="#cb1-124" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Compute clubSandwich's $V_{\mathrm{CR2}}$ and Satterthwaite df as the reference.</span>
+<span id="cb1-125"><a href="#cb1-125" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Inject the same REML estimates into bayesRVE's internal helpers (<span class="in">`.compute_wls_bread()`</span>, <span class="in">`.compute_cr2_adjustments()`</span>, <span class="in">`.compute_vcr2()`</span>, <span class="in">`.satterthwaite_df()`</span>).</span>
+<span id="cb1-126"><a href="#cb1-126" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Compare element-by-element.</span>
+<span id="cb1-127"><a href="#cb1-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-128"><a href="#cb1-128" aria-hidden="true" tabindex="-1"></a>Four sub-tests cover this:</span>
+<span id="cb1-129"><a href="#cb1-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-130"><a href="#cb1-130" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Test <span class="pp">|</span> Scenario <span class="pp">|</span> Target <span class="pp">|</span> Tolerance <span class="pp">|</span></span>
+<span id="cb1-131"><a href="#cb1-131" aria-hidden="true" tabindex="-1"></a><span class="pp">|:-----|:---------|:-------|:----------|</span></span>
+<span id="cb1-132"><a href="#cb1-132" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> T1-04a <span class="pp">|</span> $J = 15$, $K = 2$, balanced <span class="pp">|</span> $V_{\mathrm{CR2}}$ <span class="pp">|</span> $10^{-6}$ <span class="pp">|</span></span>
+<span id="cb1-133"><a href="#cb1-133" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> T1-04b <span class="pp">|</span> $J = 15$, $K = 2$, balanced <span class="pp">|</span> Satterthwaite df <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb1-134"><a href="#cb1-134" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> T1-04c <span class="pp">|</span> $J = 25$, $K = 3$, unbalanced <span class="pp">|</span> $V_{\mathrm{CR2}}$ and df <span class="pp">|</span> $10^{-6}$ / 0.1 <span class="pp">|</span></span>
+<span id="cb1-135"><a href="#cb1-135" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> T1-04d <span class="pp">|</span> $J = 15$, $K = 2$, balanced <span class="pp">|</span> Bread $Q$ <span class="pp">|</span> $10^{-10}$ <span class="pp">|</span></span>
+<span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-137"><a href="#cb1-137" aria-hidden="true" tabindex="-1"></a>: D25 plug-in parity tests. {#tbl-d25-parity}</span>
+<span id="cb1-138"><a href="#cb1-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-139"><a href="#cb1-139" aria-hidden="true" tabindex="-1"></a>The $10^{-6}$ tolerance on $V_{\mathrm{CR2}}$ is six orders of magnitude tighter than the MCMC noise floor, confirming that the two implementations share the same linear algebra.</span>
+<span id="cb1-140"><a href="#cb1-140" aria-hidden="true" tabindex="-1"></a>The slightly looser tolerance on df (0.1) reflects minor numerical differences in the matrix derivative computations used by the Satterthwaite approximation.</span>
+<span id="cb1-141"><a href="#cb1-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-142"><a href="#cb1-142" aria-hidden="true" tabindex="-1"></a><span class="fu">### Tier 2: Live-fit comparison</span></span>
+<span id="cb1-143"><a href="#cb1-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-144"><a href="#cb1-144" aria-hidden="true" tabindex="-1"></a>Tier 2 tests fit the same data with both bayesRVE (<span class="in">`bm_fit`</span> + <span class="in">`sandwich`</span>) and metafor + clubSandwich, then compare the sandwich standard errors and Satterthwaite degrees of freedom.</span>
+<span id="cb1-145"><a href="#cb1-145" aria-hidden="true" tabindex="-1"></a>Unlike D25, these comparisons do *not* inject REML point estimates---bayesRVE uses posterior means of $\tau^2$ (and $\omega^2$), introducing a legitimate discrepancy.</span>
+<span id="cb1-146"><a href="#cb1-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-147"><a href="#cb1-147" aria-hidden="true" tabindex="-1"></a>The Tier 2 tolerance is 15% for standard errors and 3 for degrees of freedom.</span>
+<span id="cb1-148"><a href="#cb1-148" aria-hidden="true" tabindex="-1"></a>These bounds reflect three sources of expected disagreement:</span>
+<span id="cb1-149"><a href="#cb1-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-150"><a href="#cb1-150" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Bread difference.**</span>
+<span id="cb1-151"><a href="#cb1-151" aria-hidden="true" tabindex="-1"></a>   bayesRVE centers at the posterior mean $\hat{\boldsymbol{\beta}}_{\mathrm{Bayes}}$; metafor uses REML $\hat{\boldsymbol{\beta}}_{\mathrm{REML}}$.</span>
+<span id="cb1-152"><a href="#cb1-152" aria-hidden="true" tabindex="-1"></a>   The weights $W_j$ differ because $\hat\tau^2_{\mathrm{Bayes}} \neq \hat\tau^2_{\mathrm{REML}}$.</span>
+<span id="cb1-153"><a href="#cb1-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-154"><a href="#cb1-154" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Within-study variance averaging.**</span>
+<span id="cb1-155"><a href="#cb1-155" aria-hidden="true" tabindex="-1"></a>   bayesRVE's CE model uses $\bar{s}_j^2 = n_j^{-1} \sum_i v_{ij}$; metafor's observation-level likelihood uses individual $v_{ij}$.</span>
+<span id="cb1-156"><a href="#cb1-156" aria-hidden="true" tabindex="-1"></a>   These are asymptotically equivalent but differ at finite sample sizes.</span>
+<span id="cb1-157"><a href="#cb1-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-158"><a href="#cb1-158" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Residual centering.**</span>
+<span id="cb1-159"><a href="#cb1-159" aria-hidden="true" tabindex="-1"></a>   bayesRVE computes residuals from posterior mean estimates; clubSandwich from REML estimates.</span>
+<span id="cb1-160"><a href="#cb1-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-161"><a href="#cb1-161" aria-hidden="true" tabindex="-1"></a>The Tier 2 tests (<span class="in">`test-cr2-satterthwaite.R`</span>, Tests 1--2) confirm that bayesRVE's sandwich SEs fall within 15% of clubSandwich on balanced data ($J = 15$, $n_j = 3$) and that Satterthwaite df agree within 3 on moderately larger data ($J = 20$, $n_j = 5$).</span>
+<span id="cb1-162"><a href="#cb1-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-163"><a href="#cb1-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-164"><a href="#cb1-164" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reduction Checks {#sec-verify-reduction}</span></span>
+<span id="cb1-165"><a href="#cb1-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-166"><a href="#cb1-166" aria-hidden="true" tabindex="-1"></a>Gate 1 verifies that CHE with $\omega^2 = 0$ reduces exactly to CE at machine precision.</span>
+<span id="cb1-167"><a href="#cb1-167" aria-hidden="true" tabindex="-1"></a>This is the strongest structural evidence that the CHE generalization is correct, because it confirms that every CHE-specific code path degenerates to the CE code path when the additional variance component vanishes.</span>
+<span id="cb1-168"><a href="#cb1-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-169"><a href="#cb1-169" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Gate 1 protocol</span></span>
+<span id="cb1-170"><a href="#cb1-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-171"><a href="#cb1-171" aria-hidden="true" tabindex="-1"></a>The test file <span class="in">`test-gate1-omega0-equivalence.R`</span> defines a synthetic dataset with $J = 8$ studies, $K = 2$ predictors, and known sampling variances.</span>
+<span id="cb1-172"><a href="#cb1-172" aria-hidden="true" tabindex="-1"></a>No MCMC is involved: the tests call internal helper functions directly with fixed parameter values ($\tau^2 = 0.04$, $\boldsymbol{\beta} = (0.3, -0.1)$).</span>
+<span id="cb1-173"><a href="#cb1-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-174"><a href="#cb1-174" aria-hidden="true" tabindex="-1"></a>The machine precision tolerance is $\epsilon_{\mathrm{mach}} \times 1000 \approx 2.2 \times 10^{-13}$, tight enough to detect any implementation error while accommodating floating-point rounding.</span>
+<span id="cb1-175"><a href="#cb1-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-176"><a href="#cb1-176" aria-hidden="true" tabindex="-1"></a><span class="fu">### Gate 1 assertions</span></span>
+<span id="cb1-177"><a href="#cb1-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-178"><a href="#cb1-178" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Test <span class="pp">|</span> Component <span class="pp">|</span> CE Call <span class="pp">|</span> CHE Call ($\omega^2 = 0$) <span class="pp">|</span> Assertion <span class="pp">|</span></span>
+<span id="cb1-179"><a href="#cb1-179" aria-hidden="true" tabindex="-1"></a><span class="pp">|:-----|:----------|:--------|:-------------------------|:----------|</span></span>
+<span id="cb1-180"><a href="#cb1-180" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-01 <span class="pp">|</span> $W_j$ <span class="pp">|</span> <span class="in">`.compute_W_j(s, \tau^2, n)`</span> <span class="pp">|</span> `.compute_W_j(s, \tau^2, n, \omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0)$ <span class="pp">|</span> Element-wise $\approx$ at $\epsilon_{\mathrm{mach}} \times 10$ <span class="pp">|</span></span>
+<span id="cb1-181"><a href="#cb1-181" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-01b <span class="pp">|</span> $W_j$ (separation) <span class="pp">|</span> <span class="in">`.compute_W_j(s, \tau^2, n)$ | `</span>.compute_W_j(s, \tau^2, n, \omega^2<span class="sc">\!</span>=<span class="sc">\!</span>0.03)$ <span class="pp">|</span> Strict $\neq$ <span class="pp">|</span></span>
+<span id="cb1-182"><a href="#cb1-182" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-02 <span class="pp">|</span> Bread $Q$ (obs-level) <span class="pp">|</span> <span class="in">`.compute_wls_bread(\cdot, \tau^2, K, J)$ | `</span>+ omega2_hat = 0` <span class="pp">|</span> $Q$, $W_{\mathrm{list}}$, $X_{\mathrm{list}}$ match <span class="pp">|</span></span>
+<span id="cb1-183"><a href="#cb1-183" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-03 <span class="pp">|</span> Bread $Q$ (study-level) <span class="pp">|</span> Same, <span class="in">`cluster_constant = TRUE`</span> <span class="pp">|</span> Same + $\omega^2 = 0$ <span class="pp">|</span> $Q$, $W_{\mathrm{list}}$ match <span class="pp">|</span></span>
+<span id="cb1-184"><a href="#cb1-184" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-04 <span class="pp">|</span> Hat blocks $H_j$ <span class="pp">|</span> <span class="in">`.compute_hat_blocks()`</span> <span class="pp">|</span> Same inputs from CHE bread <span class="pp">|</span> $H_j$ match at $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-185"><a href="#cb1-185" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-05 <span class="pp">|</span> CR2 adjustments $A_j$ <span class="pp">|</span> `.compute_cr2_adjustments()$ <span class="pp">|</span> Same inputs from CHE bread <span class="pp">|</span> $A_j$ match at $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-186"><a href="#cb1-186" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-06 <span class="pp">|</span> $V_{\mathrm{CR2}}$ <span class="pp">|</span> `.compute_vcr2()$ <span class="pp">|</span> Same with CHE inputs <span class="pp">|</span> Full matrix match at $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-187"><a href="#cb1-187" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-07 <span class="pp">|</span> Satterthwaite df <span class="pp">|</span> `.satterthwaite_df()$ <span class="pp">|</span> Same with CHE inputs <span class="pp">|</span> Vector match at $2.2 \times 10^{-13}$ <span class="pp">|</span></span>
+<span id="cb1-188"><a href="#cb1-188" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-08 <span class="pp">|</span> $W^{1/2}$ squaring (CE) <span class="pp">|</span> <span class="in">`.compute_W_j_sqrt()`</span> <span class="pp">|</span> $W^{1/2} W^{1/2} = W_j$ <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 100$ <span class="pp">|</span></span>
+<span id="cb1-189"><a href="#cb1-189" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> G1-09 <span class="pp">|</span> $W^{1/2}$ squaring (CHE) <span class="pp">|</span> <span class="in">`.compute_W_j_sqrt()`</span> with $\omega^2 &gt; 0$ <span class="pp">|</span> $W^{1/2} W^{1/2} = W_j$ <span class="pp">|</span> $\epsilon_{\mathrm{mach}} \times 100$ <span class="pp">|</span></span>
+<span id="cb1-190"><a href="#cb1-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-191"><a href="#cb1-191" aria-hidden="true" tabindex="-1"></a>: Gate 1 reduction assertions. G1-01 through G1-09 traverse the full CR2 pipeline from $W_j$ to df. {#tbl-gate1}</span>
+<span id="cb1-192"><a href="#cb1-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-193"><a href="#cb1-193" aria-hidden="true" tabindex="-1"></a>The Gate 1 tests exercise both the observation-level path (<span class="in">`cluster_constant = FALSE`</span>) and the study-level path (<span class="in">`cluster_constant = TRUE`</span>), and cover a grid of $\bar{s}_j^2 \times n_j$ combinations in G1-01.</span>
+<span id="cb1-194"><a href="#cb1-194" aria-hidden="true" tabindex="-1"></a>Including the G1-01b separation check, the suite contains over 75 individual assertions.</span>
+<span id="cb1-195"><a href="#cb1-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-196"><a href="#cb1-196" aria-hidden="true" tabindex="-1"></a><span class="fu">### Why Gate 1 is decisive</span></span>
+<span id="cb1-197"><a href="#cb1-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-198"><a href="#cb1-198" aria-hidden="true" tabindex="-1"></a>The CHE CR2 implementation shares all code paths with CE CR2; the only difference is that CHE passes <span class="in">`omega2_hat`</span> to <span class="in">`.compute_W_j()`</span>, which absorbs it into the effective sampling variance $a_j = \bar{s}_j^2 + \omega^2$.</span>
+<span id="cb1-199"><a href="#cb1-199" aria-hidden="true" tabindex="-1"></a>Gate 1 confirms that setting $\omega^2 = 0$ makes the CHE path algebraically identical to the CE path.</span>
+<span id="cb1-200"><a href="#cb1-200" aria-hidden="true" tabindex="-1"></a>If the CHE code introduced any extraneous computation, numerical drift, or incorrect branching, the machine-precision tolerance would immediately detect it.</span>
+<span id="cb1-201"><a href="#cb1-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-202"><a href="#cb1-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-203"><a href="#cb1-203" aria-hidden="true" tabindex="-1"></a><span class="fu">## Interoperability with metafor and clubSandwich {#sec-verify-interop}</span></span>
+<span id="cb1-204"><a href="#cb1-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-205"><a href="#cb1-205" aria-hidden="true" tabindex="-1"></a>bayesRVE provides two utilities for bridging with the frequentist meta-analysis ecosystem, specifically metafor <span class="co">[</span><span class="ot">@viechtbauer2010</span><span class="co">]</span> and clubSandwich <span class="co">[</span><span class="ot">@pustejovsky2022</span><span class="co">]</span>.</span>
+<span id="cb1-206"><a href="#cb1-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-207"><a href="#cb1-207" aria-hidden="true" tabindex="-1"></a><span class="fu">### `compare_with_cr2()`</span></span>
+<span id="cb1-208"><a href="#cb1-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-209"><a href="#cb1-209" aria-hidden="true" tabindex="-1"></a>This diagnostic function fits the same data with <span class="in">`metafor::rma.mv()`</span> (REML) and computes <span class="in">`clubSandwich::vcovCR()`</span> (CR2), then produces a side-by-side comparison of standard errors.</span>
+<span id="cb1-210"><a href="#cb1-210" aria-hidden="true" tabindex="-1"></a>The output includes:</span>
+<span id="cb1-211"><a href="#cb1-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-212"><a href="#cb1-212" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Per-coefficient bayesRVE SE and clubSandwich SE</span>
+<span id="cb1-213"><a href="#cb1-213" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Relative difference $(\mathrm{SE}_{\mathrm{bayes}} - \mathrm{SE}_{\mathrm{club}})/\mathrm{SE}_{\mathrm{club}}$</span>
+<span id="cb1-214"><a href="#cb1-214" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Variance component comparison ($\hat\tau^2_{\mathrm{Bayes}}$ vs $\hat\tau^2_{\mathrm{REML}}$)</span>
+<span id="cb1-215"><a href="#cb1-215" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The metafor fit object for user inspection</span>
+<span id="cb1-216"><a href="#cb1-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-217"><a href="#cb1-217" aria-hidden="true" tabindex="-1"></a>The function handles both CE and CHE models and automatically constructs the appropriate metafor call.</span>
+<span id="cb1-218"><a href="#cb1-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-219"><a href="#cb1-219" aria-hidden="true" tabindex="-1"></a><span class="fu">### `from_metafor()`</span></span>
+<span id="cb1-220"><a href="#cb1-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-221"><a href="#cb1-221" aria-hidden="true" tabindex="-1"></a>This utility extracts data from an existing metafor fit into the format expected by <span class="in">`bm_fit()`</span>, enabling users to transition from a frequentist to a Bayesian analysis without reformatting their data.</span>
+<span id="cb1-222"><a href="#cb1-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-223"><a href="#cb1-223" aria-hidden="true" tabindex="-1"></a><span class="fu">### Expected discrepancies</span></span>
+<span id="cb1-224"><a href="#cb1-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-225"><a href="#cb1-225" aria-hidden="true" tabindex="-1"></a>As documented in the B2 benchmark (v0.3.0), bayesRVE's CE model operates on study-level sufficient statistics while metafor uses the observation-level likelihood.</span>
+<span id="cb1-226"><a href="#cb1-226" aria-hidden="true" tabindex="-1"></a>These are asymptotically equivalent but differ at finite sample sizes.</span>
+<span id="cb1-227"><a href="#cb1-227" aria-hidden="true" tabindex="-1"></a>The canonical discrepancy is 10--15% in SE and up to 3 in Satterthwaite df.</span>
+<span id="cb1-228"><a href="#cb1-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-229"><a href="#cb1-229" aria-hidden="true" tabindex="-1"></a>Three specific sources contribute:</span>
+<span id="cb1-230"><a href="#cb1-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-231"><a href="#cb1-231" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Point estimates.**</span>
+<span id="cb1-232"><a href="#cb1-232" aria-hidden="true" tabindex="-1"></a>   Posterior mean $\hat{\boldsymbol{\beta}}$ and $\hat\tau^2$ differ from REML estimates, especially at small $J$.</span>
+<span id="cb1-233"><a href="#cb1-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-234"><a href="#cb1-234" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Variance averaging.**</span>
+<span id="cb1-235"><a href="#cb1-235" aria-hidden="true" tabindex="-1"></a>   bayesRVE uses $\bar{s}_j^2$; metafor uses individual $v_{ij}$.</span>
+<span id="cb1-236"><a href="#cb1-236" aria-hidden="true" tabindex="-1"></a>   This matters when $v_{ij}$ varies substantially within studies.</span>
+<span id="cb1-237"><a href="#cb1-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-238"><a href="#cb1-238" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**CR2 adjustment matrices.**</span>
+<span id="cb1-239"><a href="#cb1-239" aria-hidden="true" tabindex="-1"></a>   The $A_j$ matrices depend on the hat matrix, which in turn depends on the weights.</span>
+<span id="cb1-240"><a href="#cb1-240" aria-hidden="true" tabindex="-1"></a>   Different $\hat\tau^2$ values produce different $A_j$.</span>
+<span id="cb1-241"><a href="#cb1-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-242"><a href="#cb1-242" aria-hidden="true" tabindex="-1"></a>The D25 plug-in parity test (@sec-verify-parity) eliminates sources 1 and 3 by injecting REML values, confirming that the remaining discrepancy is zero to $10^{-6}$.</span>
+<span id="cb1-243"><a href="#cb1-243" aria-hidden="true" tabindex="-1"></a>This isolates source 2 as the sole contributor to live-fit differences, and source 2 vanishes when $v_{ij}$ is constant within studies.</span>
+<span id="cb1-244"><a href="#cb1-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-245"><a href="#cb1-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-246"><a href="#cb1-246" aria-hidden="true" tabindex="-1"></a><span class="fu">## Acceptance Criteria {#sec-verify-acceptance}</span></span>
+<span id="cb1-247"><a href="#cb1-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-248"><a href="#cb1-248" aria-hidden="true" tabindex="-1"></a>Every bayesRVE release must satisfy the following gates before merging.</span>
+<span id="cb1-249"><a href="#cb1-249" aria-hidden="true" tabindex="-1"></a>@tbl-acceptance summarizes the status as of v0.6.0.</span>
+<span id="cb1-250"><a href="#cb1-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-251"><a href="#cb1-251" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate <span class="pp">|</span> Criterion <span class="pp">|</span> Evidence <span class="pp">|</span> Status <span class="pp">|</span></span>
+<span id="cb1-252"><a href="#cb1-252" aria-hidden="true" tabindex="-1"></a><span class="pp">|:-----|:----------|:---------|:-------|</span></span>
+<span id="cb1-253"><a href="#cb1-253" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 1 <span class="pp">|</span> CHE($\omega^2 = 0$) $\equiv$ CE at machine precision <span class="pp">|</span> G1-01 through G1-09, $&gt; 75$ assertions <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-254"><a href="#cb1-254" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 0 <span class="pp">|</span> All CCC invariants (V1--V6) at machine precision <span class="pp">|</span> <span class="in">`.verify_ccc()`</span> in every <span class="in">`ccc()`</span> call <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-255"><a href="#cb1-255" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 0 <span class="pp">|</span> CHE T0-1 through T0-4 across 3 scenarios <span class="pp">|</span> <span class="in">`test-che-cr2-tier0.R`</span>, 19 assertions <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-256"><a href="#cb1-256" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 1 <span class="pp">|</span> D25 $V_{\mathrm{CR2}}$ parity at $10^{-6}$ <span class="pp">|</span> T1-04a, T1-04c (2 scenarios) <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-257"><a href="#cb1-257" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 1 <span class="pp">|</span> D25 Satterthwaite df parity at 0.1 <span class="pp">|</span> T1-04b, T1-04c <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-258"><a href="#cb1-258" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 1 <span class="pp">|</span> Known-answer formulas at machine precision <span class="pp">|</span> T1-01, T1-02, T1-03 <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-259"><a href="#cb1-259" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 2 <span class="pp">|</span> Live-fit SE within 15% of clubSandwich <span class="pp">|</span> <span class="in">`test-cr2-satterthwaite.R`</span>, Tests 1--2 <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-260"><a href="#cb1-260" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Tier 2 <span class="pp">|</span> Live-fit df within 3 of clubSandwich <span class="pp">|</span> <span class="in">`test-cr2-satterthwaite.R`</span>, Test 2 <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-261"><a href="#cb1-261" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gate 3 <span class="pp">|</span> TSL15 CCC/CR2 SE ratio $\in <span class="co">[</span><span class="ot">0.9, 1.1</span><span class="co">]</span>$ <span class="pp">|</span> Real-data analysis, 6 DV categories <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-262"><a href="#cb1-262" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Contract <span class="pp">|</span> All S3 fields present and correctly typed <span class="pp">|</span> C0-01, C0-02, C1--C14 <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-263"><a href="#cb1-263" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Regression <span class="pp">|</span> CCC uses $V_{\mathrm{CR2}}$, not $V_{\mathrm{HC0}}$ <span class="pp">|</span> REGRESSION tests (3 assertions) <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-264"><a href="#cb1-264" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Full suite <span class="pp">|</span> 2,701 tests pass, 0 failures <span class="pp">|</span> <span class="in">`devtools::test()`</span> <span class="pp">|</span> Pass <span class="pp">|</span></span>
+<span id="cb1-265"><a href="#cb1-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-266"><a href="#cb1-266" aria-hidden="true" tabindex="-1"></a>: Acceptance criteria for bayesRVE v0.6.0. {#tbl-acceptance}</span>
+<span id="cb1-267"><a href="#cb1-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-268"><a href="#cb1-268" aria-hidden="true" tabindex="-1"></a><span class="fu">### What each gate proves</span></span>
+<span id="cb1-269"><a href="#cb1-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-270"><a href="#cb1-270" aria-hidden="true" tabindex="-1"></a>**Gate 1** proves that CHE is a correct generalization of CE.</span>
+<span id="cb1-271"><a href="#cb1-271" aria-hidden="true" tabindex="-1"></a>It does *not* prove that CE itself is correct---that requires D25 and the Tier 2 comparison.</span>
+<span id="cb1-272"><a href="#cb1-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-273"><a href="#cb1-273" aria-hidden="true" tabindex="-1"></a>**Tier 0** proves that the CCC transformation has the claimed algebraic properties (center preservation, covariance matching, identity limit).</span>
+<span id="cb1-274"><a href="#cb1-274" aria-hidden="true" tabindex="-1"></a>It does *not* prove that the sandwich target $V_{\mathrm{CR2}}$ is correctly computed---that is the role of D25.</span>
+<span id="cb1-275"><a href="#cb1-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-276"><a href="#cb1-276" aria-hidden="true" tabindex="-1"></a>**D25 (Tier 1)** proves that bayesRVE's CR2 linear algebra is identical to clubSandwich's when given the same inputs.</span>
+<span id="cb1-277"><a href="#cb1-277" aria-hidden="true" tabindex="-1"></a>It does *not* prove that posterior-mean centering yields valid frequentist inference---that is a statistical claim validated by the simulation study (sim3).</span>
+<span id="cb1-278"><a href="#cb1-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-279"><a href="#cb1-279" aria-hidden="true" tabindex="-1"></a>**Tier 2** proves that the full pipeline (MCMC + sandwich + CCC) produces results in the same ballpark as the frequentist standard.</span>
+<span id="cb1-280"><a href="#cb1-280" aria-hidden="true" tabindex="-1"></a>The 15% tolerance is a consequence of using posterior means rather than REML, not a sign of implementation error.</span>
+<span id="cb1-281"><a href="#cb1-281" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-282"><a href="#cb1-282" aria-hidden="true" tabindex="-1"></a>**Gate 3** proves that Three-Layer Calibration works on real data at the scale and complexity of a published meta-analysis.</span>
+<span id="cb1-283"><a href="#cb1-283" aria-hidden="true" tabindex="-1"></a>It does *not* prove coverage guarantees---those come from simulation.</span>
+<span id="cb1-284"><a href="#cb1-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-285"><a href="#cb1-285" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verification is not validation</span></span>
+<span id="cb1-286"><a href="#cb1-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-287"><a href="#cb1-287" aria-hidden="true" tabindex="-1"></a>The verification framework documented in this chapter establishes that the software correctly implements the mathematical specification.</span>
+<span id="cb1-288"><a href="#cb1-288" aria-hidden="true" tabindex="-1"></a>It does not establish that the mathematical specification is statistically appropriate for all meta-analytic settings.</span>
+<span id="cb1-289"><a href="#cb1-289" aria-hidden="true" tabindex="-1"></a>Validation---the question of whether CCC-t confidence intervals achieve nominal coverage across realistic data-generating processes---is addressed through the simulation study (sim3).</span>
+<span id="cb1-290"><a href="#cb1-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-291"><a href="#cb1-291" aria-hidden="true" tabindex="-1"></a>The distinction matters: a perfectly verified implementation of a flawed method would pass all tests in this chapter but fail the simulation benchmarks.</span>
+<span id="cb1-292"><a href="#cb1-292" aria-hidden="true" tabindex="-1"></a>Conversely, a correct method with a buggy implementation would fail Tier 0 or D25 long before reaching the simulation stage.</span>
+<span id="cb1-293"><a href="#cb1-293" aria-hidden="true" tabindex="-1"></a>The layered strategy ensures that each tier catches a distinct class of problems, and that no single tier is asked to do more than it can.</span>
+<span id="cb1-294"><a href="#cb1-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-295"><a href="#cb1-295" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-296"><a href="#cb1-296" aria-hidden="true" tabindex="-1"></a><span class="fu">## Simulation Validation Bridge (sim3) {#sec-verify-sim3}</span></span>
+<span id="cb1-297"><a href="#cb1-297" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-298"><a href="#cb1-298" aria-hidden="true" tabindex="-1"></a>The verification tiers above establish that bayesRVE correctly implements its mathematical specification. They cannot establish that the specification itself yields valid frequentist inference. That question---whether CCC-$t$ confidence intervals achieve nominal 95% coverage across realistic data-generating processes---is answered by the sim3 comprehensive simulation study.</span>
+<span id="cb1-299"><a href="#cb1-299" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-300"><a href="#cb1-300" aria-hidden="true" tabindex="-1"></a><span class="fu">### Design</span></span>
+<span id="cb1-301"><a href="#cb1-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-302"><a href="#cb1-302" aria-hidden="true" tabindex="-1"></a>sim3 comprises 24 conditions with 500 replications each (11,600 total fits), organized into four scenarios.</span>
+<span id="cb1-303"><a href="#cb1-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-304"><a href="#cb1-304" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Scenario <span class="pp">|</span> DGP <span class="pp">|</span> Fitted Model <span class="pp">|</span> Conditions <span class="pp">|</span> $J$ <span class="pp">|</span> $\tau$ <span class="pp">|</span> $\omega$ <span class="pp">|</span></span>
+<span id="cb1-305"><a href="#cb1-305" aria-hidden="true" tabindex="-1"></a><span class="pp">|:---------|:----|:-------------|:----------:|:----|:-------|:---------|</span></span>
+<span id="cb1-306"><a href="#cb1-306" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> S1 <span class="pp">|</span> CHE <span class="pp">|</span> CHE <span class="pp">|</span> 8 <span class="pp">|</span> 10, 20, 40, 60 <span class="pp">|</span> 0.1, 0.2 <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb1-307"><a href="#cb1-307" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> S2 <span class="pp">|</span> CHE <span class="pp">|</span> CE (misspec) <span class="pp">|</span> 8 <span class="pp">|</span> 10, 20, 40, 60 <span class="pp">|</span> 0.1, 0.2 <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb1-308"><a href="#cb1-308" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> S3 <span class="pp">|</span> Large $\omega$ <span class="pp">|</span> CE <span class="pp">|</span> 6 <span class="pp">|</span> 10, 20, 40 <span class="pp">|</span> 0.1, 0.2 <span class="pp">|</span> 0.3 <span class="pp">|</span></span>
+<span id="cb1-309"><a href="#cb1-309" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> S4 <span class="pp">|</span> Contaminated <span class="pp">|</span> CE <span class="pp">|</span> 2 <span class="pp">|</span> 20, 40 <span class="pp">| ---</span> <span class="pp">| ---</span> <span class="pp">|</span></span>
+<span id="cb1-310"><a href="#cb1-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-311"><a href="#cb1-311" aria-hidden="true" tabindex="-1"></a>: sim3 design: 24 conditions across four scenarios testing correct specification (S1), misspecification (S2--S3), and outlier robustness (S4). {#tbl-sim3-design}</span>
+<span id="cb1-312"><a href="#cb1-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-313"><a href="#cb1-313" aria-hidden="true" tabindex="-1"></a><span class="fu">### Coverage Results</span></span>
+<span id="cb1-314"><a href="#cb1-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-315"><a href="#cb1-315" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> CE (16 conditions) <span class="pp">|</span> CHE (8 conditions) <span class="pp">|</span></span>
+<span id="cb1-316"><a href="#cb1-316" aria-hidden="true" tabindex="-1"></a><span class="pp">|:-------|:-------------------|:-------------------|</span></span>
+<span id="cb1-317"><a href="#cb1-317" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC-$t$ (Three-Layer) <span class="pp">|</span> 93.4%--96.4% <span class="pp">|</span> 94.0%--96.2% <span class="pp">|</span></span>
+<span id="cb1-318"><a href="#cb1-318" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CCC-$q$ (Normal quantile) <span class="pp">|</span> 91.8%--95.8% <span class="pp">|</span> 92.2%--95.8% <span class="pp">|</span></span>
+<span id="cb1-319"><a href="#cb1-319" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CR2 (frequentist reference) <span class="pp">|</span> 92.8%--96.4% <span class="pp">|</span> 93.2%--96.4% <span class="pp">|</span></span>
+<span id="cb1-320"><a href="#cb1-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-321"><a href="#cb1-321" aria-hidden="true" tabindex="-1"></a>: sim3 coverage summary at the 95% nominal level. {#tbl-sim3-coverage}</span>
+<span id="cb1-322"><a href="#cb1-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-323"><a href="#cb1-323" aria-hidden="true" tabindex="-1"></a>Three findings are central. First, **CCC-$t$ closely tracks CR2 coverage** across all 24 conditions, confirming that the Bayesian calibrated posterior provides frequentist-valid inference. Second, **Layer 3 is essential at small $J$**: CCC-$q$ undercoverage reaches 91.8% at $J = 10$, motivating Satterthwaite df as the default in <span class="in">`confint.bm_ccc()`</span>. Third, the CCC calibration consistently *shrinks* the posterior ($R_k &lt; 1$), but the heavier $t$-distribution tails compensate, achieving nominal coverage.</span>
+<span id="cb1-324"><a href="#cb1-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-325"><a href="#cb1-325" aria-hidden="true" tabindex="-1"></a><span class="fu">### Score Parity Test (Planned)</span></span>
+<span id="cb1-326"><a href="#cb1-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-327"><a href="#cb1-327" aria-hidden="true" tabindex="-1"></a>A planned Tier 1 test will verify that the Stan generated-quantities <span class="in">`score_beta[j,k]`</span> and the R-side analytic score computation in <span class="in">`sandwich.R`</span> produce identical values at fixed parameter values. The test protocol uses <span class="in">`cmdstanr`</span>'s <span class="in">`$generate_quantities()`</span> method to evaluate the GQ block without MCMC, then compares element-wise against the R-side Woodbury-based score at $10^{-10}$ tolerance. This would close the last gap in the score-to-sandwich verification chain: D25 verifies downstream CR2 algebra, but the upstream score matrix has not yet been cross-validated across languages.</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

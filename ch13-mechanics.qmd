@@ -1,0 +1,648 @@
+---
+title: "CCC Mechanics and Limitations"
+---
+
+# CCC Mechanics: Deep Analysis {#sec-mechanics}
+
+This chapter examines the internal mechanics of Cholesky Calibration Correction through six complementary lenses: cross-model estimator contrasts, the $R_k$ calibration diagnostic, interval-width decomposition, the correlation structure of $V_{\text{CR2}}$, the control-type supplementary specification, and an honest assessment of what the TSL15 analysis does and does not validate. All results are computed from the v0.6.0 real-data analysis of the @tannersmith2015 dataset.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+R <- readRDS("../201_real-data-v060/v060_results.rds")
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggrepel)
+library(patchwork)
+
+theme_brve <- theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey40", size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+# Common objects used throughout the chapter
+dv_labs     <- R$table1$DV
+cov_labs    <- R$cov_table$Covariate
+param_names <- c(dv_labs, cov_labs)
+param_type  <- c(rep("DV Category", length(dv_labs)),
+                 rep("Covariate", length(cov_labs)))
+K_dv  <- length(dv_labs)
+K_cov <- length(cov_labs)
+K_all <- K_dv + K_cov
+```
+
+
+## Five-Estimator Cross-Model Contrasts {#sec-mechanics-five}
+
+The TSL15 dataset was analyzed under five estimation approaches: three frequentist (CE via robumeta, CE via metafor with CR2, CHE via metafor with CR2) and two Bayesian (bayesRVE CE with CCC-t, bayesRVE CHE with CCC-t). Comparing these estimators side by side isolates the contribution of each modeling decision.
+
+### DV Category Model: Full Five-Estimator Table
+
+@tbl-mech-full-5est presents the complete estimator comparison for the DV category moderator specification. Each row corresponds to one of six DV categories, with 17 columns spanning point estimates, standard errors, degrees of freedom, and $R_k$ values across all five methods.
+
+```{r}
+#| echo: false
+#| label: tbl-mech-full-5est
+#| tbl-cap: "DV Category Model: Complete Five-Estimator Comparison. Frequentist 'Est' columns are REML point estimates; Bayesian 'Est' columns are posterior means. All standard errors reflect small-sample CR2 corrections where applicable."
+kableExtra::kbl(R$table1, digits = 3, row.names = FALSE,
+             col.names = c("DV", "Est", "SE", "Est", "SE", "df",
+                           "Est", "SE", "df",
+                           "Est", "CCC SD", "df", "R_k",
+                           "Est", "CCC SD", "df", "R_k"),
+             align = c("l", rep("r", 16))) |>
+  kableExtra::kable_styling(font_size = 11, full_width = TRUE) |>
+  kableExtra::add_header_above(c(" " = 1,
+                                  "CE robumeta" = 2,
+                                  "CE metafor (CR2)" = 3,
+                                  "CHE metafor (CR2)" = 3,
+                                  "bayesRVE CE (CCC-t)" = 4,
+                                  "bayesRVE CHE (CCC-t)" = 4))
+```
+
+Four contrasts within this table are particularly informative.
+
+**Contrast 1: CE robumeta vs CE metafor.** Both implement correlated-effects working models, but differ in two respects. First, robumeta uses study-level aggregation with inverse-variance weights on study means, while metafor fits an observation-level model with a working correlation structure. Second, the small-sample corrections differ (robumeta's HTZ adjustment vs. metafor's CR2 via clubSandwich). Point estimates agree closely because both target the same marginal estimand; SE differences reflect both the aggregation/weighting distinction and the distinct correction strategies.
+
+**Contrast 2: CE metafor vs CHE metafor.** Moving from CE to CHE partitions between-study heterogeneity ($\tau^2$) and within-study heterogeneity ($\omega^2$). This typically lowers $\hat\tau$ in the CHE model (the tau-absorption effect). Standard errors may shift in either direction depending on the relative magnitudes of the variance components and the resulting changes in working weights.
+
+**Contrast 3: CE metafor vs bayesRVE CE.** This is the frequentist--Bayesian calibration contrast for the CE model. Point estimates differ slightly because the Bayesian posterior mean incorporates prior information. CCC SD targets bayesRVE's own CR2 sandwich variance (computed from Bayesian plug-in $\hat\tau^2$), which differs slightly from metafor's CR2 SE (computed from REML $\hat\tau^2$). By Theorem 2, CCC achieves its target exactly; the observed ratio departs from 1.0 primarily because the two methods target different $V_{\text{CR2}}$, with a secondary contribution from finite-$S$ Monte Carlo error.
+
+**Contrast 4: CHE metafor vs bayesRVE CHE.** The headline validation result. If CCC successfully extends Three-Layer Calibration to the CHE model, CCC SD should closely match CHE CR2 SE. The table confirms this: all six DV category ratios fall within the Gate 3 acceptance band of [0.9, 1.1].
+
+
+### Covariate Comparison {#sec-mechanics-covariates}
+
+Covariate coefficients are *outside the scope of Gate 3*, which is defined exclusively for the six DV category intercepts (see @sec-tsl15-design). CCC/CR2 ratios for covariates may fall outside the [0.9, 1.1] acceptance band; such departures do not constitute a Gate 3 failure. Covariates represent a more demanding test for CCC because they have fewer effective clusters per coefficient, lower Satterthwaite df, and correspondingly larger $R_k$ values.
+
+```{r}
+#| echo: false
+#| label: tbl-mech-covariates
+#| tbl-cap: "Covariate Estimates Across All Estimators (DV Model). Covariates stress-test CCC because they draw information from fewer effective clusters, producing lower df and higher R_k."
+knitr::kable(R$cov_table, digits = 4,
+             align = c("l", rep("r", ncol(R$cov_table) - 1)))
+```
+
+Several patterns emerge from the covariate table. First, point estimates show greater inter-method variability than DV categories, reflecting the lower information content per coefficient. Second, $R_k$ values for covariates are consistently further from 1.0 than for DV categories, confirming the theoretical prediction that CCC must work harder when the posterior is less well-identified. Third, Satterthwaite df for covariates is substantially lower than for DV categories, underscoring the importance of Layer 3 (the $t$-distribution correction) for these parameters. In particular, some covariate CCC/CR2 SE ratios exceed 1.5 (e.g., `percoll_c` under CHE), well outside the [0.9, 1.1] band. This is consistent with the theoretical expectation: Gate 3 was intentionally restricted to DV category coefficients precisely because covariates with low effective cluster counts are expected to show larger calibration discrepancies.
+
+
+## $R_k$ as a Calibration Diagnostic {#sec-mechanics-rk}
+
+The ratio $R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)$ measures the per-coefficient effect of CCC. It is a directly interpretable diagnostic: $R_k < 1$ means CCC shrinks the posterior, $R_k \approx 1$ means the posterior already matches the sandwich target, and $R_k > 1$ means CCC expands the posterior to compensate for overconfidence.
+
+### R_k Dot Plot: All Parameters Under CE and CHE
+
+```{r}
+#| echo: false
+#| label: fig-mech-rk-dotplot
+#| fig-cap: "R_k for all 11 parameters (6 DV categories, 5 covariates) under CE and CHE models. DV categories cluster near 1.0 (near-identity CCC), while covariates show expansion or compression depending on posterior-sandwich alignment. CHE R_k values are slightly more dispersed due to additional variance component estimation."
+#| fig-width: 9
+#| fig-height: 7
+
+rk_ce  <- R$cal_ce_dv$r_k[1:K_all]
+rk_che <- R$cal_che_dv$r_k[1:K_all]
+
+rk_df <- bind_rows(
+  data.frame(Param = param_names, R_k = rk_ce,
+             Model = "CE", Type = param_type, stringsAsFactors = FALSE),
+  data.frame(Param = param_names, R_k = rk_che,
+             Model = "CHE", Type = param_type, stringsAsFactors = FALSE)
+)
+
+ggplot(rk_df, aes(x = R_k, y = reorder(Param, R_k),
+                  color = Model, shape = Type)) +
+  geom_vline(xintercept = 1.0, linetype = "dashed", color = "grey50") +
+  geom_point(size = 3.5, position = position_dodge(width = 0.5)) +
+  scale_color_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  scale_shape_manual(values = c("DV Category" = 16, "Covariate" = 17)) +
+  labs(title = expression(R[k] ~ ": Calibration Intensity Across All Parameters"),
+       subtitle = expression(R[k] < 1 ~ "= CCC shrinks posterior;" ~
+                             R[k] > 1 ~ "= CCC expands to match CR2"),
+       x = expression(R[k] ~ "(SD ratio: CCC / original posterior)"), y = NULL,
+       color = "Model", shape = "Parameter Type") +
+  theme_brve
+```
+
+### The R_k--df Inverse Relationship
+
+A key structural property of CCC is the inverse relationship between $R_k$ and Satterthwaite df. Parameters with high df (many effective clusters) show $R_k \approx 1.0$ because the data dominate the prior, and the posterior variance already approximates the sandwich variance. Parameters with low df show $R_k$ further from 1.0 because prior shrinkage creates a gap between the posterior and the sandwich target.
+
+```{r}
+#| echo: false
+#| label: fig-mech-rk-vs-df
+#| fig-cap: "R_k versus Satterthwaite df for all 11 coefficients under CE and CHE models. The inverse relationship confirms the theoretical prediction: CCC compensates most where the posterior is least well-identified. A LOESS trend line highlights the systematic pattern."
+#| fig-width: 9
+#| fig-height: 6
+
+df_ce  <- R$sw_ce_dv$df_satt[1:K_all]
+df_che <- R$sw_che_dv$df_satt[1:K_all]
+
+rk_df_scatter <- bind_rows(
+  data.frame(Param = param_names, R_k = rk_ce, df = df_ce,
+             Model = "CE", Type = param_type, stringsAsFactors = FALSE),
+  data.frame(Param = param_names, R_k = rk_che, df = df_che,
+             Model = "CHE", Type = param_type, stringsAsFactors = FALSE)
+)
+
+ggplot(rk_df_scatter, aes(x = df, y = R_k, color = Model, shape = Type)) +
+  geom_hline(yintercept = 1.0, linetype = "dashed", color = "grey50") +
+  geom_point(size = 3.5) +
+  geom_smooth(aes(group = 1), method = "loess", se = FALSE,
+              color = "grey40", linewidth = 0.8, linetype = "dotted") +
+  geom_text_repel(aes(label = Param), size = 2.5, max.overlaps = 15,
+                  show.legend = FALSE) +
+  scale_color_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  scale_shape_manual(values = c("DV Category" = 16, "Covariate" = 17)) +
+  annotate("text", x = max(rk_df_scatter$df) * 0.65,
+           y = max(rk_df_scatter$R_k) * 0.95,
+           label = "Low df => CCC compensates more\nHigh df => near-identity",
+           size = 3.5, fontface = "italic", color = "grey30", hjust = 0) +
+  labs(title = expression(R[k] ~ "vs Satterthwaite df: The Identification Gradient"),
+       subtitle = "CCC automatically adapts calibration intensity to each coefficient's identification strength",
+       x = "Satterthwaite df", y = expression(R[k]),
+       color = "Model", shape = "Parameter Type") +
+  theme_brve
+```
+
+This pattern holds across both CE and CHE models, though CHE points shift slightly leftward (lower df) because estimating $\omega^2$ consumes additional effective degrees of freedom. The LOESS trend line captures the systematic decay from expansion ($R_k > 1$) at low df to near-identity ($R_k \approx 1$) at high df.
+
+
+### CCC Dumbbell Chart: Original vs Calibrated SD
+
+The dumbbell chart provides a direct visual comparison of posterior SD before and after CCC, for all 11 CHE parameters.
+
+```{r}
+#| echo: false
+#| label: fig-mech-dumbbell
+#| fig-cap: "CCC dumbbell chart for the CHE model: original posterior SD (left endpoint) vs CCC SD (right endpoint) for all 11 parameters. Rightward movement indicates expansion (R_k > 1); leftward movement indicates shrinkage (R_k < 1). DV categories show minimal change; covariates show larger adjustments."
+#| fig-width: 9
+#| fig-height: 6
+
+sd_orig_che <- apply(R$cal_che_dv$draws_orig[, 1:K_all], 2, sd)
+sd_ccc_che  <- apply(R$cal_che_dv$draws_star[, 1:K_all], 2, sd)
+
+dumb_df <- data.frame(
+  Parameter = factor(param_names, levels = rev(param_names)),
+  Type      = param_type,
+  SD_orig   = sd_orig_che,
+  SD_ccc    = sd_ccc_che,
+  R_k       = rk_che,
+  stringsAsFactors = FALSE
+)
+
+ggplot(dumb_df, aes(y = Parameter)) +
+  geom_segment(aes(x = SD_orig, xend = SD_ccc, yend = Parameter),
+               color = "grey60", linewidth = 0.8) +
+  geom_point(aes(x = SD_orig), color = "#4393C3", size = 3, shape = 16) +
+  geom_point(aes(x = SD_ccc), color = "#D6604D", size = 3, shape = 17) +
+  geom_text(aes(x = SD_ccc, label = sprintf("R=%.2f", R_k)),
+            hjust = -0.2, size = 2.8, color = "grey30") +
+  labs(title = "CHE Model: Original Posterior SD vs CCC SD",
+       subtitle = "Blue circle = original posterior SD; Red triangle = CCC SD (after calibration)",
+       x = "Standard Deviation", y = NULL) +
+  theme_brve +
+  theme(legend.position = "none")
+```
+
+The interpretation is immediate: CCC automatically adapts calibration intensity to each coefficient's identification strength. Well-estimated DV categories experience minimal adjustment, while covariates with fewer effective clusters undergo substantial expansion or compression to align with the CR2 sandwich target.
+
+
+## Interval-Width Decomposition {#sec-mechanics-interval}
+
+Three-Layer Calibration produces confidence intervals through a sequence of adjustments. Decomposing the interval half-width reveals the contribution of each layer.
+
+**Layer 1 (Posterior mean):** The point estimate $\hat\psi_k$ centers the interval. CCC preserves this anchor exactly.
+
+**Layer 2 (CCC spread calibration):** The posterior SD is transformed via $R_k$, so CCC SD $= R_k \times$ posterior SD. This aligns the spread with the CR2 sandwich.
+
+**Layer 3 (Satterthwaite $t$-distribution):** The critical value shifts from $z_{0.975} = 1.96$ to $t_{0.975, \text{df}_k}$. When df is large, $t \approx z$ and Layer 3 adds little. When df is small, the $t$ inflation is substantial.
+
+### Three-Layer Decomposition Table
+
+```{r}
+#| echo: false
+#| label: tbl-mech-interval-decomp
+#| tbl-cap: "Three-Layer Interval Decomposition for DV Category Coefficients (CHE Model). The table shows how each layer contributes to the final CCC-t interval half-width, and the ratio t/z quantifies the Layer 3 contribution."
+
+sd_orig_che_dv <- sd_orig_che[1:K_dv]
+sd_ccc_che_dv  <- sd_ccc_che[1:K_dv]
+rk_che_dv      <- rk_che[1:K_dv]
+df_che_dv      <- R$sw_che_dv$df_satt[1:K_dv]
+cr2_se_che_dv  <- sqrt(diag(R$sw_che_dv$V_sand_marg))[1:K_dv]
+
+decomp_df <- data.frame(
+  DV       = dv_labs,
+  Post_SD  = round(sd_orig_che_dv, 4),
+  CCC_SD   = round(sd_ccc_che_dv, 4),
+  R_k      = round(rk_che_dv, 3),
+  z_width  = round(1.96 * sd_ccc_che_dv, 4),
+  t_width  = round(qt(0.975, df_che_dv) * sd_ccc_che_dv, 4),
+  t_z_ratio = round(qt(0.975, df_che_dv) / 1.96, 3),
+  df       = round(df_che_dv, 1),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(decomp_df, digits = 4,
+             col.names = c("DV Category", "Post. SD", "CCC SD", "$R_k$",
+                           "z Half-Width", "t Half-Width", "t/z Ratio", "df"),
+             align = c("l", rep("r", 7)))
+```
+
+The key insight emerges from the $t/z$ ratio column. At df $> 30$, the ratio is close to 1.0, meaning Layer 3 adds only a few percent to the interval width. At df $< 10$, the ratio can exceed 1.2 or more, making Layer 3 essential for coverage.
+
+### Decomposition Including Covariates
+
+```{r}
+#| echo: false
+#| label: tbl-mech-interval-full
+#| tbl-cap: "Three-Layer Interval Decomposition for All 11 CHE Parameters. Covariates with low df show the largest t/z ratios, confirming that Satterthwaite correction is most consequential for poorly-identified coefficients."
+
+df_che_all   <- R$sw_che_dv$df_satt[1:K_all]
+cr2_se_all   <- sqrt(diag(R$sw_che_dv$V_sand_marg))[1:K_all]
+
+decomp_full <- data.frame(
+  Parameter  = param_names,
+  Type       = param_type,
+  Post_SD    = round(sd_orig_che, 4),
+  CCC_SD     = round(sd_ccc_che, 4),
+  R_k        = round(rk_che, 3),
+  z_width    = round(1.96 * sd_ccc_che, 4),
+  t_width    = round(qt(0.975, df_che_all) * sd_ccc_che, 4),
+  t_z_ratio  = round(qt(0.975, df_che_all) / 1.96, 3),
+  df         = round(df_che_all, 1),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(decomp_full, digits = 4,
+             col.names = c("Parameter", "Type", "Post. SD", "CCC SD", "$R_k$",
+                           "z Half-Width", "t Half-Width", "t/z Ratio", "df"),
+             align = c("l", "l", rep("r", 7)))
+```
+
+### Three-Layer Bar Chart
+
+```{r}
+#| echo: false
+#| label: fig-mech-three-layer-bars
+#| fig-cap: "Three-Layer interval half-width decomposition for selected coefficients. Four bars per coefficient: raw Bayesian (z-based), CCC with z-quantile (Layer 2 only), CCC with t-quantile (full Three-Layer), and frequentist CR2 with t-quantile. CCC-t closely tracks CR2-t."
+#| fig-width: 10
+#| fig-height: 7
+
+# Select representative coefficients: 2 DV categories + 2 covariates
+all_df_che <- R$sw_che_dv$df_satt[1:K_all]
+low_df_idx  <- K_dv + which.min(all_df_che[(K_dv + 1):K_all])
+high_df_idx <- which.max(all_df_che[1:K_dv])
+mid_df_idx  <- K_dv + which.max(all_df_che[(K_dv + 1):K_all])
+
+# metafor df for comparison
+df_mf_all <- R$df_mf_dv[1:K_all]
+
+sel_idx   <- c(1, high_df_idx, mid_df_idx, low_df_idx)
+sel_names <- param_names[sel_idx]
+
+bar_layers <- data.frame(
+  Parameter = rep(sel_names, each = 4),
+  Layer = rep(c("1. Raw Bayes (z)", "2. CCC-q (z)",
+                "3. CCC-t (Satt.)", "4. CR2-t (metafor)"), times = length(sel_idx)),
+  HalfWidth = unlist(lapply(sel_idx, function(i) {
+    c(1.96 * sd_orig_che[i],
+      1.96 * sd_ccc_che[i],
+      qt(0.975, all_df_che[i]) * sd_ccc_che[i],
+      qt(0.975, df_mf_all[i]) * cr2_se_all[i])
+  })),
+  stringsAsFactors = FALSE
+)
+
+bar_layers$Layer <- factor(bar_layers$Layer,
+  levels = c("1. Raw Bayes (z)", "2. CCC-q (z)",
+             "3. CCC-t (Satt.)", "4. CR2-t (metafor)"))
+bar_layers$Parameter <- factor(bar_layers$Parameter, levels = rev(sel_names))
+
+layer_colors <- c("1. Raw Bayes (z)" = "#92C5DE",
+                   "2. CCC-q (z)" = "#4393C3",
+                   "3. CCC-t (Satt.)" = "#2166AC",
+                   "4. CR2-t (metafor)" = "#B2182B")
+
+ggplot(bar_layers, aes(x = HalfWidth, y = Parameter, fill = Layer)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6, alpha = 0.85) +
+  scale_fill_manual(values = layer_colors) +
+  labs(title = "Three-Layer Interval Width Decomposition",
+       subtitle = "Half-width of 95% CI under each inference strategy (CHE model)",
+       x = "95% CI Half-Width", y = NULL, fill = "Inference Layer") +
+  theme_brve +
+  theme(legend.position = "bottom",
+        legend.key.size = unit(0.8, "lines"))
+```
+
+The bar chart makes the three-layer progression visible. For DV categories with high df, all four bars are nearly equal: CCC is a near-identity transformation, and the $t$-quantile is close to $z$. For covariates with low df, the progression from raw Bayes to CCC-q to CCC-t involves substantial widening at each stage, and the final CCC-t bar closely matches the CR2-t reference bar.
+
+
+## Correlation Structure of $V_{\text{CR2}}$ {#sec-mechanics-correlation}
+
+CCC operates as a multivariate transformation via the Cholesky factors $L_2 L_1^{-1}$. To understand why a univariate rescaling would be insufficient, it is necessary to examine the off-diagonal structure of $V_{\text{CR2}}$.
+
+### CE Model Correlation Matrix
+
+```{r}
+#| echo: false
+#| label: fig-mech-corr-ce
+#| fig-cap: "Correlation matrix of V_CR2 for the CE DV model. DV categories are nearly uncorrelated (cell-means parameterization), while covariates show moderate cross-correlation with DV categories. The off-diagonal structure necessitates CCC's multivariate Cholesky transformation."
+#| fig-width: 8
+#| fig-height: 7
+
+V_ce <- R$sw_ce_dv$V_sand_marg
+cor_ce <- cov2cor(V_ce)
+
+cor_long_ce <- expand.grid(Row = 1:K_all, Col = 1:K_all) |>
+  mutate(
+    Correlation = as.vector(cor_ce),
+    Row_lab = factor(param_names[Row], levels = rev(param_names)),
+    Col_lab = factor(param_names[Col], levels = param_names)
+  )
+
+ggplot(cor_long_ce, aes(x = Col_lab, y = Row_lab, fill = Correlation)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(abs(Correlation) > 0.005,
+                                sprintf("%.2f", Correlation), "")),
+            size = 2.5,
+            color = ifelse(abs(cor_long_ce$Correlation) > 0.6, "white", "black")) +
+  scale_fill_gradient2(low = "#2166AC", mid = "#F7F7F7", high = "#B2182B",
+                       midpoint = 0, limits = c(-1, 1),
+                       name = "Correlation") +
+  labs(title = expression(V[CR2] ~ "Correlation Matrix (CE DV Model)"),
+       subtitle = "Off-diagonal structure drives the multivariate CCC transformation",
+       x = NULL, y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey40", size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 9),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+```
+
+### CHE Model Correlation Matrix
+
+```{r}
+#| echo: false
+#| label: fig-mech-corr-che
+#| fig-cap: "Correlation matrix of V_CR2 for the CHE DV model. The pattern is similar to the CE model but with modestly different magnitudes due to the omega-augmented working weights. DV-DV correlations remain near zero; covariate cross-correlations persist."
+#| fig-width: 8
+#| fig-height: 7
+
+V_che <- R$sw_che_dv$V_sand_marg
+cor_che <- cov2cor(V_che)
+
+cor_long_che <- expand.grid(Row = 1:K_all, Col = 1:K_all) |>
+  mutate(
+    Correlation = as.vector(cor_che),
+    Row_lab = factor(param_names[Row], levels = rev(param_names)),
+    Col_lab = factor(param_names[Col], levels = param_names)
+  )
+
+ggplot(cor_long_che, aes(x = Col_lab, y = Row_lab, fill = Correlation)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(abs(Correlation) > 0.005,
+                                sprintf("%.2f", Correlation), "")),
+            size = 2.5,
+            color = ifelse(abs(cor_long_che$Correlation) > 0.6, "white", "black")) +
+  scale_fill_gradient2(low = "#2166AC", mid = "#F7F7F7", high = "#B2182B",
+                       midpoint = 0, limits = c(-1, 1),
+                       name = "Correlation") +
+  labs(title = expression(V[CR2] ~ "Correlation Matrix (CHE DV Model)"),
+       subtitle = "Omega-augmented weights modify magnitudes but preserve the block structure",
+       x = NULL, y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey40", size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 9),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+```
+
+### Interpretation
+
+The correlation matrices reveal two structural features. First, DV categories are nearly uncorrelated with each other (off-diagonal values near zero in the upper-left block). This reflects the cell-means parameterization: each DV category is estimated by a largely distinct set of studies. Second, covariates show moderate correlations with DV categories and with each other. These cross-correlations arise because covariates draw information from all studies, not from disjoint subsets.
+
+The multivariate nature of CCC is essential for handling these off-diagonal elements. A naive coefficient-by-coefficient rescaling would achieve the correct marginal SDs (matching $R_k$ on the diagonal) but would fail to capture the correlation structure embedded in $V_{\text{CR2}}$. The Cholesky factor $L_2 L_1^{-1}$ simultaneously rotates and rescales the posterior draws to match both the diagonal variances and the off-diagonal covariances.
+
+
+## Supplementary: Control-Type Specification {#sec-mechanics-control}
+
+The DV category model is the primary validation target. As a robustness check, the TSL15 data were also analyzed using control type as the moderator, producing a four-category grouping with a different effective cluster distribution.
+
+### Control-Type Estimator Table
+
+```{r}
+#| echo: false
+#| label: tbl-mech-ctrl-full
+#| tbl-cap: "Control-Type Model: Full Five-Estimator Comparison. Four control type categories plus five covariates."
+kableExtra::kbl(R$table2, digits = 3, row.names = FALSE,
+             col.names = c("Control Type", "Est", "SE", "Est", "SE", "df",
+                           "Est", "SE", "df",
+                           "Est", "CCC SD", "df", "R_k",
+                           "Est", "CCC SD", "df", "R_k"),
+             align = c("l", rep("r", 16))) |>
+  kableExtra::kable_styling(font_size = 11, full_width = TRUE) |>
+  kableExtra::add_header_above(c(" " = 1,
+                                  "CE robumeta" = 2,
+                                  "CE metafor (CR2)" = 3,
+                                  "CHE metafor (CR2)" = 3,
+                                  "bayesRVE CE (CCC-t)" = 4,
+                                  "bayesRVE CHE (CCC-t)" = 4))
+```
+
+### Control-Type CCC/CR2 Ratios
+
+```{r}
+#| echo: false
+#| label: tbl-mech-ctrl-ratios
+#| tbl-cap: "Control-Type Model: CCC SD / CR2 SE Ratios and Satterthwaite df for CE and CHE Models."
+knitr::kable(R$se_ratios_ctrl, digits = 4,
+             col.names = c("Control Type", "CCC SD", "CR2 SE", "Ratio",
+                           "CCC SD", "CR2 SE", "Ratio",
+                           "df (bayesRVE)", "df (metafor)",
+                           "df (bayesRVE)", "df (metafor)"),
+             align = c("l", rep("r", 10)))
+```
+
+```{r}
+#| echo: false
+ctrl_ce  <- as.numeric(R$se_ratios_ctrl$CE_ratio)
+ctrl_che <- as.numeric(R$se_ratios_ctrl$CHE_ratio)
+```
+
+Summary statistics for the control-type specification:
+
+- Mean CE CCC/CR2 ratio: **`r round(mean(ctrl_ce), 4)`**
+- Mean CHE CCC/CR2 ratio: **`r round(mean(ctrl_che), 4)`**
+- CE Gate 3 status: **`r ifelse(all(ctrl_ce > 0.9 & ctrl_ce < 1.1), "ALL PASS", "CHECK")`**
+- CHE Gate 3 status: **`r ifelse(all(ctrl_che > 0.9 & ctrl_che < 1.1), "ALL PASS", "CHECK")`**
+
+### The Straw-Man Anomaly
+
+::: {.callout-warning}
+## Control-Type Framing Caveat
+
+The control-type specification produces Gate 3 exceedances under **both** models, not only CHE:
+
+- **CHE Straw man:** CCC/CR2 ratio = **`r sprintf("%.3f", ctrl_che[which(R$se_ratios_ctrl[[1]] == "Straw man")])`** (largest exceedance)
+- **CE Straw man:** CCC/CR2 ratio = **`r sprintf("%.3f", ctrl_ce[which(R$se_ratios_ctrl[[1]] == "Straw man")])`**
+- **CE Treatment as usual:** CCC/CR2 ratio = **`r sprintf("%.3f", ctrl_ce[which(R$se_ratios_ctrl[[1]] == "Treatment as usual")])`**
+
+All three exceed the [0.9, 1.1] acceptance band. This is not confined to the CHE model; it reflects a small-effective-$J$ phenomenon for these moderator categories.
+
+**Why this happens:** The Straw man category has the fewest contributing studies among the control types. With fewer effective clusters, the Bayesian posterior mean and the REML estimate of $\tau^2$ (and $\omega^2$) can diverge more substantially due to stronger prior influence. This produces a larger gap between bayesRVE's $V_{\text{CR2}}$ (the CCC target, computed from Bayesian plug-ins) and metafor's $V_{\text{CR2}}$ (the benchmark, computed from REML). CCC achieves its own target exactly (Theorem 2), but the *targets themselves* differ more than in the high-$J$ DV-category specification, pushing the ratio outside the acceptance band. Finite-$S$ Monte Carlo error is a secondary contributor.
+
+**Manuscript implications:**
+
+1. Gate 3 claims should be framed around the DV-category specification, which is the primary analysis.
+2. The control-type model is a supplementary robustness check, not a Gate 3 target.
+3. Do not claim that all TSL15 coefficients stay within [0.9, 1.1] -- this is true for the validated DV-category specification but not universally across all parameterizations.
+4. This behavior is expected and should be acknowledged as a known boundary condition.
+:::
+
+### Control-Type R_k Comparison
+
+```{r}
+#| echo: false
+#| label: fig-mech-rk-ctrl
+#| fig-cap: "R_k for control-type moderators under CE and CHE. The same gradient observed in the DV model appears: categorical moderators with many effective clusters show R_k near 1.0, while covariates and the Straw man category show larger deviations."
+#| fig-width: 9
+#| fig-height: 6
+
+ctrl_labs <- R$table2$Ctype
+K_ctrl    <- length(ctrl_labs)
+n_ctrl_params <- K_ctrl + K_cov
+
+rk_ce_ctrl  <- R$cal_ce_ctrl$r_k[1:n_ctrl_params]
+rk_che_ctrl <- R$cal_che_ctrl$r_k[1:n_ctrl_params]
+
+ctrl_all_names <- c(ctrl_labs, cov_labs)
+ctrl_types     <- c(rep("Control Type", K_ctrl), rep("Covariate", K_cov))
+
+rk_ctrl_df <- bind_rows(
+  data.frame(Param = ctrl_all_names, R_k = rk_ce_ctrl,
+             Model = "CE", Type = ctrl_types, stringsAsFactors = FALSE),
+  data.frame(Param = ctrl_all_names, R_k = rk_che_ctrl,
+             Model = "CHE", Type = ctrl_types, stringsAsFactors = FALSE)
+)
+
+ggplot(rk_ctrl_df, aes(x = R_k, y = reorder(Param, R_k),
+                       color = Model, shape = Type)) +
+  geom_vline(xintercept = 1.0, linetype = "dashed", color = "grey50") +
+  annotate("rect", xmin = 0.9, xmax = 1.1, ymin = -Inf, ymax = Inf,
+           fill = "#2CA02C", alpha = 0.08) +
+  geom_point(size = 3, position = position_dodge(width = 0.5)) +
+  scale_color_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  scale_shape_manual(values = c("Control Type" = 16, "Covariate" = 17)) +
+  labs(title = expression(R[k] ~ ": Control-Type Model"),
+       subtitle = expression(R[k] < 1 ~ "= shrinkage," ~
+                             R[k] > 1 ~ "= expansion; green band = [0.9, 1.1]"),
+       x = expression(R[k] ~ "(SD ratio: CCC / posterior)"), y = NULL,
+       color = "Model", shape = "Parameter Type") +
+  theme_brve
+```
+
+
+## What the TSL15 Analysis Validates -- and What It Does Not {#sec-mechanics-limits}
+
+An honest assessment of the evidentiary scope is essential for responsible claims in the manuscript. The TSL15 real-data analysis provides strong but bounded evidence.
+
+### Validated Claims
+
+The following claims are directly supported by the TSL15 analysis:
+
+1. **CCC produces inference equivalent to RVE for the DV-category specification.** All six CCC SD / CR2 SE ratios fall within [0.9, 1.1] for both CE and CHE, with mean ratios at or near 1.0.
+
+2. **Three-Layer Calibration extends from CE to CHE.** The overlay pattern (omega-augmented Woodbury weights flowing through shared CR2 infrastructure) produces CHE calibration quality comparable to CE.
+
+3. **Satterthwaite df provides per-coefficient small-sample correction.** The interval decomposition confirms that the $t$-distribution adjustment is essential for covariates with low effective cluster counts.
+
+4. **CCC preserves Bayesian point estimates while recalibrating uncertainty.** Posterior means are invariant under the CCC transformation, which adjusts only the spread and correlation structure.
+
+5. **$R_k$ is an interpretable diagnostic of calibration intensity.** The systematic inverse relationship with df provides researchers a transparent summary of where and how CCC adjusts the posterior.
+
+6. **Variance component partitioning is correct.** CE tau-absorption and CHE omega shrinkage behave as theoretically expected, with the prior-sensitive decomposition clearly acknowledged.
+
+### Claims NOT Validated
+
+The following claims are not supported by the TSL15 analysis alone:
+
+1. **Generalization beyond a single dataset.** TSL15 is a large, well-behaved meta-analytic dataset ($J = 107$, $N = 1{,}198$). Generalization to smaller datasets, different domains, or atypical heterogeneity structures requires simulation evidence. The sim3 study (24 conditions, 11,600 fits) addresses this for both CE (16 conditions across scenarios S2--S4) and CHE (8 conditions in scenario S1, correctly specified, $J = 10$--$60$). The CHE evidence is narrower in scope---confined to correct specification---so broader CHE robustness (misspecification, prior sensitivity) remains a target for sim4.
+
+2. **Prior sensitivity on real data.** The half-Cauchy(0, 0.5) prior on $\tau$ and $\omega$ is the default, and no alternative priors were tested on TSL15. The omega posterior shows noticeable shrinkage relative to REML, but the consequences for CCC calibration are inferred from theory, not directly measured.
+
+3. **Coverage of CCC-t intervals.** Nominal 95% coverage cannot be directly assessed on real data because the true parameter values are unknown. The sim3 study provides coverage evidence for both CE (93.4--96.4% across 16 conditions) and CHE (94.0--96.2% across 8 conditions), but under HC0 corrections. The v0.6.0 CR2-based intervals have not yet been independently validated in simulation.
+
+4. **Universality across parameterizations.** The Straw man anomaly demonstrates that not all moderator specifications produce ratios within [0.9, 1.1]. The DV-category model passes Gate 3 under both CE and CHE; the control-type model fails under both models for low-effective-$J$ categories (Straw man in both, Treatment as usual in CE).
+
+5. **Multi-parameter joint inference.** v0.6.0 provides only per-coefficient CCC-t intervals. Wald and F tests for joint hypotheses (e.g., omnibus test for DV category differences) are deferred to v0.7.0.
+
+6. **Within-study varying moderators on real data.** The TSL15 analysis uses study-constant moderators. Although bayesRVE supports observation-level sandwich estimation (v0.3.0), this capability was not exercised in the real-data analysis.
+
+
+### Supported vs Unsupported Claims: Formal Summary
+
+```{r}
+#| echo: false
+#| label: tbl-mech-claims
+#| tbl-cap: "Formal Assessment of Claims Supported by the TSL15 Real-Data Analysis. Status indicates whether the claim is supported (S), partially supported (P), or not supported (N) by the TSL15 evidence."
+
+claims_df <- data.frame(
+  Claim = c(
+    "CCC SD matches CR2 SE for DV-category specification",
+    "Three-Layer Calibration extends from CE to CHE",
+    "Satterthwaite df is essential for low-df coefficients",
+    "CCC preserves posterior means exactly",
+    "R_k is an interpretable calibration diagnostic",
+    "Variance components partition correctly (tau-absorption)",
+    "CCC-t achieves nominal 95% coverage",
+    "CCC calibration holds across all parameterizations",
+    "CCC is robust to prior choice on variance components",
+    "Multi-parameter Wald/F tests maintain calibration"
+  ),
+  Status = c("S", "S", "S", "S", "S", "S", "P", "P", "N", "N"),
+  Evidence = c(
+    "6/6 DV ratios in [0.9, 1.1], mean = 1.00",
+    "CHE ratios match CE quality; shared CR2 infrastructure",
+    "Interval decomposition: t/z > 1.2 for low-df covariates",
+    "CCC formula anchors at posterior mean by construction",
+    "R_k-df inverse relationship confirmed across 22 coefficients",
+    "CE tau > CHE tau; CHE omega absorbs within-study variance",
+    "sim3 CE coverage 93.4-96.4%, CHE 94.0-96.2% (HC0); no direct real-data test",
+    "DV-category PASS; control-type fails both CE and CHE for low-J categories",
+    "No prior sensitivity analysis on real data; omega shrinkage noted",
+    "Not implemented in v0.6.0; deferred to v0.7.0"
+  ),
+  Limitation = c(
+    "Single dataset (J=107); needs simulation replication",
+    "Single dataset; sim3 CHE supportive (8 conditions, S1 only) but narrower scope than CE",
+    "Exact coverage improvement not measured on real data",
+    "Theoretical guarantee, not empirical finding",
+    "Gradient slope not formally tested; visual evidence only",
+    "Prior-sensitive decomposition not fully quantified",
+    "Real-data coverage unknown; sim3 coverage (CE + CHE) uses HC0, not CR2",
+    "Boundary conditions (small J_eff) not mapped systematically",
+    "sim4 prior sensitivity conditions planned but not executed",
+    "v0.7.0 deliverable"
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(claims_df,
+             col.names = c("Claim", "Status", "Evidence", "Limitation"),
+             align = c("l", "c", "l", "l"))
+```
+
+The pattern is clear: CCC mechanics are well-validated for the primary DV-category specification on a single large dataset, but boundary conditions, prior sensitivity, and multi-parameter inference remain open questions that require simulation evidence (sim3/sim4) and methodological extensions (v0.7.0). The manuscript should present the TSL15 results as a strong proof-of-concept, while directing readers to the simulation studies for generalizability evidence.

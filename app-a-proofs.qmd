@@ -1,0 +1,900 @@
+---
+title: "Extended Proofs and Derivations"
+---
+
+# Extended Proofs and Derivations {#sec-appendix-proofs}
+
+This appendix provides complete mathematical derivations for results referenced throughout the main chapters. Every proof is carried through in full, with explicit references to original sources where the argument depends on results beyond our scope (e.g., cross-study residual covariance cancellation in the CR2 meat; @bell2002, Theorem 1). Notation follows @sec-notation throughout.
+
+
+## Woodbury Inverse for Compound-Symmetric Matrices {#sec-proof-woodbury}
+
+The marginal covariance of study $j$ under both the CE and CHE working models has the compound-symmetric structure
+
+$$
+\boldsymbol{\Sigma}_j = a_j \mathbf{I}_{n_j} + \tau^2 \mathbf{1}_{n_j}\mathbf{1}_{n_j}',
+$$ {#eq-app-sigma-j}
+
+where $a_j = \bar{s}_j^2$ for the CE model and $a_j = \bar{s}_j^2 + \omega^2$ for the CHE model. The matrix $\mathbf{1}_{n_j}$ denotes the $n_j$-dimensional column vector of ones, and $\mathbf{J}_{n_j} = \mathbf{1}_{n_j}\mathbf{1}_{n_j}'$ is the $n_j \times n_j$ all-ones matrix. We seek a closed-form inverse that avoids the $O(n_j^3)$ cost of general matrix inversion.
+
+::: {#thm-woodbury-inverse}
+### Woodbury Inverse
+
+Let $a_j > 0$, $\tau^2 \geq 0$, and $c_j = a_j + n_j\tau^2 > 0$. Then
+
+$$
+\boldsymbol{\Sigma}_j^{-1} = \mathbf{W}_j = \frac{1}{a_j}\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\mathbf{J}_{n_j}.
+$$ {#eq-app-woodbury-result}
+:::
+
+::: {.proof}
+We apply the Woodbury matrix identity. For conformable matrices satisfying the requisite invertibility conditions,
+
+$$
+(A + UCV)^{-1} = A^{-1} - A^{-1}U\bigl(C^{-1} + VA^{-1}U\bigr)^{-1}VA^{-1}.
+$$ {#eq-app-woodbury-identity}
+
+Identify the components of $\boldsymbol{\Sigma}_j = a_j\mathbf{I}_{n_j} + \tau^2\mathbf{1}_{n_j}\mathbf{1}_{n_j}'$ with the Woodbury template:
+
+| Symbol | Assignment | Dimension |
+|:-------|:-----------|:----------|
+| $A$ | $a_j\mathbf{I}_{n_j}$ | $n_j \times n_j$ |
+| $U$ | $\tau\,\mathbf{1}_{n_j}$ | $n_j \times 1$ |
+| $C$ | $1$ | $1 \times 1$ |
+| $V$ | $\tau\,\mathbf{1}_{n_j}'$ | $1 \times n_j$ |
+
+Verify that $UCV = \tau\,\mathbf{1}_{n_j}\cdot 1 \cdot \tau\,\mathbf{1}_{n_j}' = \tau^2\mathbf{J}_{n_j}$, confirming the decomposition.
+
+**Step 1.** Compute $A^{-1}$:
+
+$$
+A^{-1} = \frac{1}{a_j}\mathbf{I}_{n_j}.
+$$
+
+**Step 2.** Compute $VA^{-1}U$:
+
+$$
+VA^{-1}U = \tau\,\mathbf{1}_{n_j}'\,\frac{1}{a_j}\mathbf{I}_{n_j}\,\tau\,\mathbf{1}_{n_j} = \frac{\tau^2}{a_j}\,\mathbf{1}_{n_j}'\mathbf{1}_{n_j} = \frac{n_j\tau^2}{a_j}.
+$$
+
+**Step 3.** Compute $C^{-1} + VA^{-1}U$:
+
+$$
+C^{-1} + VA^{-1}U = 1 + \frac{n_j\tau^2}{a_j} = \frac{a_j + n_j\tau^2}{a_j} = \frac{c_j}{a_j}.
+$$
+
+**Step 4.** Invert the scalar result:
+
+$$
+\bigl(C^{-1} + VA^{-1}U\bigr)^{-1} = \frac{a_j}{c_j}.
+$$
+
+**Step 5.** Assemble the correction term $A^{-1}U(\cdots)VA^{-1}$:
+
+$$
+A^{-1}U\bigl(C^{-1} + VA^{-1}U\bigr)^{-1}VA^{-1} = \frac{1}{a_j}\,\tau\,\mathbf{1}_{n_j}\cdot\frac{a_j}{c_j}\cdot\tau\,\mathbf{1}_{n_j}'\cdot\frac{1}{a_j} = \frac{\tau^2}{a_j\,c_j}\,\mathbf{J}_{n_j}.
+$$
+
+**Step 6.** Apply the Woodbury identity:
+
+$$
+\boldsymbol{\Sigma}_j^{-1} = \frac{1}{a_j}\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\mathbf{J}_{n_j}.
+$$
+
+This establishes @eq-app-woodbury-result.
+:::
+
+::: {#thm-woodbury-verification}
+### Verification: $\mathbf{W}_j\boldsymbol{\Sigma}_j = \mathbf{I}_{n_j}$
+
+We verify the inverse by direct multiplication.
+:::
+
+::: {.proof}
+Compute $\mathbf{W}_j\boldsymbol{\Sigma}_j$ using the identity $\mathbf{J}_{n_j}^2 = n_j\mathbf{J}_{n_j}$:
+
+$$
+\begin{aligned}
+\mathbf{W}_j\boldsymbol{\Sigma}_j &= \left(\frac{1}{a_j}\mathbf{I} - \frac{\tau^2}{a_jc_j}\mathbf{J}\right)\left(a_j\mathbf{I} + \tau^2\mathbf{J}\right) \\[6pt]
+&= \frac{a_j}{a_j}\mathbf{I} + \frac{\tau^2}{a_j}\mathbf{J} - \frac{a_j\tau^2}{a_jc_j}\mathbf{J} - \frac{\tau^4}{a_jc_j}\mathbf{J}^2 \\[6pt]
+&= \mathbf{I} + \frac{\tau^2}{a_j}\mathbf{J} - \frac{\tau^2}{c_j}\mathbf{J} - \frac{n_j\tau^4}{a_jc_j}\mathbf{J} \\[6pt]
+&= \mathbf{I} + \left(\frac{\tau^2}{a_j} - \frac{\tau^2}{c_j} - \frac{n_j\tau^4}{a_jc_j}\right)\mathbf{J}.
+\end{aligned}
+$$
+
+It remains to show that the coefficient of $\mathbf{J}$ vanishes. Placing terms over the common denominator $a_jc_j$:
+
+$$
+\frac{\tau^2 c_j - \tau^2 a_j - n_j\tau^4}{a_jc_j} = \frac{\tau^2(c_j - a_j - n_j\tau^2)}{a_jc_j}.
+$$
+
+Since $c_j = a_j + n_j\tau^2$, we have $c_j - a_j - n_j\tau^2 = 0$. Therefore
+
+$$
+\mathbf{W}_j\boldsymbol{\Sigma}_j = \mathbf{I}_{n_j}.
+$$
+:::
+
+**Computational complexity.** Forming $\mathbf{W}_j$ requires only two scalars ($1/a_j$ and $-\tau^2/(a_jc_j)$) and $O(n_j)$ operations to fill the matrix, compared with $O(n_j^3)$ for general inversion.
+
+
+## Analytical $\mathbf{W}_j^{1/2}$ via Rank-1 Structure (D24) {#sec-proof-wsqrt}
+
+The CR2 bias correction (@sec-proof-cr2) requires $\mathbf{W}_j^{1/2}$ and $\mathbf{W}_j^{-1/2}$, where $\mathbf{W}_j^{1/2}$ denotes the unique symmetric positive-definite square root satisfying $(\mathbf{W}_j^{1/2})^2 = \mathbf{W}_j$. Because $\mathbf{W}_j$ has the compound-symmetric structure established in @sec-proof-woodbury, its square root admits a closed-form expression that avoids eigendecomposition entirely.
+
+### Eigenstructure of $\mathbf{W}_j$
+
+::: {#lem-wj-eigen}
+### Eigenvalues and Eigenvectors of $\mathbf{W}_j$
+
+The weight matrix $\mathbf{W}_j = \frac{1}{a_j}\mathbf{I}_{n_j} - \frac{\tau^2}{a_jc_j}\mathbf{J}_{n_j}$ has exactly two distinct eigenvalues:
+
+1. $\lambda_1 = \dfrac{1}{c_j}$, with eigenvector $\mathbf{u}_1 = \dfrac{1}{\sqrt{n_j}}\mathbf{1}_{n_j}$ (multiplicity 1);
+
+2. $\lambda_2 = \dfrac{1}{a_j}$, with eigenspace equal to $\{\mathbf{v} \in \mathbb{R}^{n_j} : \mathbf{1}_{n_j}'\mathbf{v} = 0\}$ (multiplicity $n_j - 1$).
+:::
+
+::: {.proof}
+Write $\mathbf{W}_j = \alpha\mathbf{I}_{n_j} + \gamma\mathbf{J}_{n_j}$ where $\alpha = 1/a_j$ and $\gamma = -\tau^2/(a_jc_j)$.
+
+**Eigenvalue $\lambda_1$:** Apply $\mathbf{W}_j$ to $\mathbf{1}_{n_j}$:
+
+$$
+\mathbf{W}_j\mathbf{1}_{n_j} = \alpha\mathbf{1}_{n_j} + \gamma\mathbf{J}_{n_j}\mathbf{1}_{n_j} = \alpha\mathbf{1}_{n_j} + n_j\gamma\mathbf{1}_{n_j} = (\alpha + n_j\gamma)\mathbf{1}_{n_j}.
+$$
+
+Substituting:
+
+$$
+\alpha + n_j\gamma = \frac{1}{a_j} - \frac{n_j\tau^2}{a_jc_j} = \frac{c_j - n_j\tau^2}{a_jc_j} = \frac{a_j}{a_jc_j} = \frac{1}{c_j},
+$$
+
+using $c_j - n_j\tau^2 = a_j$. The normalized eigenvector is $\mathbf{u}_1 = \mathbf{1}_{n_j}/\sqrt{n_j}$.
+
+**Eigenvalue $\lambda_2$:** Let $\mathbf{v}$ satisfy $\mathbf{1}_{n_j}'\mathbf{v} = 0$ (i.e., $\mathbf{v}$ is orthogonal to $\mathbf{1}_{n_j}$). Then $\mathbf{J}_{n_j}\mathbf{v} = \mathbf{1}_{n_j}(\mathbf{1}_{n_j}'\mathbf{v}) = \mathbf{0}$, so
+
+$$
+\mathbf{W}_j\mathbf{v} = \alpha\mathbf{v} + \gamma\mathbf{J}_{n_j}\mathbf{v} = \alpha\mathbf{v} = \frac{1}{a_j}\mathbf{v}.
+$$
+
+The orthogonal complement of $\text{span}(\mathbf{1}_{n_j})$ has dimension $n_j - 1$, giving the stated multiplicity.
+:::
+
+### Closed-Form Square Root
+
+::: {#thm-wsqrt-formula}
+### Analytical $\mathbf{W}_j^{1/2}$ (Decision D24)
+
+The symmetric positive-definite square root of $\mathbf{W}_j$ is
+
+$$
+\mathbf{W}_j^{1/2} = \frac{1}{\sqrt{a_j}}\mathbf{I}_{n_j} + \frac{1}{n_j}\left(\frac{1}{\sqrt{c_j}} - \frac{1}{\sqrt{a_j}}\right)\mathbf{J}_{n_j},
+$$ {#eq-app-wsqrt}
+
+and its inverse is
+
+$$
+\mathbf{W}_j^{-1/2} = \sqrt{a_j}\,\mathbf{I}_{n_j} + \frac{1}{n_j}\left(\sqrt{c_j} - \sqrt{a_j}\right)\mathbf{J}_{n_j}.
+$$ {#eq-app-wsqrtinv}
+:::
+
+::: {.proof}
+By @lem-wj-eigen, write the spectral decomposition
+
+$$
+\mathbf{W}_j = \frac{1}{c_j}\,\mathbf{u}_1\mathbf{u}_1' + \frac{1}{a_j}\sum_{i=2}^{n_j}\mathbf{u}_i\mathbf{u}_i',
+$$
+
+where $\{\mathbf{u}_1, \mathbf{u}_2, \ldots, \mathbf{u}_{n_j}\}$ is an orthonormal eigenbasis with $\mathbf{u}_1 = \mathbf{1}_{n_j}/\sqrt{n_j}$. The symmetric positive-definite square root is obtained by taking the positive square root of each eigenvalue:
+
+$$
+\mathbf{W}_j^{1/2} = \frac{1}{\sqrt{c_j}}\,\mathbf{u}_1\mathbf{u}_1' + \frac{1}{\sqrt{a_j}}\sum_{i=2}^{n_j}\mathbf{u}_i\mathbf{u}_i'.
+$$
+
+Using $\sum_{i=1}^{n_j}\mathbf{u}_i\mathbf{u}_i' = \mathbf{I}_{n_j}$ and $\mathbf{u}_1\mathbf{u}_1' = \mathbf{J}_{n_j}/n_j$:
+
+$$
+\begin{aligned}
+\mathbf{W}_j^{1/2} &= \frac{1}{\sqrt{c_j}}\,\frac{\mathbf{J}_{n_j}}{n_j} + \frac{1}{\sqrt{a_j}}\left(\mathbf{I}_{n_j} - \frac{\mathbf{J}_{n_j}}{n_j}\right) \\[6pt]
+&= \frac{1}{\sqrt{a_j}}\mathbf{I}_{n_j} + \frac{1}{n_j}\left(\frac{1}{\sqrt{c_j}} - \frac{1}{\sqrt{a_j}}\right)\mathbf{J}_{n_j}.
+\end{aligned}
+$$
+
+The derivation of $\mathbf{W}_j^{-1/2}$ is identical, replacing $\lambda^{1/2}$ with $\lambda^{-1/2}$:
+
+$$
+\begin{aligned}
+\mathbf{W}_j^{-1/2} &= \sqrt{c_j}\,\frac{\mathbf{J}_{n_j}}{n_j} + \sqrt{a_j}\left(\mathbf{I}_{n_j} - \frac{\mathbf{J}_{n_j}}{n_j}\right) \\[6pt]
+&= \sqrt{a_j}\,\mathbf{I}_{n_j} + \frac{1}{n_j}\left(\sqrt{c_j} - \sqrt{a_j}\right)\mathbf{J}_{n_j}.
+\end{aligned}
+$$
+:::
+
+### Verification: $(\mathbf{W}_j^{1/2})^2 = \mathbf{W}_j$
+
+::: {.proof}
+Write $\mathbf{W}_j^{1/2} = p\,\mathbf{I} + q\,\mathbf{J}$ where $p = 1/\sqrt{a_j}$ and $q = (1/\sqrt{c_j} - 1/\sqrt{a_j})/n_j$. Then
+
+$$
+(\mathbf{W}_j^{1/2})^2 = (p\,\mathbf{I} + q\,\mathbf{J})^2 = p^2\mathbf{I} + 2pq\,\mathbf{J} + q^2\mathbf{J}^2 = p^2\mathbf{I} + (2pq + n_jq^2)\mathbf{J}.
+$$
+
+We verify each coefficient.
+
+**Diagonal coefficient:** $p^2 = 1/a_j$, which matches $\mathbf{W}_j$.
+
+**Off-diagonal coefficient:** We need $2pq + n_jq^2 = -\tau^2/(a_jc_j)$. Let $s_a = 1/\sqrt{a_j}$ and $s_c = 1/\sqrt{c_j}$. Then $q = (s_c - s_a)/n_j$ and:
+
+$$
+\begin{aligned}
+2pq + n_jq^2 &= \frac{2s_a(s_c - s_a)}{n_j} + \frac{(s_c - s_a)^2}{n_j} \\[4pt]
+&= \frac{(s_c - s_a)(2s_a + s_c - s_a)}{n_j} \\[4pt]
+&= \frac{(s_c - s_a)(s_a + s_c)}{n_j} \\[4pt]
+&= \frac{s_c^2 - s_a^2}{n_j} \\[4pt]
+&= \frac{1/c_j - 1/a_j}{n_j} \\[4pt]
+&= \frac{a_j - c_j}{n_j a_j c_j} \\[4pt]
+&= \frac{-n_j\tau^2}{n_j a_j c_j} \\[4pt]
+&= -\frac{\tau^2}{a_j c_j}.
+\end{aligned}
+$$
+
+This matches the off-diagonal coefficient of $\mathbf{W}_j$, confirming $(\mathbf{W}_j^{1/2})^2 = \mathbf{W}_j$.
+:::
+
+**Computational remark.** The analytical formulas @eq-app-wsqrt and @eq-app-wsqrtinv require only $O(1)$ scalar operations (two square roots, additions, and a division) followed by $O(n_j)$ array fills, compared with $O(n_j^3)$ for eigendecomposition-based computation.
+
+
+## CR2 Adjustment Matrix Derivation {#sec-proof-cr2}
+
+The CR2 (bias-reduced cluster-robust variance estimator) was introduced by @bell2002 and extended by @tipton2015 and @pustejovsky2018. This section derives the CR2 adjustment matrices $\mathbf{A}_j$ and establishes the bias-correction property that motivates the estimator.
+
+### The WLS Estimator and Hat Matrix
+
+Consider the weighted least squares (WLS) estimator for the $K$-vector of fixed effects $\boldsymbol{\beta}$:
+
+$$
+\hat{\boldsymbol{\beta}} = \mathbf{Q}\sum_{j=1}^J \mathbf{X}_j'\mathbf{W}_j\mathbf{y}_j, \qquad \mathbf{Q} = \left(\sum_{j=1}^J \mathbf{X}_j'\mathbf{W}_j\mathbf{X}_j\right)^{-1},
+$$ {#eq-app-wls}
+
+where $\mathbf{X}_j$ is the $n_j \times K$ design matrix for study $j$ and $\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1}$ is the working weight matrix.
+
+::: {#def-hat-matrix}
+### Hat Matrix
+
+The hat matrix for study $j$ is the $n_j \times n_j$ matrix
+
+$$
+\mathbf{H}_{jj} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j.
+$$ {#eq-app-hat-matrix}
+
+This matrix maps the response vector $\mathbf{y}_j$ to the fitted values: $\hat{\mathbf{y}}_j = \mathbf{H}_{jj}\mathbf{y}_j + \sum_{l \neq j}\mathbf{H}_{jl}\mathbf{y}_l$, where $\mathbf{H}_{jl} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_l'\mathbf{W}_l$.
+:::
+
+**Important:** $\mathbf{H}_{jj}$ is generally *not* symmetric, because $\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'$ is symmetric but left-multiplying by $\mathbf{W}_j$ (or, equivalently, right-multiplying by $\mathbf{W}_j$ in @eq-app-hat-matrix) breaks symmetry unless $\mathbf{W}_j$ commutes with $\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'$.
+
+The residual vector for study $j$ satisfies
+
+$$
+\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}} = (\mathbf{I}_{n_j} - \mathbf{H}_{jj})\mathbf{y}_j - \sum_{l \neq j}\mathbf{H}_{jl}\mathbf{y}_l.
+$$ {#eq-app-residual}
+
+Under the working model $\mathbf{y}_j = \mathbf{X}_j\boldsymbol{\beta} + \boldsymbol{\epsilon}_j$ with $\text{Cov}(\boldsymbol{\epsilon}_j) = \boldsymbol{\Sigma}_j$ and independence across studies:
+
+$$
+\text{Cov}(\hat{\mathbf{e}}_j) = (\mathbf{I}_{n_j} - \mathbf{H}_{jj})\boldsymbol{\Sigma}_j(\mathbf{I}_{n_j} - \mathbf{H}_{jj})' + \sum_{l \neq j}\mathbf{H}_{jl}\boldsymbol{\Sigma}_l\mathbf{H}_{jl}'.
+$$ {#eq-app-residual-cov}
+
+### Symmetrized Hat Matrix (Decision D16)
+
+To compute the matrix square root required for the CR2 correction, we introduce a symmetrized hat matrix.
+
+::: {#def-symmetrized-hat}
+### Symmetrized Hat Matrix
+
+The symmetrized hat matrix for study $j$ is
+
+$$
+\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j^{1/2}.
+$$ {#eq-app-htilde}
+
+This matrix is symmetric and positive semi-definite by construction: $\tilde{\mathbf{H}}_{jj} = \mathbf{B}_j\mathbf{B}_j'$ where $\mathbf{B}_j = \mathbf{W}_j^{1/2}\mathbf{X}_j\mathbf{Q}^{1/2}$.
+:::
+
+The relationship between $\tilde{\mathbf{H}}_{jj}$ and $\mathbf{H}_{jj}$ is a similarity transform:
+
+$$
+\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j^{1/2} = \mathbf{W}_j^{-1/2}\mathbf{H}_{jj}\mathbf{W}_j^{1/2},
+$$
+
+where the last equality follows from $\mathbf{H}_{jj} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j$ and $\mathbf{W}_j = \mathbf{W}_j^{1/2}\mathbf{W}_j^{1/2}$.
+
+### CR2 Adjustment Matrices
+
+::: {#def-cr2-adjustment}
+### CR2 Adjustment Matrix
+
+The CR2 adjustment matrix for study $j$ is
+
+$$
+\mathbf{A}_j = \mathbf{W}_j^{-1/2}\left(\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj}\right)^{-1/2}\mathbf{W}_j^{1/2},
+$$ {#eq-app-A-j}
+
+where $(\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj})^{-1/2}$ denotes the unique symmetric positive-definite inverse square root of the symmetric positive-definite matrix $\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj}$.
+:::
+
+The computation proceeds in three stages:
+
+1. **Symmetrize.** Form $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j^{1/2}$ using the analytical $\mathbf{W}_j^{1/2}$ from @sec-proof-wsqrt.
+
+2. **Inverse square root.** Compute the eigendecomposition $\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj} = \mathbf{V}\boldsymbol{\Lambda}\mathbf{V}'$ and form $(\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj})^{-1/2} = \mathbf{V}\boldsymbol{\Lambda}^{-1/2}\mathbf{V}'$.
+
+3. **Back-transform.** Compute $\mathbf{A}_j = \mathbf{W}_j^{-1/2}(\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj})^{-1/2}\mathbf{W}_j^{1/2}$.
+
+### The CR2 Bias-Correction Property
+
+::: {#thm-cr2-property}
+### CR2 Sandwich Unbiasedness
+
+Under the working model $\text{Cov}(\boldsymbol{\epsilon}_j) = \boldsymbol{\Sigma}_j = \mathbf{W}_j^{-1}$ and independence across studies, the CR2 sandwich variance estimator is unbiased for the true variance of $\hat{\boldsymbol{\beta}}$:
+
+$$
+\mathbb{E}[\mathbf{V}_{\text{CR2}}] = \text{Var}(\hat{\boldsymbol{\beta}}) = \mathbf{Q},
+$$ {#eq-app-cr2-unbiased}
+
+where $\mathbf{V}_{\text{CR2}} = \mathbf{Q}\bigl(\sum_{j=1}^J \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j\bigr)\mathbf{Q}$ and $\mathbf{Q} = \bigl(\sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{X}_j\bigr)^{-1}$.
+:::
+
+::: {.proof}
+Under the working model and study independence, the cross-study terms in @eq-app-residual-cov are zero when conditioning on a single study's contribution. Focus on the own-study component. When the working model is correctly specified:
+
+$$
+\text{Cov}(\hat{\mathbf{e}}_j) = (\mathbf{I}_{n_j} - \mathbf{H}_{jj})\boldsymbol{\Sigma}_j(\mathbf{I}_{n_j} - \mathbf{H}_{jj})'.
+$$
+
+We use $\boldsymbol{\Sigma}_j = \mathbf{W}_j^{-1} = \mathbf{W}_j^{-1/2}\mathbf{W}_j^{-1/2}$ and $\mathbf{H}_{jj} = \mathbf{W}_j^{1/2}\tilde{\mathbf{H}}_{jj}\mathbf{W}_j^{-1/2}$. Substituting:
+
+$$
+\begin{aligned}
+(\mathbf{I} - \mathbf{H}_{jj})\boldsymbol{\Sigma}_j(\mathbf{I} - \mathbf{H}_{jj})' &= \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})\mathbf{W}_j^{1/2}\cdot\mathbf{W}_j^{-1/2}\mathbf{W}_j^{-1/2}\cdot\mathbf{W}_j^{1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})\mathbf{W}_j^{-1/2} \\[4pt]
+&= \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^2\mathbf{W}_j^{-1/2},
+\end{aligned}
+$$
+
+where the simplification uses the symmetry of $\tilde{\mathbf{H}}_{jj}$. Now compute the expectation of the CR2-adjusted outer product. Because $\mathbb{E}[\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'] = \text{Cov}(\hat{\mathbf{e}}_j)$ (since $\mathbb{E}[\hat{\mathbf{e}}_j] = \mathbf{0}$ under the correctly specified working model):
+
+$$
+\begin{aligned}
+\mathbb{E}[\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j'] &= \mathbf{A}_j\,\text{Cov}(\hat{\mathbf{e}}_j)\,\mathbf{A}_j' \\[4pt]
+&= \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2}\mathbf{W}_j^{1/2}\cdot\mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^2\mathbf{W}_j^{-1/2}\cdot\mathbf{W}_j^{1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2}\mathbf{W}_j^{-1/2} \\[4pt]
+&= \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^2(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2}\mathbf{W}_j^{-1/2} \\[4pt]
+&= \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})\mathbf{W}_j^{-1/2}.
+\end{aligned}
+$$
+
+This yields $\mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})\mathbf{W}_j^{-1/2}$, not $\boldsymbol{\Sigma}_j$ directly. The CR2 correction does not target the residual covariance per se; rather, it targets the meat of the sandwich estimator. Specifically, the CR2 estimator is constructed so that
+
+$$
+\mathbf{V}_{\text{CR2}} = \mathbf{Q}\left(\sum_{j=1}^J \tilde{\mathbf{s}}_j\tilde{\mathbf{s}}_j'\right)\mathbf{Q},
+$$
+
+where $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j$ are the CR2-adjusted scores. The unbiasedness property is: under the correctly specified working model,
+
+$$
+\mathbb{E}[\mathbf{V}_{\text{CR2}}] = \mathbf{Q},
+$$
+
+which is the true variance of $\hat{\boldsymbol{\beta}}$, i.e., $\text{Var}(\hat{\boldsymbol{\beta}}) = \mathbf{Q}$. To establish this, observe:
+
+$$
+\begin{aligned}
+\mathbb{E}\left[\sum_j \tilde{\mathbf{s}}_j\tilde{\mathbf{s}}_j'\right] &= \sum_j \mathbf{X}_j'\mathbf{W}_j\,\mathbb{E}[\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j']\,\mathbf{W}_j\mathbf{X}_j.
+\end{aligned}
+$$
+
+The definition of $\mathbf{A}_j$ is chosen precisely so that this sum equals $\mathbf{Q}^{-1} = \sum_j \mathbf{X}_j'\mathbf{W}_j\boldsymbol{\Sigma}_j\mathbf{W}_j\mathbf{X}_j = \sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{X}_j$, using $\boldsymbol{\Sigma}_j\mathbf{W}_j = \mathbf{W}_j^{-1}\mathbf{W}_j = \mathbf{I}$.
+
+More precisely, the CR2 adjustment is designed so that for each study $j$:
+
+$$
+\mathbf{W}_j\,\mathbb{E}[\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j']\,\mathbf{W}_j = \mathbf{W}_j\boldsymbol{\Sigma}_j\mathbf{W}_j = \mathbf{W}_j.
+$$
+
+The full proof, accounting for cross-study terms in the residual covariance, is given in @bell2002 [Theorem 1] and @pustejovsky2018 [Section 2.3]. The essential mechanism is that $\mathbf{A}_j$ inflates each study's contribution to the meat by exactly the factor needed to compensate for the shrinkage caused by the hat matrix, so that the expected meat equals the inverse bread.
+:::
+
+
+### The Full CR2 Sandwich Variance
+
+Combining the components, the CR2 sandwich variance estimator for $\hat{\boldsymbol{\beta}}$ is:
+
+$$
+\mathbf{V}_{\text{CR2}} = \mathbf{Q}\left(\sum_{j=1}^J \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j\right)\mathbf{Q}.
+$$ {#eq-app-vcr2-full}
+
+Under the correctly specified working model, $\mathbb{E}[\mathbf{V}_{\text{CR2}}] = \mathbf{Q} = \text{Var}(\hat{\boldsymbol{\beta}})$, so the estimator is unbiased for the true sampling variance. Under misspecification, $\mathbf{V}_{\text{CR2}}$ remains a consistent estimator of the true sandwich variance as $J \to \infty$, with reduced finite-sample bias compared to the uncorrected CR0 estimator $\mathbf{V}_{\text{CR0}} = \mathbf{Q}(\sum_j \mathbf{X}_j'\mathbf{W}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{W}_j\mathbf{X}_j)\mathbf{Q}$.
+
+
+## Satterthwaite Moment-Matching Derivation {#sec-proof-satterthwaite}
+
+The @satterthwaite1946 approximation provides degrees of freedom $\nu_k$ for each coefficient $\hat{\beta}_k$ such that the test statistic $t_k = \hat{\beta}_k / \text{SE}_k$ approximately follows a $t(\nu_k)$ distribution under the null hypothesis. This section derives the trace formula used in bayesRVE following @pustejovsky2018.
+
+### The Approximation Target
+
+For each coefficient $k = 1, \ldots, K$, define the variance estimator
+
+$$
+\hat{V}_k = [\mathbf{V}_{\text{CR2}}]_{kk} = \mathbf{c}_k'\mathbf{V}_{\text{CR2}}\mathbf{c}_k,
+$$
+
+where $\mathbf{c}_k$ is the $k$-th standard basis vector in $\mathbb{R}^K$. Under the null hypothesis $\beta_k = 0$ and the correctly specified working model, we seek $\nu_k$ such that
+
+$$
+\frac{\hat{V}_k}{V_k} \;\approx\; \frac{\chi^2(\nu_k)}{\nu_k},
+$$ {#eq-app-satt-target}
+
+where $V_k = [\text{Var}(\hat{\boldsymbol{\beta}})]_{kk} = [\mathbf{Q}]_{kk}$ is the true variance. The Satterthwaite method matches the first two moments of both sides.
+
+### Moment Matching
+
+The chi-squared distribution $\chi^2(\nu)/\nu$ has mean 1 and variance $2/\nu$. Therefore we need:
+
+$$
+\mathbb{E}\left[\frac{\hat{V}_k}{V_k}\right] = 1 \quad\text{and}\quad \text{Var}\left(\frac{\hat{V}_k}{V_k}\right) = \frac{2}{\nu_k}.
+$$ {#eq-app-moment-conditions}
+
+The first condition is satisfied by the CR2 unbiasedness property (@thm-cr2-property): $\mathbb{E}[\hat{V}_k] = V_k$.
+
+The second condition determines $\nu_k$:
+
+$$
+\nu_k = \frac{2}{\text{Var}(\hat{V}_k / V_k)} = \frac{2V_k^2}{\text{Var}(\hat{V}_k)}.
+$$ {#eq-app-satt-df-raw}
+
+### The $\mathbf{P}_k$ Matrix
+
+To compute $\text{Var}(\hat{V}_k)$, we express $\hat{V}_k$ as a quadratic form in the residuals and apply standard results for quadratic forms of normal vectors.
+
+::: {#def-g-vectors}
+### The $\mathbf{g}_{jk}$ Vectors
+
+For each study $j$ and coefficient $k$, define the $n_j$-dimensional vector
+
+$$
+\mathbf{g}_{jk} = \mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j\mathbf{Q}\mathbf{c}_k,
+$$ {#eq-app-g-jk}
+
+where $\mathbf{c}_k$ is the $k$-th column of $\mathbf{I}_K$.
+:::
+
+The $\mathbf{g}_{jk}$ vectors are deterministic (they depend on the design matrices, working weights, and CR2 adjustments, but not on the data $\mathbf{y}$). The key property: they connect the CR2 variance estimator to the residuals. Specifically, $\hat{V}_k$ can be written as a sum over studies:
+
+$$
+\hat{V}_k = \sum_{j=1}^J \left(\mathbf{g}_{jk}'\hat{\mathbf{e}}_j\right)^2.
+$$
+
+This is verified by expanding: $\hat{V}_k = \mathbf{c}_k'\mathbf{Q}(\sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j)\mathbf{Q}\mathbf{c}_k = \sum_j (\mathbf{c}_k'\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j)^2 = \sum_j (\mathbf{g}_{jk}'\hat{\mathbf{e}}_j)^2$.
+
+::: {#def-P-matrix}
+### The $\mathbf{P}_k$ Matrix
+
+The $J \times J$ matrix $\mathbf{P}_k$ has entries defined as follows. For studies $i$ and $j$, define
+
+$$
+[\mathbf{P}_k]_{ij} = \mathbf{g}_{ik}'\boldsymbol{\Phi}_{ij}\mathbf{g}_{jk},
+$$ {#eq-app-P-k-general}
+
+where $\boldsymbol{\Phi}_{ij} = \text{Cov}(\hat{\mathbf{e}}_i, \hat{\mathbf{e}}_j)$ is the cross-covariance of the residual vectors.
+:::
+
+Under the working model with independent studies:
+
+**Diagonal entries ($i = j$):** $\boldsymbol{\Phi}_{jj} = \text{Cov}(\hat{\mathbf{e}}_j)$. Using @eq-app-residual-cov with cross-study terms:
+
+$$
+[\mathbf{P}_k]_{jj} = \mathbf{g}_{jk}'\mathbf{W}_j^{-1}\mathbf{g}_{jk} - \mathbf{g}_{jk}'\mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{g}_{jk}.
+$$ {#eq-app-P-diag}
+
+The first term corresponds to the contribution from $\boldsymbol{\Sigma}_j = \mathbf{W}_j^{-1}$, and the second term accounts for the estimation of $\hat{\boldsymbol{\beta}}$.
+
+**Off-diagonal entries ($i \neq j$):** The cross-study residual covariance contributes
+
+$$
+[\mathbf{P}_k]_{ij} = -\mathbf{g}_{ik}'\mathbf{X}_i\mathbf{Q}\mathbf{X}_j'\mathbf{g}_{jk} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\mathbf{Q}(\mathbf{X}_j'\mathbf{g}_{jk}).
+$$ {#eq-app-P-offdiag}
+
+Note that $\mathbf{P}_k$ is symmetric by construction.
+
+### Trace Formula for Degrees of Freedom
+
+::: {#thm-satterthwaite-df}
+### Satterthwaite Degrees of Freedom
+
+Under the working model with Gaussian errors, the Satterthwaite degrees of freedom for coefficient $k$ are
+
+$$
+\nu_k = \frac{\left[\text{tr}(\mathbf{P}_k)\right]^2}{\text{tr}(\mathbf{P}_k^2)}.
+$$ {#eq-app-satt-trace}
+:::
+
+::: {.proof}
+Under the Gaussian working model, $\hat{\mathbf{e}}_j \sim N(\mathbf{0}, \text{Cov}(\hat{\mathbf{e}}_j))$, and the residuals across studies are jointly normal (though not independent, due to the common $\hat{\boldsymbol{\beta}}$). The variance estimator $\hat{V}_k = \sum_j (\mathbf{g}_{jk}'\hat{\mathbf{e}}_j)^2$ is a quadratic form in these jointly normal residuals.
+
+Define $\mathbf{z}_k = (z_{1k}, \ldots, z_{Jk})'$ where $z_{jk} = \mathbf{g}_{jk}'\hat{\mathbf{e}}_j$. Then $\hat{V}_k = \mathbf{z}_k'\mathbf{z}_k$ and $\text{Cov}(\mathbf{z}_k) = \mathbf{P}_k$.
+
+Under normality, $\hat{V}_k = \mathbf{z}_k'\mathbf{z}_k$ where $\mathbf{z}_k \sim N(\mathbf{0}, \mathbf{P}_k)$. Therefore $\hat{V}_k$ is a quadratic form $\hat{V}_k = \mathbf{z}_k'\mathbf{I}_J\mathbf{z}_k$ in the normal vector $\mathbf{z}_k$.
+
+By the standard result for quadratic forms of normal vectors [e.g., @mathai1992]:
+
+$$
+\mathbb{E}[\hat{V}_k] = \text{tr}(\mathbf{I}_J\mathbf{P}_k) = \text{tr}(\mathbf{P}_k),
+$$
+
+$$
+\text{Var}(\hat{V}_k) = 2\,\text{tr}(\mathbf{I}_J\mathbf{P}_k\mathbf{I}_J\mathbf{P}_k) = 2\,\text{tr}(\mathbf{P}_k^2).
+$$
+
+The CR2 unbiasedness gives $\text{tr}(\mathbf{P}_k) = V_k = [\mathbf{Q}]_{kk}$.
+
+Substituting into @eq-app-satt-df-raw:
+
+$$
+\nu_k = \frac{2V_k^2}{\text{Var}(\hat{V}_k)} = \frac{2[\text{tr}(\mathbf{P}_k)]^2}{2\,\text{tr}(\mathbf{P}_k^2)} = \frac{[\text{tr}(\mathbf{P}_k)]^2}{\text{tr}(\mathbf{P}_k^2)}.
+$$
+:::
+
+**Properties of $\nu_k$:**
+
+- **Bounds:** By the Cauchy--Schwarz inequality for traces, $\text{tr}(\mathbf{P}_k)^2 \leq \text{rank}(\mathbf{P}_k)\cdot\text{tr}(\mathbf{P}_k^2)$, so $\nu_k \leq \text{rank}(\mathbf{P}_k) \leq J$. The lower bound $\nu_k \geq 1$ holds when $\mathbf{P}_k$ has at least one nonzero eigenvalue.
+
+- **Balanced case:** When all studies have equal leverage, $\mathbf{P}_k$ is approximately proportional to a projection matrix, giving $\nu_k \approx J - K$.
+
+- **Design-only dependence:** Because $\mathbf{g}_{jk}$ and $\mathbf{P}_k$ depend only on the design ($\mathbf{X}_j$, $\mathbf{W}_j$, $\mathbf{Q}$, $\mathbf{A}_j$) and not on the observed responses, $\nu_k$ is a fixed quantity given the design.
+
+
+## CCC Covariance Matching --- Theorem 2 Extended Proof {#sec-proof-theorem2}
+
+This section provides a self-contained proof of the exact covariance matching property of the Cholesky Calibration Correction, the central theoretical result underpinning bayesRVE.
+
+### Setup and Definitions
+
+Let $\boldsymbol{\psi}^{(1)}, \ldots, \boldsymbol{\psi}^{(S)} \in \mathbb{R}^d$ be $S$ posterior draws (with $S \geq d + 1$ to ensure positive-definite sample covariance). Define:
+
+- **Posterior mean:** $\hat{\boldsymbol{\psi}} = \frac{1}{S}\sum_{s=1}^S \boldsymbol{\psi}^{(s)}$,
+- **MCMC sample covariance:** $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}} = \frac{1}{S-1}\sum_{s=1}^S (\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}})(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}})'$,
+- **CCC target:** $\mathbf{V}_{\text{target}}$, a $d \times d$ symmetric positive-definite matrix (the CR2 sandwich variance in bayesRVE),
+- **Cholesky factors:** $L_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})$ and $L_2 = \text{chol}(\mathbf{V}_{\text{target}})$, where $\text{chol}(\cdot)$ denotes the unique lower-triangular Cholesky factor with positive diagonal entries.
+
+::: {#def-ccc-transform}
+### CCC Transformation
+
+The CCC-calibrated draws are
+
+$$
+\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + L_2 L_1^{-1}(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}), \quad s = 1, \ldots, S.
+$$ {#eq-app-ccc-def}
+:::
+
+### Theorem 1: Center Preservation
+
+::: {#thm-center}
+### Center Preservation
+
+$\frac{1}{S}\sum_{s=1}^S \boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}}$.
+:::
+
+::: {.proof}
+By linearity of the sample mean:
+
+$$
+\begin{aligned}
+\frac{1}{S}\sum_{s=1}^S \boldsymbol{\psi}^{*(s)} &= \frac{1}{S}\sum_{s=1}^S \left[\hat{\boldsymbol{\psi}} + L_2 L_1^{-1}(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}})\right] \\[4pt]
+&= \hat{\boldsymbol{\psi}} + L_2 L_1^{-1}\left(\frac{1}{S}\sum_{s=1}^S \boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}\right) \\[4pt]
+&= \hat{\boldsymbol{\psi}} + L_2 L_1^{-1}\cdot\mathbf{0} \\[4pt]
+&= \hat{\boldsymbol{\psi}}.
+\end{aligned}
+$$
+:::
+
+### Theorem 2: Exact Covariance Matching
+
+::: {#thm-exact-covariance}
+### Exact Covariance Matching
+
+The sample covariance of the CCC-calibrated draws equals the target covariance exactly:
+
+$$
+\text{Cov}(\boldsymbol{\psi}^{*(1)}, \ldots, \boldsymbol{\psi}^{*(S)}) = \mathbf{V}_{\text{target}}.
+$$ {#eq-app-theorem2}
+:::
+
+::: {.proof}
+Define the centered draws $\tilde{\boldsymbol{\psi}}^{(s)} = \boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}$ and the transformation matrix $\mathbf{A} = L_2 L_1^{-1}$.
+
+**Step 1.** Express the calibrated deviations. By @thm-center, $\bar{\boldsymbol{\psi}}^* = \hat{\boldsymbol{\psi}}$, so
+
+$$
+\boldsymbol{\psi}^{*(s)} - \bar{\boldsymbol{\psi}}^* = \hat{\boldsymbol{\psi}} + \mathbf{A}\tilde{\boldsymbol{\psi}}^{(s)} - \hat{\boldsymbol{\psi}} = \mathbf{A}\tilde{\boldsymbol{\psi}}^{(s)}.
+$$
+
+**Step 2.** Compute the sample covariance of the calibrated draws:
+
+$$
+\begin{aligned}
+\text{Cov}(\boldsymbol{\psi}^*) &= \frac{1}{S-1}\sum_{s=1}^S (\boldsymbol{\psi}^{*(s)} - \bar{\boldsymbol{\psi}}^*)(\boldsymbol{\psi}^{*(s)} - \bar{\boldsymbol{\psi}}^*)' \\[4pt]
+&= \frac{1}{S-1}\sum_{s=1}^S \mathbf{A}\tilde{\boldsymbol{\psi}}^{(s)}\tilde{\boldsymbol{\psi}}^{(s)\prime}\mathbf{A}' \\[4pt]
+&= \mathbf{A}\left(\frac{1}{S-1}\sum_{s=1}^S \tilde{\boldsymbol{\psi}}^{(s)}\tilde{\boldsymbol{\psi}}^{(s)\prime}\right)\mathbf{A}' \\[4pt]
+&= \mathbf{A}\,\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}\,\mathbf{A}'.
+\end{aligned}
+$$
+
+**Step 3.** Substitute $\mathbf{A} = L_2 L_1^{-1}$ and $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}} = L_1 L_1'$:
+
+$$
+\begin{aligned}
+\mathbf{A}\,\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}\,\mathbf{A}' &= L_2 L_1^{-1}\cdot L_1 L_1'\cdot (L_1^{-1})' L_2'.
+\end{aligned}
+$$
+
+**Step 4.** Simplify the inner products. The key cancellation is $L_1^{-1} L_1 = \mathbf{I}_d$:
+
+$$
+L_2 \underbrace{L_1^{-1} L_1}_{\mathbf{I}_d} L_1' (L_1^{-1})' L_2' = L_2 \underbrace{L_1' (L_1')^{-1}}_{\mathbf{I}_d} L_2' = L_2 L_2'.
+$$
+
+Here we used $(L_1^{-1})' = (L_1')^{-1}$, which holds for any invertible matrix.
+
+**Step 5.** Recognize $L_2 L_2' = \mathbf{V}_{\text{target}}$ by definition of the Cholesky factorization:
+
+$$
+\text{Cov}(\boldsymbol{\psi}^*) = L_2 L_2' = \mathbf{V}_{\text{target}}.
+$$
+:::
+
+**Remarks on the result.**
+
+1. **Exactness.** The identity $\text{Cov}(\boldsymbol{\psi}^*) = \mathbf{V}_{\text{target}}$ is an algebraic equality, not an approximation. It holds for any finite $S \geq d + 1$, any distribution of the original draws, and any particular realization. No asymptotic argument is invoked.
+
+2. **Minimal sample size.** The requirement $S \geq d + 1$ ensures $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}$ is positive definite (with probability 1 under continuous distributions), so $L_1$ exists and is invertible. In practice, MCMC chains produce $S = 4000$ draws (4 chains $\times$ 1000 post-warmup), far exceeding this bound.
+
+3. **Non-uniqueness of the factorization.** Cholesky is one of many factorizations that achieve exact covariance matching. Any matrix $\mathbf{A}$ satisfying $\mathbf{A}\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}\mathbf{A}' = \mathbf{V}_{\text{target}}$ would work (e.g., $\mathbf{A} = \mathbf{V}_{\text{target}}^{1/2}\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}^{-1/2}$ using symmetric square roots). The Cholesky choice is preferred because it is unique given positive-diagonal lower-triangular factors, numerically stable, and computationally efficient ($O(d^3/3)$).
+
+
+### Theorem 3: Identity Under Correct Specification
+
+::: {#thm-identity}
+### Identity Under Correct Specification
+
+If $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}} = \mathbf{V}_{\text{target}}$, then $\boldsymbol{\psi}^{*(s)} = \boldsymbol{\psi}^{(s)}$ for all $s$.
+:::
+
+::: {.proof}
+If $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}} = \mathbf{V}_{\text{target}}$, then $L_1 = L_2$ by the uniqueness of the positive-diagonal lower-triangular Cholesky factor of a positive-definite matrix. Therefore $\mathbf{A} = L_2 L_1^{-1} = L_1 L_1^{-1} = \mathbf{I}_d$, and
+
+$$
+\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{I}_d(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}) = \boldsymbol{\psi}^{(s)}.
+$$
+:::
+
+This property justifies the "always-on" application of CCC in bayesRVE: when the working model is correctly specified (so the posterior covariance already matches the frequentist sandwich variance), CCC reduces to the identity map and does not distort the posterior.
+
+
+## CHE Marginal Likelihood via Analytical Integration {#sec-proof-che-marginal}
+
+The CHE (Correlated-Hierarchical Effects) model introduces a study-level random effect $\theta_j$ and an observation-level variance component $\omega^2$. This section derives the marginal likelihood obtained by analytically integrating out $\theta_j$.
+
+### The CHE Conditional Model
+
+The CHE model specifies:
+
+$$
+\begin{aligned}
+y_{ij} \mid \boldsymbol{\beta}, \theta_j &\sim N(\mathbf{x}_{ij}'\boldsymbol{\beta} + \theta_j,\; s_{ij}^2 + \omega^2), \quad i = 1, \ldots, n_j, \\[4pt]
+\theta_j &\sim N(0, \tau^2), \quad j = 1, \ldots, J,
+\end{aligned}
+$$ {#eq-app-che-conditional}
+
+where $s_{ij}^2$ are known sampling variances and $\omega^2$ captures within-study heterogeneity not explained by sampling error. Under the simplified working model with $\bar{s}_j^2 = n_j^{-1}\sum_i s_{ij}^2$ replacing individual variances, the conditional distribution in vector form is:
+
+$$
+\mathbf{y}_j \mid \boldsymbol{\beta}, \theta_j \sim N\left(\mathbf{X}_j\boldsymbol{\beta} + \theta_j\mathbf{1}_{n_j},\; a_j^{(0)}\mathbf{I}_{n_j}\right),
+$$
+
+where $a_j^{(0)} = \bar{s}_j^2 + \omega^2$ and $\theta_j\mathbf{1}_{n_j}$ adds $\theta_j$ to every observation within the study.
+
+### Marginal Integration
+
+::: {#thm-che-marginal}
+### CHE Marginal Likelihood
+
+The marginal distribution of $\mathbf{y}_j$ after integrating out $\theta_j$ is
+
+$$
+\mathbf{y}_j \mid \boldsymbol{\beta}, \tau^2, \omega^2 \sim N\left(\mathbf{X}_j\boldsymbol{\beta},\; \boldsymbol{\Sigma}_j\right),
+$$ {#eq-app-che-marginal-dist}
+
+where
+
+$$
+\boldsymbol{\Sigma}_j = a_j\mathbf{I}_{n_j} + \tau^2\mathbf{J}_{n_j}, \qquad a_j = \bar{s}_j^2 + \omega^2.
+$$ {#eq-app-che-sigma}
+:::
+
+::: {.proof}
+The integral to evaluate is:
+
+$$
+p(\mathbf{y}_j \mid \boldsymbol{\beta}, \tau^2, \omega^2) = \int_{-\infty}^{\infty} p(\mathbf{y}_j \mid \boldsymbol{\beta}, \theta_j)\,p(\theta_j \mid \tau^2)\,d\theta_j.
+$$ {#eq-app-integral}
+
+Both factors are Gaussian:
+
+$$
+p(\mathbf{y}_j \mid \boldsymbol{\beta}, \theta_j) = (2\pi)^{-n_j/2} a_j^{-n_j/2}\exp\left(-\frac{1}{2a_j}\|\mathbf{y}_j - \mathbf{X}_j\boldsymbol{\beta} - \theta_j\mathbf{1}\|^2\right),
+$$
+
+$$
+p(\theta_j \mid \tau^2) = (2\pi\tau^2)^{-1/2}\exp\left(-\frac{\theta_j^2}{2\tau^2}\right).
+$$
+
+Define $\mathbf{r}_j = \mathbf{y}_j - \mathbf{X}_j\boldsymbol{\beta}$ (the residual before removing $\theta_j$). The exponent in the integrand is:
+
+$$
+-\frac{1}{2a_j}\|\mathbf{r}_j - \theta_j\mathbf{1}\|^2 - \frac{\theta_j^2}{2\tau^2}.
+$$
+
+Expanding the first term:
+
+$$
+\|\mathbf{r}_j - \theta_j\mathbf{1}\|^2 = \mathbf{r}_j'\mathbf{r}_j - 2\theta_j\mathbf{1}'\mathbf{r}_j + n_j\theta_j^2,
+$$
+
+where we used $\mathbf{1}'\mathbf{1} = n_j$. Collecting terms in $\theta_j$:
+
+$$
+-\frac{1}{2}\left[\theta_j^2\left(\frac{n_j}{a_j} + \frac{1}{\tau^2}\right) - 2\theta_j\frac{\mathbf{1}'\mathbf{r}_j}{a_j} + \frac{\mathbf{r}_j'\mathbf{r}_j}{a_j}\right].
+$$ {#eq-app-quadratic}
+
+Define $\sigma_\theta^2 = (n_j/a_j + 1/\tau^2)^{-1} = a_j\tau^2/c_j$ where $c_j = a_j + n_j\tau^2$, and $\mu_\theta = \sigma_\theta^2 \cdot \mathbf{1}'\mathbf{r}_j/a_j = \tau^2\mathbf{1}'\mathbf{r}_j/c_j$.
+
+Completing the square in @eq-app-quadratic:
+
+$$
+-\frac{1}{2\sigma_\theta^2}(\theta_j - \mu_\theta)^2 - \frac{1}{2}\left(\frac{\mathbf{r}_j'\mathbf{r}_j}{a_j} - \frac{\mu_\theta^2}{\sigma_\theta^2}\right).
+$$
+
+The integral over $\theta_j$ is a Gaussian integral:
+
+$$
+\int \exp\left(-\frac{(\theta_j - \mu_\theta)^2}{2\sigma_\theta^2}\right)d\theta_j = \sqrt{2\pi\sigma_\theta^2}.
+$$
+
+Collecting all factors:
+
+$$
+p(\mathbf{y}_j \mid \boldsymbol{\beta}, \tau^2, \omega^2) = (2\pi)^{-n_j/2}a_j^{-n_j/2}(2\pi\tau^2)^{-1/2}\cdot\sqrt{2\pi\sigma_\theta^2}\cdot\exp\left(-\frac{1}{2}\left[\frac{\mathbf{r}_j'\mathbf{r}_j}{a_j} - \frac{(\mathbf{1}'\mathbf{r}_j)^2\tau^2}{a_jc_j}\right]\right).
+$$ {#eq-app-after-integration}
+
+The quadratic form in the exponent is precisely $\mathbf{r}_j'\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j$, using the Woodbury inverse from @sec-proof-woodbury:
+
+$$
+\mathbf{r}_j'\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j = \frac{\mathbf{r}_j'\mathbf{r}_j}{a_j} - \frac{\tau^2(\mathbf{1}'\mathbf{r}_j)^2}{a_jc_j}.
+$$
+
+The normalizing constants simplify. The ratio $\sqrt{2\pi\sigma_\theta^2}/\bigl[(2\pi\tau^2)^{1/2}\bigr] = \sqrt{\sigma_\theta^2/\tau^2} = \sqrt{a_j/c_j}$. Combined with $a_j^{-n_j/2}$:
+
+$$
+a_j^{-n_j/2}\cdot\sqrt{a_j/c_j} = a_j^{-(n_j-1)/2}\cdot c_j^{-1/2},
+$$
+
+and $(2\pi)^{-n_j/2}\cdot a_j^{-(n_j-1)/2}\cdot c_j^{-1/2} = (2\pi)^{-n_j/2}\cdot|\boldsymbol{\Sigma}_j|^{-1/2}$, where the last equality uses the log-determinant formula derived below.
+:::
+
+### Log-Determinant of $\boldsymbol{\Sigma}_j$
+
+::: {#lem-logdet}
+### Log-Determinant
+
+$$
+\log|\boldsymbol{\Sigma}_j| = (n_j - 1)\log a_j + \log c_j.
+$$ {#eq-app-logdet}
+:::
+
+::: {.proof}
+By @lem-wj-eigen (applied to $\boldsymbol{\Sigma}_j$ instead of $\mathbf{W}_j$), the eigenvalues of $\boldsymbol{\Sigma}_j = a_j\mathbf{I} + \tau^2\mathbf{J}$ are:
+
+- $\lambda_1 = a_j + n_j\tau^2 = c_j$ (multiplicity 1),
+- $\lambda_2 = a_j$ (multiplicity $n_j - 1$).
+
+Therefore:
+
+$$
+|\boldsymbol{\Sigma}_j| = c_j \cdot a_j^{n_j - 1},
+$$
+
+and $\log|\boldsymbol{\Sigma}_j| = (n_j - 1)\log a_j + \log c_j$.
+:::
+
+
+## Asymptotic Coverage of CCC-$t$ Intervals {#sec-proof-coverage}
+
+The following proposition establishes the conditions under which CCC-$t$ intervals achieve nominal frequentist coverage as $J \to \infty$.
+
+::: {.callout-note appearance="simple"}
+**Proposition (Asymptotic Coverage).** Let $\hat\beta_k$ denote the posterior mean of coefficient $k$, and let $\text{CI}_k(\alpha) = \hat\beta_k \pm t_{\alpha/2, \hat\nu_k} \cdot \text{SD}_{\text{CCC},k}$ be the CCC-$t$ interval with Satterthwaite degrees of freedom $\hat\nu_k$. Under the following conditions:
+
+1. **Posterior consistency:** $\hat\beta_k \xrightarrow{p} \beta_{0,k}$ as $J \to \infty$.
+2. **Sandwich consistency:** $V_{\text{CR2}} \xrightarrow{p} \text{Var}_{\text{freq}}(\hat\beta)$ as $J \to \infty$.
+3. **Satterthwaite convergence:** $\hat\nu_k \to \infty$ as $J \to \infty$.
+4. **Posterior normality:** $(\hat\beta_k - \beta_{0,k}) / \text{SD}_{\text{post},k} \xrightarrow{d} N(0, 1)$.
+
+Then $P(\beta_{0,k} \in \text{CI}_k(\alpha)) \to 1 - \alpha$ as $J \to \infty$.
+:::
+
+*Proof sketch.* By Theorem 2 (@sec-proof-theorem2), $\text{SD}_{\text{CCC},k}^2 = [V_{\text{CR2}}]_{kk}$ exactly. Under conditions 1--2, the ratio $(\hat\beta_k - \beta_{0,k}) / \text{SD}_{\text{CCC},k}$ converges in distribution to $N(0, 1)$. Under condition 3, $t_{\alpha/2, \hat\nu_k} \to z_{\alpha/2}$. Therefore the CCC-$t$ interval converges to the Wald interval $\hat\beta_k \pm z_{\alpha/2} \cdot \sqrt{[V_{\text{CR2}}]_{kk}}$, which has coverage $1 - \alpha$ by conditions 1--2--4.
+
+The key insight is that the CCC transformation bridges the gap between conditions 2 and 4: even if the posterior SD does not match the sandwich SE (violating condition 4 without CCC), the CCC transformation forces the match (Theorem 2), ensuring that the $t$-pivot is correctly calibrated. $\square$
+
+Note that for finite $J$, the coverage depends on the quality of all four approximations. The simulation study (sim3, 24 conditions, 11,600 fits) demonstrates empirical coverage of 94.5--95.3% at 95% nominal level, confirming the practical adequacy of the asymptotic argument.
+
+
+## Plug-in Parity Identity (D25) {#sec-proof-d25}
+
+Decision D25 mandates that bayesRVE's CR2 implementation, when given identical plug-in parameter values, produces results numerically identical to the established `clubSandwich` package. This section states the identity precisely and specifies the conditions under which it holds.
+
+### Mathematical Statement
+
+::: {#thm-plugin-parity}
+### Plug-in Parity
+
+Let $\hat{\tau}^2$, $\hat{\omega}^2$, and $\hat{\boldsymbol{\beta}}$ be fixed parameter values. Define:
+
+- $\mathbf{V}_{\text{bayesRVE}}$: the output of bayesRVE's `.compute_vcr2()` with these plug-in values,
+- $\mathbf{V}_{\text{club}}$: the output of `clubSandwich::vcovCR(type = "CR2")` applied to a `metafor::rma.mv` fit with REML estimates equal to $(\hat{\tau}^2, \hat{\omega}^2, \hat{\boldsymbol{\beta}})$.
+
+Under the constant-variance condition (see below),
+
+$$
+\max_{k,l}\left|[\mathbf{V}_{\text{bayesRVE}}]_{kl} - [\mathbf{V}_{\text{club}}]_{kl}\right| < \epsilon_{\text{mach}},
+$$ {#eq-app-d25}
+
+where $\epsilon_{\text{mach}} \approx 10^{-6}$ in double-precision arithmetic.
+:::
+
+### The Constant-Variance Condition
+
+The parity identity requires that sampling variances are constant within each study:
+
+$$
+s_{ij}^2 = \bar{s}_j^2 \quad \text{for all } i = 1, \ldots, n_j, \quad j = 1, \ldots, J.
+$$ {#eq-app-constant-vi}
+
+This condition ensures that bayesRVE's use of the study-mean variance $\bar{s}_j^2$ in constructing $\boldsymbol{\Sigma}_j$ is identical to metafor's use of individual $s_{ij}^2$ values.
+
+### Proof Sketch
+
+The proof proceeds by showing that, under the constant-variance condition and with identical plug-in values, every intermediate quantity in the two implementations is algebraically identical.
+
+**Step 1. Weight matrices.** bayesRVE constructs $\mathbf{W}_j = (a_j\mathbf{I} + \tau^2\mathbf{J})^{-1}$ via the Woodbury formula. When $s_{ij}^2 = \bar{s}_j^2$ for all $i$, metafor's working covariance for study $j$ under the CHE model is $\boldsymbol{\Sigma}_j^{\text{meta}} = \bar{s}_j^2\mathbf{I} + \omega^2\mathbf{I} + \tau^2\mathbf{J} = a_j\mathbf{I} + \tau^2\mathbf{J}$, yielding the same weight matrix.
+
+**Step 2. Bread matrix.** Both implementations compute $\mathbf{Q} = (\sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{X}_j)^{-1}$. With identical $\mathbf{W}_j$ and $\mathbf{X}_j$, the bread matrices are identical.
+
+**Step 3. Hat matrix blocks.** $\mathbf{H}_{jj} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j$ depends only on $\mathbf{X}_j$, $\mathbf{Q}$, and $\mathbf{W}_j$, all of which are identical.
+
+**Step 4. CR2 adjustment matrices.** $\mathbf{A}_j = \mathbf{W}_j^{-1/2}(\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2}\mathbf{W}_j^{1/2}$ depends on $\mathbf{W}_j^{1/2}$ and $\tilde{\mathbf{H}}_{jj}$. bayesRVE uses the analytical formula for $\mathbf{W}_j^{1/2}$ (@eq-app-wsqrt); clubSandwich uses eigendecomposition. Both produce the unique symmetric positive-definite square root, so they agree to machine precision.
+
+**Step 5. Residuals.** With identical $\hat{\boldsymbol{\beta}}$ and identical data, $\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}}$ is identical.
+
+**Step 6. CR2 sandwich.** $\mathbf{V}_{\text{CR2}} = \mathbf{Q}(\sum_j \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'\mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j)\mathbf{Q}$. Since all components ($\mathbf{Q}$, $\mathbf{X}_j$, $\mathbf{W}_j$, $\mathbf{A}_j$, $\hat{\mathbf{e}}_j$) are identical, the result is identical.
+
+### When Parity Fails
+
+When sampling variances vary within studies ($s_{ij}^2 \neq \bar{s}_j^2$ for some $i$), bayesRVE uses $\bar{s}_j^2 = n_j^{-1}\sum_i s_{ij}^2$ in constructing $\boldsymbol{\Sigma}_j$, while metafor uses the individual $s_{ij}^2$ values in the diagonal of the sampling covariance matrix. This produces a known discrepancy:
+
+- bayesRVE: $\boldsymbol{\Sigma}_j = (\bar{s}_j^2 + \omega^2)\mathbf{I} + \tau^2\mathbf{J}$,
+- metafor: $\boldsymbol{\Sigma}_j^{\text{meta}} = \text{diag}(s_{1j}^2, \ldots, s_{n_jj}^2) + \omega^2\mathbf{I} + \tau^2\mathbf{J}$.
+
+The discrepancy is bounded by $\max_i |s_{ij}^2 - \bar{s}_j^2|$ and vanishes when within-study variance heterogeneity is small. The study-mean approximation is standard in the RVE literature [@hedges2010] and maintains the compound-symmetric structure that enables the $O(n_j)$ Woodbury computations throughout the pipeline.
+
+### Significance of D25
+
+The plug-in parity identity serves as a correctness verification for bayesRVE's linear algebra implementation, isolated from the Bayesian estimation layer. By injecting REML point estimates (which can be computed by metafor) into bayesRVE's CR2 machinery and comparing the output against clubSandwich, one can verify that any discrepancy between bayesRVE and clubSandwich in live Bayesian analyses is attributable to differences in point estimates (posterior mean vs. REML) rather than implementation errors. In bayesRVE's test suite, this verification is performed at a tolerance of $10^{-6}$.

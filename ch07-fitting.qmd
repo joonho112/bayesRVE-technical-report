@@ -1,0 +1,619 @@
+# Model Fitting Pipeline {#sec-fitting}
+
+This chapter traces the complete path from a user's R call to posterior draws stored in memory.
+The `bm_fit()` function executes an eight-step pipeline: call capture, input validation, CmdStan availability check, data preparation, Stan [@carpenter2017] data assembly, model compilation, MCMC sampling, and post-sampling diagnostics.
+Each step is documented here with the actual source code that implements it, so that readers can audit the math-to-code mapping against the model definitions in @sec-models and the object contracts in @sec-arch-contracts.
+
+
+## Formula Parsing and Data Preparation {#sec-fit-formula}
+
+### The `yi | se(vi) ~ predictors` Syntax
+
+bayesRVE adopts a formula interface that encodes three pieces of information in a single expression:
+
+1. **Outcome column** (`yi`): the effect-size estimates.
+2. **Variance column** (`vi`): the known sampling variances, wrapped in `se()` to indicate that the column contains variances (not standard errors). Alternatively, `sd()` wraps a standard-error column, which is internally squared.
+3. **Predictor specification** (`~ predictors`): a standard R model formula for the fixed-effect design matrix $\mathbf{X}$.
+
+A typical call looks like:
+
+```r
+fit <- bm_fit(yi | se(vi) ~ 1, data = dat, study = ~ studyid)
+```
+
+For meta-regression with moderators:
+
+```r
+fit <- bm_fit(yi | se(vi) ~ intervention + dosage,
+              data = dat, study = ~ studyid)
+```
+
+### How `.parse_formula()` Works
+
+The internal function `.parse_formula()` decomposes the two-sided formula into its constituent parts.
+It deparses the left-hand side, strips whitespace, and applies a regular expression to extract three named groups:
+
+```r
+.parse_formula <- function(formula) {
+  lhs <- deparse(formula[[2]], width.cutoff = 500L)
+  lhs <- gsub("\\s+", "", lhs)
+
+  lhs_pattern <- paste0(
+    "^([a-zA-Z._][a-zA-Z0-9._]*)\\|",
+    "(se|sd)\\(([a-zA-Z._][a-zA-Z0-9._]*)\\)$"
+  )
+  m <- regmatches(lhs, regexec(lhs_pattern, lhs))[[1L]]
+  # m[2] = y_name, m[3] = var_type ("se"/"sd"), m[4] = var_name
+
+  rhs_formula <- formula
+  rhs_formula[[2]] <- NULL  # drop LHS to make one-sided
+
+  list(y_name = m[2], var_name = m[4], var_type = m[3],
+       rhs_formula = rhs_formula)
+}
+```
+
+> *Note: Error-handling and validation code omitted for clarity. See the source file for the complete implementation.*
+
+The regex enforces that column names follow R's identifier rules.
+If the match fails, an informative error message directs the user to the expected `y | se(v)` or `y | sd(s)` format.
+
+The right-hand side formula is obtained by dropping element `[[2]]` from the original two-sided formula, yielding a one-sided formula suitable for `model.matrix()`.
+
+### Study Identifier Parsing
+
+The `study` argument accepts either a one-sided formula (`~ studyid`) or a bare string (`"studyid"`).
+The internal `.parse_study()` function normalizes both forms to a character column name and validates its presence in the data:
+
+```r
+.parse_study <- function(study, data) {
+  if (inherits(study, "formula")) {
+    study_name <- deparse(study[[2]], width.cutoff = 500L)
+    study_name <- trimws(study_name)
+  } else if (is.character(study) && length(study) == 1L) {
+    study_name <- study
+  }
+  # Validate column exists in data
+  if (!study_name %in% names(data))
+    cli_abort("Column {study_name} not found in data.")
+  study_name
+}
+```
+
+
+## Study Ordering and Cluster Metadata {#sec-fit-clusters}
+
+The `.prepare_data()` function is the central data-preparation orchestrator.
+After parsing the formula and study identifier, it sorts the data frame by study, constructs the design matrix, and computes all study-level summary statistics that Stan and the sandwich estimator require.
+
+### Sort-by-Study Guarantee
+
+All observations are reordered so that rows belonging to the same study are contiguous:
+
+```r
+ord <- order(study_ids_raw)
+data <- data[ord, , drop = FALSE]
+yi <- yi[ord]
+vi <- vi[ord]
+```
+
+This sort order is a structural invariant: the Stan models use `segment()` and `block()` to extract contiguous sub-vectors and sub-matrices for each study, indexed by `study_starts[j]` and `study_sizes[j]`.
+The sort-by-study guarantee ensures that these array slices correspond to the correct observations.
+
+### Study-Level Quantities
+
+After sorting, `.prepare_data()` factorizes the study identifiers and computes four study-level vectors:
+
+| Quantity | R Code | Mathematical Definition |
+|:---------|:-------|:------------------------|
+| $n_j$ | `n_j <- as.integer(table(study_factor))` | Number of effect sizes in study $j$ |
+| $\bar{y}_j$ | `y_bar_j <- vapply(study_idx, function(idx) mean(yi[idx]), double(1L))` | $n_j^{-1} \sum_{i} y_{ij}$ |
+| $\bar{s}^2_j$ | `s_bar_j2 <- vapply(study_idx, function(idx) mean(vi[idx]), double(1L))` | $n_j^{-1} \sum_{i} v_{ij}$ |
+| $w_j$ | `w_j <- n_j / s_bar_j2` | Precision weight for WLS |
+| $\bar{\mathbf{X}}_j$ | `X_study <- do.call(rbind, lapply(study_idx, function(idx) colMeans(X[idx, , drop = FALSE])))` | $n_j^{-1} \sum_{i} \mathbf{x}_{ij}$ |
+
+The `study_idx` object is a named list of integer vectors produced by `split(seq_len(N_total), study_factor)`, providing the row indices for each study.
+All subsequent study-level operations---in data preparation, sandwich estimation, and CCC calibration---use this index list.
+
+### Cluster-Constant Detection
+
+The `.is_cluster_constant()` function determines whether all predictors are constant within each study:
+
+```r
+.is_cluster_constant <- function(X, study_idx) {
+  tol <- .Machine$double.eps^0.5
+  for (idx in study_idx) {
+    if (length(idx) > 1L) {
+      X_sub <- X[idx, , drop = FALSE]
+      col_ranges <- apply(X_sub, 2L, function(col) max(col) - min(col))
+      if (any(col_ranges > tol)) return(FALSE)
+    }
+  }
+  TRUE
+}
+```
+
+This flag drives the `use_obs_V` toggle in the Stan data.
+When all predictors are cluster-constant (e.g., intercept-only models or study-level moderators), the CE model uses the study-level average variance $\bar{s}^2_j$ as the observation-level variance, which simplifies the likelihood.
+When moderators vary within a study (e.g., different treatment arms), the observation-level variances $v_{ij}$ are passed through `V_obs` and the generated-quantities block computes observation-level weighted scores for diagnostic verification (the production sandwich computes its own marginal scores analytically in R; see @sec-sw-ce).
+This automatic dispatch was introduced in v0.3.0 to handle within-study varying moderators without requiring user intervention.
+
+
+## Stan Data Assembly {#sec-fit-standata}
+
+### Data Block Mapping
+
+The `.prepare_data()` function constructs a `stan_data` list inside the `bm_data` object.
+The `.build_stan_input()` function then merges this data with prior hyperparameters and control flags to produce the complete input for CmdStan's `$sample()` method.
+
+The mapping from R objects to Stan variables is:
+
+| Stan Variable | R Source | Description |
+|:--------------|:---------|:------------|
+| `J` | `length(unique(study))` | Number of studies |
+| `N_total` | `nrow(X)` | Total number of observations |
+| `study_sizes` | `n_j` (from `table()`) | $n_j$: effect sizes per study |
+| `K` | `ncol(X)` | Number of predictors (including intercept) |
+| `X` | `model.matrix(rhs_formula, data)` | $N \times K$ design matrix |
+| `y` | `yi` (sorted) | Observed effect sizes $y_{ij}$ |
+| `s_bar_sq` | `s_bar_j2` | Study-level average sampling variance $\bar{s}^2_j$ |
+| `V_obs` | `vi` (sorted) | Per-observation sampling variance $v_{ij}$ |
+| `use_obs_V` | `as.integer(!cluster_constant)` | 0 = study-level, 1 = observation-level |
+| `compute_scores` | `1L` (always) | Enable diagnostic score gradient computation |
+
+The data list is assembled in `.prepare_data()`:
+
+```r
+stan_data <- list(
+  J           = J,
+  N_total     = N_total,
+  study_sizes = n_j,
+  K           = K,
+  X           = X,
+  y           = yi,
+  s_bar_sq    = unname(s_bar_j2),
+  V_obs       = as.array(vi),
+  use_obs_V   = as.integer(!cluster_constant)
+)
+```
+
+### Prior-via-Data-Block Pattern
+
+bayesRVE passes all prior hyperparameters as Stan data variables rather than hardcoding them in the Stan model.
+This design---known as the prior-via-data-block pattern---allows users to change priors without recompiling the Stan model.
+
+The `.prior_to_stan_data()` function extracts numeric hyperparameters from a `bm_prior` object:
+
+```r
+.prior_to_stan_data <- function(prior, model = "ce") {
+  tau_df <- prior$tau$df
+  if (is.infinite(tau_df)) tau_df <- 200  # approximate Inf with large df
+
+  result <- list(
+    prior_beta_mean    = prior$beta$mean,
+    prior_beta_sd      = prior$beta$sd,
+    prior_tau_df       = tau_df,
+    prior_tau_location = prior$tau$location,
+    prior_tau_scale    = prior$tau$scale
+  )
+
+  if (model == "che") {
+    omega_prior <- prior$omega
+    if (is.null(omega_prior)) omega_prior <- half_t(3, 0, 0.5)
+    omega_df <- omega_prior$df
+    if (is.infinite(omega_df)) omega_df <- 200
+
+    result$prior_omega_df       <- omega_df
+    result$prior_omega_location <- omega_prior$location
+    result$prior_omega_scale    <- omega_prior$scale
+  }
+  result
+}
+```
+
+The merging step in `.build_stan_input()` is a simple concatenation:
+
+```r
+.build_stan_input <- function(bm_data, prior, model = "ce") {
+  prior_data <- .prior_to_stan_data(prior, model = model)
+  c(bm_data$stan_data, prior_data, list(compute_scores = 1L))
+}
+```
+
+Note the `compute_scores = 1L` flag: bayesRVE computes conditional score gradients ($\partial \ell_j / \partial \boldsymbol{\beta}$) in the generated quantities block for diagnostic verification against the R-side analytic computation used by the production sandwich estimator (see @sec-sw-ce).
+The overhead is minimal compared to MCMC sampling.
+
+### Prior Constructors
+
+Users specify priors through a composable API.
+The `bm_prior()` constructor bundles distribution objects for $\boldsymbol{\beta}$ and $\tau$ (and optionally $\omega$ for CHE models):
+
+```r
+bm_prior(beta = normal(0, 1), tau = half_t(3, 0, 0.5))
+```
+
+The distribution constructors `normal()`, `half_t()`, `half_cauchy()`, and `half_normal()` validate their arguments at construction time.
+The `half_t()` constructor warns for `df < 1` (extremely heavy tails) and `scale > 10` (essentially improper prior).
+Scale-appropriate defaults are provided by `default_prior()`:
+
+| `es_type` | $\boldsymbol{\beta}$ Prior | $\tau$ Prior |
+|:----------|:---------------------------|:-------------|
+| `"smd"` | $\text{Normal}(0, 1)$ | $\text{Half-}t(3, 0, 0.5)$ |
+| `"log_or"` | $\text{Normal}(0, 1.5)$ | $\text{Half-}t(3, 0, 0.5)$ |
+| `"fisher_z"` | $\text{Normal}(0, 1)$ | $\text{Half-}t(3, 0, 0.3)$ |
+| `"generic"` | $\text{Normal}(0, 10)$ | $\text{Half-}t(3, 0, 1)$ |
+
+
+## NCP vs CP Parameterization {#sec-fit-ncp}
+
+### The Funnel Geometry Problem
+
+The CE model introduces a hierarchical structure where $\theta_j \sim \text{Normal}(0, \tau^2)$ and each $\theta_j$ appears in the likelihood.
+When $\tau$ is small, the posterior concentrates $\theta_j$ near zero, creating a funnel-shaped geometry in the joint $(\tau, \boldsymbol{\theta})$ space.
+Hamiltonian Monte Carlo struggles with this geometry because the curvature varies sharply: the posterior is broad far from the funnel neck and extremely narrow near $\tau \approx 0$.
+This mismatch between the global step size and local curvature produces divergent transitions.
+
+### Non-Centered Parameterization (NCP)
+
+The non-centered parameterization (NCP) decouples the raw parameters from $\tau$ by introducing auxiliary variables:
+
+$$
+\theta_{\text{raw},j} \sim \text{Normal}(0, 1), \qquad \theta_j = \tau \cdot \theta_{\text{raw},j}.
+$$
+
+In Stan, this is a two-block construction.
+The `parameters` block declares the raw variables, and the `transformed parameters` block applies the deterministic scaling:
+
+```stan
+// bm_ce_ncp.stan
+parameters {
+  vector[K] beta;
+  vector[J] theta_raw;
+  real<lower=0> tau;
+}
+
+transformed parameters {
+  vector[J] theta = tau * theta_raw;
+}
+```
+
+The model block then places a standard normal prior on `theta_raw` and the user-specified Half-$t$ prior on `tau`.
+The likelihood uses `theta[j]` (the transformed parameter), so the sampling statement is identical to the centered version:
+
+```stan
+model {
+  beta ~ normal(prior_beta_mean, prior_beta_sd);
+  theta_raw ~ normal(0, 1);
+  tau ~ student_t(prior_tau_df, prior_tau_location, prior_tau_scale);
+
+  for (j in 1:J) {
+    int start = study_starts[j];
+    int n_j = study_sizes[j];
+    real sd_j = sqrt(s_bar_sq[j]);
+    segment(y, start, n_j) ~ normal(
+      block(X, start, 1, n_j, K) * beta + theta[j],
+      sd_j
+    );
+  }
+}
+```
+
+The NCP works because the sampler explores $\theta_{\text{raw},j}$, which has a unit-normal geometry regardless of $\tau$.
+The funnel is eliminated from the sampling space.
+
+### Centered Parameterization (CP)
+
+The centered parameterization (CP) samples $\theta_j$ directly from $\text{Normal}(0, \tau)$ in the `model` block.
+CP can be more efficient than NCP when the data are highly informative about each $\theta_j$---that is, when the within-study variance is small relative to $\tau^2$---because the posterior is far from the funnel geometry in this regime.
+
+bayesRVE defaults to NCP (Decision D3), which is the safer choice for most meta-analytic applications where the number of effect sizes per study is modest.
+The `parameterization = "cp"` option invokes `bm_ce_cp.stan`, which places the prior directly:
+
+```stan
+// bm_ce_cp.stan (parameters and model blocks)
+parameters {
+  vector[K] beta;
+  vector[J] theta;
+  real<lower=0> tau;
+}
+
+model {
+  beta ~ normal(prior_beta_mean, prior_beta_sd);
+  theta ~ normal(0, tau);
+  tau ~ student_t(prior_tau_df, prior_tau_location, prior_tau_scale);
+  // ... likelihood identical
+}
+```
+
+### Parameterization Comparison
+
+| Feature | CE NCP | CE CP | CHE NCP |
+|:--------|:-------|:------|:--------|
+| Latent parameters | $\theta_{\text{raw},j} \sim N(0,1)$ | $\theta_j \sim N(0, \tau)$ | None (marginalized) |
+| Reconstruction | $\theta_j = \tau \cdot \theta_{\text{raw},j}$ | Direct | N/A |
+| Sampled parameters | $K + J + 1$ | $K + J + 1$ | $K + 2$ |
+| When preferred | Default (low-information $\tau$) | High-information (large $n_j$) | Always (only CHE option) |
+| Funnel risk | Low | High near $\tau \to 0$ | N/A |
+| Typical divergences | Rare | Common at small $J$ | Rare |
+
+: Comparison of the three parameterizations available in bayesRVE. {#tbl-param-compare}
+
+### CHE: Analytical Marginalization
+
+The CHE model adds a second variance component $\omega^2$ for within-study heterogeneity beyond sampling error.
+The conditional model is:
+
+$$
+y_{ij} \mid \boldsymbol{\beta}, \theta_j \sim \text{Normal}(\mathbf{x}_{ij}^\top \boldsymbol{\beta} + \theta_j, \; \bar{s}^2_j + \omega^2).
+$$
+
+Rather than sampling $\theta_j$ as latent parameters, `bm_che_ncp.stan` analytically integrates them out.
+Because $\theta_j \sim \text{Normal}(0, \tau^2)$ and the conditional likelihood is normal, the marginal distribution of the observations in study $j$ is multivariate normal:
+
+$$
+\mathbf{y}_j \mid \boldsymbol{\beta}, \tau, \omega \sim \text{MVN}\!\left(\mathbf{X}_j \boldsymbol{\beta}, \; \mathbf{S}_j\right),
+$$
+
+where the compound-symmetry covariance matrix is:
+
+$$
+\mathbf{S}_j = (\bar{s}^2_j + \omega^2)\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{J}_{n_j},
+$$
+
+with $\mathbf{J}_{n_j} = \mathbf{1}_{n_j}\mathbf{1}_{n_j}^\top$.
+
+The Woodbury identity provides an efficient inverse and determinant without forming the $n_j \times n_j$ matrix.
+Defining $a_j = \bar{s}^2_j + \omega^2$ and $c_j = a_j + n_j \tau^2$:
+
+$$
+\mathbf{S}_j^{-1} = \frac{1}{a_j}\mathbf{I}_{n_j} - \frac{\tau^2}{a_j \, c_j}\mathbf{J}_{n_j}, \qquad
+\log|\mathbf{S}_j| = (n_j - 1)\log a_j + \log c_j.
+$$
+
+The Stan implementation computes the log-likelihood contribution for each study using only scalar operations and the two sufficient statistics $\sum_i r_{ij}$ and $\sum_i r_{ij}^2$:
+
+```stan
+// bm_che_ncp.stan — model block
+parameters {
+  vector[K] beta;
+  real<lower=0> tau;
+  real<lower=0> omega;
+}
+
+model {
+  beta ~ normal(prior_beta_mean, prior_beta_sd);
+  tau ~ student_t(prior_tau_df, prior_tau_location, prior_tau_scale);
+  omega ~ student_t(prior_omega_df, prior_omega_location, prior_omega_scale);
+
+  real tau2 = square(tau);
+  real omega2 = square(omega);
+
+  for (j in 1:J) {
+    int start = study_starts[j];
+    int n_j = study_sizes[j];
+    real a_j = s_bar_sq[j] + omega2;
+    real c_j = a_j + n_j * tau2;
+
+    real log_det_j = (n_j - 1) * log(a_j) + log(c_j);
+
+    vector[n_j] r_j = segment(y, start, n_j)
+                       - block(X, start, 1, n_j, K) * beta;
+    real sum_r = sum(r_j);
+    real sum_r2 = dot_self(r_j);
+    real quad_j = sum_r2 / a_j - tau2 * square(sum_r) / (a_j * c_j);
+
+    target += -0.5 * (n_j * log(2 * pi()) + log_det_j + quad_j);
+  }
+}
+```
+
+The key advantage of analytical marginalization is that the CHE model has only $K + 2$ parameters ($\boldsymbol{\beta}$, $\tau$, $\omega$) regardless of the number of studies, compared to $K + J + 1$ for the CE model.
+This dramatic reduction in dimensionality eliminates the funnel geometry entirely and yields substantially faster sampling, particularly for large $J$.
+
+
+## Generated Quantities {#sec-fit-genquant}
+
+The `generated quantities` block in each Stan model computes three sets of outputs after each MCMC draw, without affecting the posterior distribution.
+
+### Study-Level Log-Likelihoods
+
+Both CE and CHE models produce `log_lik_J[j]`, the log-likelihood contribution of study $j$ evaluated at the current draw.
+For the CE model:
+
+$$
+\ell_j(\boldsymbol{\beta}, \theta_j) = \sum_{i=1}^{n_j} \log \phi\!\left(y_{ij} \mid \mathbf{x}_{ij}^\top\boldsymbol{\beta} + \theta_j, \; \bar{s}^2_j\right),
+$$
+
+where $\phi(\cdot \mid \mu, \sigma^2)$ is the normal density.
+For the CHE model, the log-likelihood uses the marginal form with the Woodbury quadratic (the same formula as the model block).
+
+These log-likelihoods support study-level leave-one-out cross-validation via the `loo` package.
+
+### Score Gradients (Stan-Side)
+
+The Stan generated quantities block also computes the conditional score gradient $\mathbf{u}_j^{(\beta)} = \partial \ell_j / \partial \boldsymbol{\beta}$ at each MCMC draw. These conditional scores (which include the latent $\theta_j$) are available for diagnostics; the sandwich estimator computes its own *marginal* scores analytically in R at the posterior mean (@sec-sw-ce).
+The CE model computes conditional scores in two modes:
+
+**Study-level mode** (`use_obs_V = 0`): when predictors are cluster-constant, the score simplifies to:
+
+$$
+u_{jk}^{(\beta)} = \frac{1}{\bar{s}^2_j} \sum_{i=1}^{n_j} r_{ij} \, x_{ijk},
+$$
+
+where $r_{ij} = y_{ij} - \mathbf{x}_{ij}^\top\boldsymbol{\beta} - \theta_j$.
+
+**Observation-level mode** (`use_obs_V = 1`): when moderators vary within a study, each observation receives its own weight:
+
+$$
+u_{jk}^{(\beta)} = \sum_{i=1}^{n_j} \frac{r_{ij}}{v_{ij} + \tau^2} \, x_{ijk}.
+$$
+
+The CHE model uses the marginal-form score. Defining $\mathbf{S}_j^{-1}\mathbf{r}_j$ via the Woodbury inversion, the score is $\mathbf{X}_j^\top \mathbf{S}_j^{-1} \mathbf{r}_j$:
+
+```stan
+// bm_che_ncp.stan — score computation in generated quantities
+vector[n_j] Sinv_r = r_j / a_j
+                      - (tau2 * sum_r / (a_j * c_j))
+                        * rep_vector(1.0, n_j);
+score_beta[j] = (block(X, start, 1, n_j, K)' * Sinv_r)';
+```
+
+### CHE Sufficient Statistics
+
+The CHE model also exports four vectors of sufficient statistics (`ss_sum_r`, `ss_sum_r2`, `ss_a`, `ss_c`) in the generated quantities block, which can serve as diagnostic cross-checks. However, the production sandwich estimator computes all scores---including $\partial \ell_j / \partial \tau^2$ and $\partial \ell_j / \partial \omega^2$---entirely in R at the posterior mean, recomputing residuals and Woodbury quantities from the original data rather than consuming Stan-side sufficient statistics (@sec-sw-ce). This design keeps the full score computation in one place (R), making it easier to maintain and test.
+
+### Posterior Predictive Draws
+
+Both models produce `y_rep`, a vector of posterior predictive draws for each observation.
+The CE model draws $y_{\text{rep},ij} \sim \text{Normal}(\mathbf{x}_{ij}^\top\boldsymbol{\beta} + \theta_j, \bar{s}_j)$.
+The CHE model first draws a study-level random effect $\theta_j \sim \text{Normal}(0, \tau)$, then generates $y_{\text{rep},ij} \sim \text{Normal}(\mathbf{x}_{ij}^\top\boldsymbol{\beta} + \theta_j, \sqrt{a_j})$ where $a_j = \bar{s}^2_j + \omega^2$.
+These draws support posterior predictive checks via `pp_check()`-style graphical diagnostics.
+
+
+## Posterior Draw Extraction {#sec-fit-extraction}
+
+### The `.extract_draws()` Function
+
+All downstream computation in bayesRVE---the sandwich estimator, CCC calibration, and S3 methods---accesses posterior draws exclusively through the internal `.extract_draws()` function.
+This centralized interface ensures consistent column naming, handles model-specific edge cases, and wraps all CmdStan file access in `tryCatch` for robustness.
+
+The function accepts a `bm_fit` object and a `block` argument specifying which parameter group to extract:
+
+```r
+.extract_draws <- function(x, block = c("beta", "theta", "tau", "omega")) {
+  block <- match.arg(block)
+
+  K <- x$K
+  J <- x$J
+
+  # CHE omega draws
+  if (block == "omega") {
+    if (!identical(x$model, "che"))
+      cli_abort("omega draws only available for CHE models.")
+    mat <- posterior::as_draws_matrix(x$fit$draws("omega"))
+    return(unname(as.matrix(mat)))
+  }
+
+  # CHE has no explicit theta (integrated out)
+  if (block == "theta" && identical(x$model, "che")) {
+    cli_warn("CHE model has no explicit theta parameters.")
+    n_draws <- nrow(posterior::as_draws_matrix(x$fit$draws()))
+    return(matrix(0, nrow = n_draws, ncol = J))
+  }
+
+  all_draws <- posterior::as_draws_matrix(x$fit$draws())
+
+  param_names <- switch(block,
+    beta  = sprintf("beta[%d]", seq_len(K)),
+    theta = sprintf("theta[%d]", seq_len(J)),
+    tau   = "tau"
+  )
+
+  out <- all_draws[, param_names, drop = FALSE]
+  matrix(as.numeric(out), nrow = nrow(out), ncol = ncol(out),
+         dimnames = list(NULL, param_names))
+}
+```
+
+> *Note: Error-handling and validation code omitted for clarity. See the source file for the complete implementation.*
+
+### Column Naming Convention
+
+The returned matrix uses CmdStan's bracket-indexed naming: `beta[1]`, `beta[2]`, ..., `beta[K]` for fixed effects and `theta[1]`, `theta[2]`, ..., `theta[J]` for study-level random effects.
+The `tau` block returns a single-column matrix with column name `"tau"`.
+For CHE models, `omega` returns a single-column matrix.
+
+This naming convention matters because the sandwich estimator indexes into the draw matrix by parameter name when computing $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}$ (the posterior covariance of $\boldsymbol{\beta}$).
+
+### Sigma_MCMC Computation
+
+The posterior covariance matrix $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}$ is the $K \times K$ sample covariance of the $\boldsymbol{\beta}$ draws:
+
+$$
+\hat{\boldsymbol{\Sigma}}_{\text{MCMC}} = \frac{1}{S-1}\sum_{s=1}^{S}\left(\boldsymbol{\beta}^{(s)} - \bar{\boldsymbol{\beta}}\right)\left(\boldsymbol{\beta}^{(s)} - \bar{\boldsymbol{\beta}}\right)^\top,
+$$
+
+where $S$ is the total number of posterior draws (chains $\times$ iterations).
+In R, this is computed as `cov(.extract_draws(x, "beta"))`.
+This matrix serves as $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}$ in the CCC formula (see @sec-ccc), representing what the Bayesian posterior believes about the uncertainty in $\boldsymbol{\beta}$ before sandwich correction.
+
+### CHE-Specific: omega and omega2_hat
+
+For CHE models, the $\omega$ draws are extracted via `.extract_draws(x, "omega")`.
+The plug-in estimate $\hat{\omega}^2$ used in the sandwich estimator follows Decision D20:
+
+$$
+\hat{\omega}^2 = \frac{1}{S}\sum_{s=1}^{S} \omega^{(s)2}.
+$$
+
+This is the posterior mean of $\omega^2$, not the square of the posterior mean of $\omega$.
+The distinction matters because Jensen's inequality implies $E[\omega^2] \geq (E[\omega])^2$, and the sandwich estimator needs the mean of the variance, not the variance of the mean.
+This is consistent with the CE convention where $\hat{\tau}^2 = \bar{\tau}^{2}$, not $\bar{\tau}^2 = (\bar{\tau})^2$.
+
+To illustrate the practical magnitude, consider a typical CHE fit on the TSL15 data:
+
+```r
+omega_draws <- .extract_draws(fit, "omega")
+
+# Correct (Decision D20): posterior mean of the variance
+omega2_hat <- mean(omega_draws^2)   # = 0.00372
+
+# Incorrect: square of the posterior mean of the SD
+mean(omega_draws)^2                 # = 0.00314
+```
+
+The discrepancy of approximately 18% arises from the non-negligible spread in the posterior of $\omega$. Using the Jensen-biased estimate would systematically underestimate within-study heterogeneity, producing anti-conservative sandwich standard errors.
+
+### The CHE Theta Placeholder
+
+When `.extract_draws()` is called with `block = "theta"` on a CHE model, it returns a zero matrix with $S$ rows and $J$ columns, accompanied by a warning.
+The CHE model has no latent $\theta_j$ parameters---they were analytically integrated out in the marginal likelihood.
+This zero matrix serves as a compatibility layer so that downstream code that expects a `theta` block (e.g., `bm_diagnose()`) does not fail.
+The `score_theta` vector in the CHE generated quantities block is similarly set to zero.
+
+The CCC calibration for CHE operates only on the $\boldsymbol{\beta}$-block (see @sec-ccc), so the absence of $\theta_j$ draws does not limit the Three-Layer Calibration pipeline.
+
+
+## Verification: Recovering Known Values {#sec-fit-recovery}
+
+A Bayesian fitting procedure satisfies calibration if, when data are generated from known parameters, the posterior intervals cover the true values at the nominal rate.
+This section describes a simulation-recovery check that validates `bm_fit()` independently of the downstream sandwich and CCC machinery.
+
+### Design
+
+Data are generated from a known CHE model with $\beta_0 = 0.3$, $\beta_1 = 0.1$, $\tau = 0.2$, $\omega = 0.15$.
+The DGP creates $J = 30$ studies with $n_j \sim \text{Uniform}\{2, 5\}$ effect sizes per study.
+Sampling variances are $v_{ij} \sim \text{Uniform}(0.01, 0.10)$.
+A single study-level moderator $x_{1j} \sim N(0, 1)$ is included.
+
+### Single-run check
+
+```r
+fit <- bm_fit(yi | se(vi) ~ x1, data = dat, study = ~ studyid,
+              model = "che", seed = 42)
+
+# 95% posterior intervals
+quantile(.extract_draws(fit, "beta")[, 1], c(0.025, 0.975))
+#>  2.5% 97.5%
+#> 0.071 0.525   # True beta_0 = 0.30 → covered ✓
+
+quantile(.extract_draws(fit, "tau"), c(0.025, 0.975))
+#>  2.5% 97.5%
+#> 0.092 0.345   # True tau = 0.20 → covered ✓
+```
+
+### Replicated coverage
+
+Over $R = 200$ replications at 95% nominal level, expected coverage is:
+
+| Parameter | Expected Coverage | Acceptable Range |
+|:----------|:-----------------|:-----------------|
+| $\beta_0$, $\beta_1$ | 94--96% | $\geq 93\%$ |
+| $\tau$, $\omega$ | 92--96% | $\geq 90\%$ |
+
+Variance components may show slightly lower coverage because posterior intervals for standard deviations are asymmetric and bounded below at zero---a well-known property of half-$t$ priors.
+
+### Scope
+
+This simulation-recovery check validates the Stan model, prior specification, and posterior sampler.
+It does **not** validate the sandwich estimator, CCC transformation, or Satterthwaite degrees of freedom---those are verified separately through algebraic tests (@sec-ccc), plug-in parity checks, and the TSL15 real-data analysis (@sec-results).

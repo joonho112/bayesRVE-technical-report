@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>7&nbsp; Operating Envelope and Boundary Behavior – bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./ch06-architecture.html" rel="next">
+<link href="./ch04-ccc.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-8b4baf804e461d9b72633f0de59a0cac.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-25a4e8620ae17d49cd0c3861fdf92567.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch01-introduction.html">Part I: Foundations</a></li><li class="breadcrumb-item"><a href="./ch05-envelope.html"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Preface</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch00-notation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Notation, Acronyms, and Object Map</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part I: Foundations</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch01-introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Introduction and Inferential Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch02-models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Statistical Models and Stan Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch03-sandwich.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Sandwich Variance Estimation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch04-ccc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch05-envelope.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part II: Software Realization and Verification</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch06-architecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch07-fitting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Model Fitting Pipeline</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch08-sandwich-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Sandwich Implementation</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch09-ccc-impl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">CCC Implementation and Inferential Outputs</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch10-verification.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Verification</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Part III: Empirical Validation</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch11-tsl15-design.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Real-Data Validation: Experimental Design</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch12-results.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Results</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ch13-mechanics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">CCC Mechanics and Limitations</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-a-proofs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">Extended Proofs and Derivations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-b-decisions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Inference-Relevant Design Decisions</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-c-api.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">C</span>&nbsp; <span class="chapter-title">API Quick Reference</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./app-d-reproducibility.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">D</span>&nbsp; <span class="chapter-title">Reproducibility</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">E</span>&nbsp; <span class="chapter-title">References</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#sec-envelope" id="toc-sec-envelope" class="nav-link active" data-scroll-target="#sec-envelope"><span class="header-section-number">8</span> Operating Envelope and Boundary Behavior</a>
+  <ul>
+  <li><a href="#sec-env-conditions" id="toc-sec-env-conditions" class="nav-link" data-scroll-target="#sec-env-conditions"><span class="header-section-number">8.1</span> Coverage Conditions and Regularity Assumptions</a></li>
+  <li><a href="#sec-env-exact" id="toc-sec-env-exact" class="nav-link" data-scroll-target="#sec-env-exact"><span class="header-section-number">8.2</span> Exact versus Asymptotic Guarantees</a></li>
+  <li><a href="#sec-env-jmin" id="toc-sec-env-jmin" class="nav-link" data-scroll-target="#sec-env-jmin"><span class="header-section-number">8.3</span> Operating Envelope: <span class="math inline">\(J_{\min}\)</span></a>
+  <ul class="collapse">
+  <li><a href="#rationale-for-the-2k-2-component" id="toc-rationale-for-the-2k-2-component" class="nav-link" data-scroll-target="#rationale-for-the-2k-2-component"><span class="header-section-number">8.3.1</span> Rationale for the <span class="math inline">\(2K + 2\)</span> Component</a></li>
+  <li><a href="#the-floor-of-8" id="toc-the-floor-of-8" class="nav-link" data-scroll-target="#the-floor-of-8"><span class="header-section-number">8.3.2</span> The Floor of 8</a></li>
+  <li><a href="#j_min-for-common-configurations" id="toc-j_min-for-common-configurations" class="nav-link" data-scroll-target="#j_min-for-common-configurations"><span class="header-section-number">8.3.3</span> <span class="math inline">\(J_{\min}\)</span> for Common Configurations</a></li>
+  <li><a href="#worked-example" id="toc-worked-example" class="nav-link" data-scroll-target="#worked-example"><span class="header-section-number">8.3.4</span> Worked Example</a></li>
+  <li><a href="#behavior-below-j_min" id="toc-behavior-below-j_min" class="nav-link" data-scroll-target="#behavior-below-j_min"><span class="header-section-number">8.3.5</span> Behavior Below <span class="math inline">\(J_{\min}\)</span></a></li>
+  </ul></li>
+  <li><a href="#sec-env-boundary" id="toc-sec-env-boundary" class="nav-link" data-scroll-target="#sec-env-boundary"><span class="header-section-number">8.4</span> Boundary Cases and PD Failures</a>
+  <ul class="collapse">
+  <li><a href="#case-1-j-leq-k-structural-singularity" id="toc-case-1-j-leq-k-structural-singularity" class="nav-link" data-scroll-target="#case-1-j-leq-k-structural-singularity"><span class="header-section-number">8.4.1</span> Case 1: <span class="math inline">\(J \leq K\)</span> (Structural Singularity)</a></li>
+  <li><a href="#case-2-tau2-to-0-degenerate-heterogeneity" id="toc-case-2-tau2-to-0-degenerate-heterogeneity" class="nav-link" data-scroll-target="#case-2-tau2-to-0-degenerate-heterogeneity"><span class="header-section-number">8.4.2</span> Case 2: <span class="math inline">\(\tau^2 \to 0\)</span> (Degenerate Heterogeneity)</a></li>
+  <li><a href="#case-3-sigma_mathrmmcmc-not-positive-definite" id="toc-case-3-sigma_mathrmmcmc-not-positive-definite" class="nav-link" data-scroll-target="#case-3-sigma_mathrmmcmc-not-positive-definite"><span class="header-section-number">8.4.3</span> Case 3: <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> Not Positive Definite</a></li>
+  <li><a href="#case-4-v_mathrmcr2-not-positive-definite" id="toc-case-4-v_mathrmcr2-not-positive-definite" class="nav-link" data-scroll-target="#case-4-v_mathrmcr2-not-positive-definite"><span class="header-section-number">8.4.4</span> Case 4: <span class="math inline">\(V_{\mathrm{CR2}}\)</span> Not Positive Definite</a></li>
+  <li><a href="#case-5-singular-che-hessian" id="toc-case-5-singular-che-hessian" class="nav-link" data-scroll-target="#case-5-singular-che-hessian"><span class="header-section-number">8.4.5</span> Case 5: Singular CHE Hessian</a></li>
+  </ul></li>
+  <li><a href="#sec-env-singletons" id="toc-sec-env-singletons" class="nav-link" data-scroll-target="#sec-env-singletons"><span class="header-section-number">8.5</span> Singletons and CHE-Specific Warnings</a>
+  <ul class="collapse">
+  <li><a href="#singleton-non-identifiability-decision-d22" id="toc-singleton-non-identifiability-decision-d22" class="nav-link" data-scroll-target="#singleton-non-identifiability-decision-d22"><span class="header-section-number">8.5.1</span> Singleton Non-Identifiability (Decision D22)</a></li>
+  <li><a href="#che-prior-sensitivity" id="toc-che-prior-sensitivity" class="nav-link" data-scroll-target="#che-prior-sensitivity"><span class="header-section-number">8.5.2</span> CHE Prior Sensitivity</a></li>
+  <li><a href="#che-theta-quarantine" id="toc-che-theta-quarantine" class="nav-link" data-scroll-target="#che-theta-quarantine"><span class="header-section-number">8.5.3</span> CHE Theta Quarantine</a></li>
+  </ul></li>
+  <li><a href="#sec-env-fallback" id="toc-sec-env-fallback" class="nav-link" data-scroll-target="#sec-env-fallback"><span class="header-section-number">8.6</span> Fallback Semantics</a>
+  <ul class="collapse">
+  <li><a href="#the-method-field" id="toc-the-method-field" class="nav-link" data-scroll-target="#the-method-field"><span class="header-section-number">8.6.1</span> The <code>method</code> Field</a></li>
+  <li><a href="#pipeline-flow" id="toc-pipeline-flow" class="nav-link" data-scroll-target="#pipeline-flow"><span class="header-section-number">8.6.2</span> Pipeline Flow</a></li>
+  <li><a href="#the-three-interval-types" id="toc-the-three-interval-types" class="nav-link" data-scroll-target="#the-three-interval-types"><span class="header-section-number">8.6.3</span> The Three Interval Types</a></li>
+  </ul></li>
+  <li><a href="#sec-env-quickref" id="toc-sec-env-quickref" class="nav-link" data-scroll-target="#sec-env-quickref"><span class="header-section-number">8.7</span> Quick Reference: When to Worry</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ch01-introduction.html">Part I: Foundations</a></li><li class="breadcrumb-item"><a href="./ch05-envelope.html"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Operating Envelope and Boundary Behavior</span></h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-envelope" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> Operating Envelope and Boundary Behavior</h1>
+<p>The Cholesky Calibration Correction (CCC) framework, as developed in <a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>, produces exact covariance matching under the assumptions stated in Theorem 2. However, these guarantees rest on regularity conditions that can fail in small or degenerate meta-analytic datasets. This chapter formally states the conditions required for valid CCC inference, delineates the operating envelope within which bayesRVE is designed to function reliably, taxonomizes the boundary cases that arise when these conditions are violated, and documents the fallback semantics that govern the software’s behavior at the margins.</p>
+<section id="sec-env-conditions" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="sec-env-conditions"><span class="header-section-number">8.1</span> Coverage Conditions and Regularity Assumptions</h2>
+<p>The Three-Layer Calibration framework (Layer 1: posterior mean centering; Layer 2: CR2 sandwich target; Layer 3: Satterthwaite degrees of freedom) provides frequentist-calibrated intervals from Bayesian posterior draws. The validity of this procedure rests on four regularity conditions.</p>
+<p><strong>Condition 1 (Posterior Approximate Normality).</strong> The marginal posterior for <span class="math inline">\(\beta\)</span> is approximately multivariate normal: <span class="math display">\[
+p(\beta \mid y) \approx N_K\!\bigl(\hat\beta,\; \Sigma_{\mathrm{MCMC}}\bigr),
+\]</span> where <span class="math inline">\(\hat\beta\)</span> is the posterior mean and <span class="math inline">\(\Sigma_{\mathrm{MCMC}} = \mathrm{Cov}(\beta \mid y)\)</span>. This condition holds by Bayesian CLT arguments when the number of studies <span class="math inline">\(J\)</span> is large relative to <span class="math inline">\(K\)</span>, the prior is not overly informative, and the likelihood is regular. The CCC affine transformation preserves any departures from normality (it maps quantiles linearly), but the CCC-<span class="math inline">\(t\)</span> interval construction in Layer 3 presumes approximate normality for the <span class="math inline">\(t\)</span>-distribution pivotal argument to hold.</p>
+<p><strong>Condition 2 (<span class="math inline">\(V_{\mathrm{CR2}}\)</span> Positive Definite).</strong> The bias-corrected cluster-robust sandwich variance <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is positive definite. Since <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is assembled from <span class="math inline">\(J\)</span> outer-product contributions (see <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a>), this requires:</p>
+<ul>
+<li><span class="math inline">\(J &gt; K\)</span> (more clusters than parameters, so the meat matrix has rank <span class="math inline">\(\geq K\)</span>);</li>
+<li>No perfect multicollinearity in the between-study design matrix;</li>
+<li>Finite and non-degenerate marginal variances <span class="math inline">\(v_j = \bar{s}^2_j / n_j + \tau^2 &gt; 0\)</span> for all <span class="math inline">\(j\)</span>.</li>
+</ul>
+<p>When <span class="math inline">\(J \leq K\)</span>, the meat matrix is rank-deficient, and <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is necessarily singular. The Cholesky factorization <span class="math inline">\(L_2 = \mathrm{chol}(V_{\mathrm{CR2}})\)</span> required for the CCC transformation does not exist, and the beta-block CCC must be skipped.</p>
+<p><strong>Condition 3 (<span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> Positive Definite).</strong> The MCMC posterior covariance <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> is positive definite. This is the sample covariance of <span class="math inline">\(S\)</span> posterior draws: <span class="math display">\[
+\Sigma_{\mathrm{MCMC}} = \frac{1}{S-1}\sum_{s=1}^{S} (\beta^{(s)} - \hat\beta)(\beta^{(s)} - \hat\beta)^\top.
+\]</span> The matrix <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> has rank <span class="math inline">\(\min(S - 1, K)\)</span>, so it is PD whenever <span class="math inline">\(S &gt; K\)</span>. With typical MCMC sample sizes (<span class="math inline">\(S = 4000\)</span> in bayesRVE defaults), this condition is virtually always satisfied. It can fail with pathologically few draws or when the sampler becomes stuck in a mode. The Cholesky factorization <span class="math inline">\(L_1 = \mathrm{chol}(\Sigma_{\mathrm{MCMC}})\)</span> required for CCC fails when this condition is violated; bayesRVE applies a <code>nearPD</code> correction as a fallback (see <a href="#sec-env-boundary" class="quarto-xref"><span class="quarto-unresolved-ref">sec-env-boundary</span></a>).</p>
+<p><strong>Condition 4 (Consistent Centering).</strong> The posterior mean <span class="math inline">\(\hat\beta\)</span> converges to the true <span class="math inline">\(\beta_0\)</span> as <span class="math inline">\(J \to \infty\)</span>: <span class="math display">\[
+\hat\beta \xrightarrow{p} \beta_0 \quad \text{as } J \to \infty.
+\]</span> This is the standard Bayesian consistency requirement under model misspecification: even when the assumed model (CE or CHE) is not the true data-generating process, the posterior mean of <span class="math inline">\(\beta\)</span> converges to the pseudo-true value that the sandwich variance targets. The CCC transformation centers at <span class="math inline">\(\hat\beta\)</span> and the CR2 sandwich estimates the variance of <span class="math inline">\(\hat\beta\)</span> around this limit, so consistency of both components is required for the CCC-<span class="math inline">\(t\)</span> interval to achieve nominal coverage.</p>
+<p>These four conditions are grounded in the Calibrated Bayes framework of <span class="citation" data-cites="little2012">Little (<a href="#ref-little2012" role="doc-biblioref">2012</a>)</span>, which establishes that Bayesian procedures can achieve frequentist coverage properties when the posterior concentrates appropriately. The CR2 correction and Satterthwaite degrees of freedom follow <span class="citation" data-cites="pustejovsky2018">Pustejovsky &amp; Tipton (<a href="#ref-pustejovsky2018" role="doc-biblioref">2018</a>)</span>, ensuring finite-sample accuracy of the variance target even when <span class="math inline">\(J\)</span> is moderate.</p>
+</section>
+<section id="sec-env-exact" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="sec-env-exact"><span class="header-section-number">8.2</span> Exact versus Asymptotic Guarantees</h2>
+<p>A critical distinction must be maintained between what the CCC transformation guarantees exactly and what it guarantees only asymptotically.</p>
+<p><strong>The CCC transformation is exact.</strong> Theorem 2 (<a href="#sec-ccc" class="quarto-xref"><span class="quarto-unresolved-ref">sec-ccc</span></a>) establishes that for any number of posterior draws <span class="math inline">\(S\)</span>, the CCC-calibrated draws <span class="math inline">\(\beta^{*(s)} = \hat\beta + A(\beta^{(s)} - \hat\beta)\)</span> satisfy: <span class="math display">\[
+\mathrm{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\mathrm{CR2}}^{(\beta)},
+\]</span> where <span class="math inline">\(\mathrm{Cov}_S\)</span> denotes the sample covariance across the <span class="math inline">\(S\)</span> draws. This is not an asymptotic statement; it holds exactly for any <span class="math inline">\(S \geq K + 1\)</span> (so that <span class="math inline">\(\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)}\)</span> is nonsingular). The proof follows from the matrix identity <span class="math inline">\(\mathbf{L}_2 \mathbf{L}_1^{-1} \hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)} \mathbf{L}_1^{-\top} \mathbf{L}_2^\top = \mathbf{V}_{\mathrm{CR2}}^{(\beta)}\)</span>.</p>
+<p><strong>The CCC-<span class="math inline">\(t\)</span> interval is asymptotic.</strong> The Three-Layer Calibration interval for coefficient <span class="math inline">\(\beta_k\)</span> takes the form: <span class="math display">\[
+\hat\beta_k \;\pm\; t_{\nu_k,\, 1-\alpha/2} \times \mathrm{SD}_{\mathrm{CCC}}(\beta_k^*),
+\]</span> where <span class="math inline">\(\nu_k\)</span> is the Satterthwaite degrees of freedom for the <span class="math inline">\(k\)</span>-th coefficient and <span class="math inline">\(\mathrm{SD}_{\mathrm{CCC}}\)</span> is the standard deviation of the calibrated draws. This interval achieves nominal coverage only in the limit as <span class="math inline">\(J \to \infty\)</span> (where <span class="math inline">\(\nu_k \to \infty\)</span> and the <span class="math inline">\(t\)</span>-distribution converges to the normal). For finite <span class="math inline">\(J\)</span>, the coverage guarantee is approximate, with the quality of approximation depending on:</p>
+<ol type="1">
+<li>The accuracy of the Satterthwaite moment-matching approximation for <span class="math inline">\(\nu_k\)</span> <span class="citation" data-cites="satterthwaite1946">(<a href="#ref-satterthwaite1946" role="doc-biblioref">Satterthwaite, 1946</a>)</span>;</li>
+<li>The validity of the normal approximation to the posterior (Condition 1);</li>
+<li>The quality of the plug-in variance component estimates (<span class="math inline">\(\tau^2\)</span>, <span class="math inline">\(\omega^2\)</span>) used in constructing <span class="math inline">\(V_{\mathrm{CR2}}\)</span>.</li>
+</ol>
+<p>The Satterthwaite degrees of freedom <span class="math inline">\(\nu_k\)</span> are computed by matching the first two moments of a quadratic form to a scaled <span class="math inline">\(\chi^2\)</span> distribution (see <a href="#sec-sandwich" class="quarto-xref"><span class="quarto-unresolved-ref">sec-sandwich</span></a> for the computational formula). This is itself an approximation: the exact sampling distribution of the sandwich variance estimator is unknown in closed form, and the moment-matching procedure is most accurate when the underlying scores are approximately normal. As documented in the simulation study (<a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a>), the CCC-<span class="math inline">\(t\)</span> interval achieves 94.5–95.3% empirical coverage across the 24 conditions in sim3, validating the approximation quality for the configurations studied.</p>
+<p>In summary: the covariance calibration is an algebraic identity; the inferential coverage is a statistical approximation that improves with <span class="math inline">\(J\)</span>.</p>
+</section>
+<section id="sec-env-jmin" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="sec-env-jmin"><span class="header-section-number">8.3</span> Operating Envelope: <span class="math inline">\(J_{\min}\)</span></h2>
+<p>The operating envelope defines the minimum number of studies <span class="math inline">\(J\)</span> required for the full CCC pipeline to function. The threshold is governed by Decision D7:</p>
+<p><span class="math display">\[
+J_{\min} = \max(8,\; 2K + 2),
+\]</span></p>
+<p>where <span class="math inline">\(K\)</span> is the number of fixed-effect coefficients (including the intercept).</p>
+<section id="rationale-for-the-2k-2-component" class="level3" data-number="8.3.1">
+<h3 data-number="8.3.1" class="anchored" data-anchor-id="rationale-for-the-2k-2-component"><span class="header-section-number">8.3.1</span> Rationale for the <span class="math inline">\(2K + 2\)</span> Component</h3>
+<p>The <span class="math inline">\(2K + 2\)</span> threshold is a conservative heuristic motivated by rank requirements, residual degrees of freedom, and the small-cluster CRVE literature. The meat matrix <span class="math inline">\(M = \sum_{j=1}^J s_j s_j^\top\)</span> is a sum of <span class="math inline">\(J\)</span> rank-one outer products, giving <span class="math inline">\(\mathrm{rank}(M) \leq J\)</span>. For <span class="math inline">\(V_{\mathrm{CR2}}\)</span> to be full-rank (<span class="math inline">\(K \times K\)</span>), we need <span class="math inline">\(J \geq K\)</span>. However, the CR2 bias correction involves the adjustment matrices <span class="math inline">\(A_j = (I - H_{jj})^{-1/2}\)</span>, where <span class="math inline">\(H_{jj}\)</span> is the leverage block for study <span class="math inline">\(j\)</span>. The aggregate leverage satisfies <span class="math inline">\(\sum_j \mathrm{tr}(H_{jj}) = K\)</span>, so the effective residual degrees of freedom are <span class="math inline">\(J - K\)</span>. Setting <span class="math inline">\(J - K \geq K + 2\)</span> yields <span class="math inline">\(J \geq 2K + 2\)</span>, which provides:</p>
+<ul>
+<li><span class="math inline">\(K\)</span> degrees of freedom consumed by the fixed effects;</li>
+<li><span class="math inline">\(K\)</span> degrees of freedom for the <span class="math inline">\(K \times K\)</span> sandwich to be estimable;</li>
+<li><span class="math inline">\(2\)</span> additional degrees of freedom as a stability margin for the CR2 bias correction.</li>
+</ul>
+<p>This requirement controls the <em>average</em> study leverage: since <span class="math inline">\(\sum_j \mathrm{tr}(H_{jj}) = K\)</span>, we have <span class="math inline">\(\bar{h} = K/J \leq K/(2K+2) &lt; 1/2\)</span> when <span class="math inline">\(J \geq 2K+2\)</span>. Note, however, that the bound applies to the average, not to any individual study. With highly unbalanced study sizes, a single study can still have <span class="math inline">\(\mathrm{tr}(H_{jj})\)</span> near or above <span class="math inline">\(1/2\)</span>, making its CR2 adjustment <span class="math inline">\(A_j\)</span> ill-conditioned. The software guards against this at runtime: <code>.compute_hat_blocks()</code> issues a warning when the maximum per-study leverage exceeds <span class="math inline">\(0.5\)</span> (see <a href="#sec-env-boundary" class="quarto-xref"><span class="quarto-unresolved-ref">sec-env-boundary</span></a>).</p>
+</section>
+<section id="the-floor-of-8" class="level3" data-number="8.3.2">
+<h3 data-number="8.3.2" class="anchored" data-anchor-id="the-floor-of-8"><span class="header-section-number">8.3.2</span> The Floor of 8</h3>
+<p>The floor <span class="math inline">\(J_{\min} \geq 8\)</span> is imposed regardless of <span class="math inline">\(K\)</span> and reflects simulation evidence from <span class="citation" data-cites="tipton2015">Tipton (<a href="#ref-tipton2015" role="doc-biblioref">2015</a>)</span>, who demonstrated that cluster-robust inference with fewer than approximately 8–10 clusters exhibits substantial coverage distortion even for intercept-only models (<span class="math inline">\(K = 1\)</span>). The value 8 is chosen as a pragmatic lower bound below which the asymptotic sandwich theory provides unreliable guidance.</p>
+</section>
+<section id="j_min-for-common-configurations" class="level3" data-number="8.3.3">
+<h3 data-number="8.3.3" class="anchored" data-anchor-id="j_min-for-common-configurations"><span class="header-section-number">8.3.3</span> <span class="math inline">\(J_{\min}\)</span> for Common Configurations</h3>
+<div id="tbl-jmin" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-jmin-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;8.1: <span class="math inline">\(J_{\min}\)</span> values as a function of the number of fixed-effect coefficients <span class="math inline">\(K\)</span>. The floor of 8 binds for <span class="math inline">\(K \leq 3\)</span>.
+</figcaption>
+<div aria-describedby="tbl-jmin-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;"><span class="math inline">\(K\)</span> (coefficients)</th>
+<th style="text-align: center;"><span class="math inline">\(2K + 2\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(J_{\min}\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">1 (intercept only)</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">8</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">8</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">8</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">10</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">12</td>
+<td style="text-align: center;">12</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">14</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">22</td>
+<td style="text-align: center;">22</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="worked-example" class="level3" data-number="8.3.4">
+<h3 data-number="8.3.4" class="anchored" data-anchor-id="worked-example"><span class="header-section-number">8.3.4</span> Worked Example</h3>
+<p>Consider a researcher with <span class="math inline">\(J = 6\)</span> studies estimating a model with an intercept and two categorical moderators (<span class="math inline">\(K = 3\)</span>).</p>
+<p><strong>Step 1.</strong> Compute <span class="math inline">\(J_{\min} = \max(8, 2 \times 3 + 2) = 8\)</span>.</p>
+<p><strong>Step 2.</strong> Since <span class="math inline">\(J = 6 &lt; 8 = J_{\min}\)</span>, the operating envelope is violated.</p>
+<p><strong>Step 3.</strong> bayesRVE response:</p>
+<ul>
+<li><code>sandwich()</code> sets <code>fallback = TRUE</code>, <code>fallback_reason = "J_too_small"</code></li>
+<li><code>ccc()</code> skips beta-block CCC; <code>method = "ccc_partial"</code></li>
+<li><code>confint()</code> returns quantile-based intervals for <span class="math inline">\(\beta\)</span></li>
+</ul>
+<p><strong>Step 4.</strong> User options (in order of preference):</p>
+<ol type="1">
+<li><strong>Expand the literature search</strong> to bring <span class="math inline">\(J \geq 8\)</span>.</li>
+<li><strong>Reduce model complexity</strong> (e.g., drop a moderator to <span class="math inline">\(K = 2\)</span>); but note the floor of 8 still binds.</li>
+<li><strong>Report raw Bayesian credible intervals</strong> with a note that sandwich calibration was not applied.</li>
+</ol>
+</section>
+<section id="behavior-below-j_min" class="level3" data-number="8.3.5">
+<h3 data-number="8.3.5" class="anchored" data-anchor-id="behavior-below-j_min"><span class="header-section-number">8.3.5</span> Behavior Below <span class="math inline">\(J_{\min}\)</span></h3>
+<p>When <span class="math inline">\(J &lt; J_{\min}\)</span>, the <code>sandwich()</code> function sets <code>fallback = TRUE</code> and emits an informational message. The downstream consequences are:</p>
+<ul>
+<li>The beta-block sandwich <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is still computed (and stored in <code>V_sand_marg</code>), but it is flagged as unreliable;</li>
+<li>The <code>ccc()</code> function detects <code>sandwich_obj$fallback == TRUE</code> and skips the beta-block Cholesky transformation, returning the original (uncalibrated) posterior draws for <span class="math inline">\(\beta\)</span>;</li>
+<li>For CE models, the theta-block diagonal rescaling proceeds normally (it depends on per-study conditional sandwich variances, which do not require <span class="math inline">\(J &gt; J_{\min}\)</span>);</li>
+<li>The <code>confint()</code> method forces <code>df = "normal"</code> (quantile-based intervals), since the CCC-<span class="math inline">\(t\)</span> infrastructure requires a fully calibrated beta block.</li>
+</ul>
+<p>The <code>method</code> field in the resulting <code>bm_ccc</code> object is set to <code>"ccc_partial"</code>, indicating that the theta-block was calibrated but the beta-block was not.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Small-$J$ Alternatives Beyond bayesRVE">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Small-<span class="math inline">\(J\)</span> Alternatives Beyond bayesRVE
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>When the operating envelope cannot be met, alternatives include the wild cluster bootstrap (Cameron, Gelbach, and Miller, 2008), the jackknife cluster-robust estimator (MacKinnon, Nielsen, and Webb, 2023), and randomization inference under the sharp null. These methods relax the large-<span class="math inline">\(J\)</span> asymptotics that CCC inherits from the sandwich estimator, but are not currently implemented in bayesRVE.</p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-env-boundary" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="sec-env-boundary"><span class="header-section-number">8.4</span> Boundary Cases and PD Failures</h2>
+<p>Even when <span class="math inline">\(J \geq J_{\min}\)</span>, boundary conditions can cause the CCC pipeline to degrade. This section catalogs the principal failure modes and the software’s response to each.</p>
+<section id="case-1-j-leq-k-structural-singularity" class="level3" data-number="8.4.1">
+<h3 data-number="8.4.1" class="anchored" data-anchor-id="case-1-j-leq-k-structural-singularity"><span class="header-section-number">8.4.1</span> Case 1: <span class="math inline">\(J \leq K\)</span> (Structural Singularity)</h3>
+<p>When <span class="math inline">\(J \leq K\)</span>, the between-study design matrix has more columns than rows, and the meat matrix is structurally rank-deficient. The sandwich <span class="math inline">\(V_{\mathrm{CR2}}\)</span> is singular regardless of the data values. The <code>ccc()</code> function detects this condition and unconditionally skips the beta-block CCC:</p>
+<ul>
+<li>For <span class="math inline">\(J &lt; K\)</span>: a warning is emitted noting structural singularity, and the method is set to <code>"fallback_raw"</code>.</li>
+<li>For <span class="math inline">\(J = K\)</span>: the sandwich may or may not be PD depending on the specific data configuration. If PD, <code>ccc()</code> proceeds with a zero-excess-df warning. If not PD, the beta-block is skipped.</li>
+</ul>
+<p>In either case, the theta-block (CE models only) proceeds normally, as conditional per-study variances require only <span class="math inline">\(n_j \geq 1\)</span>.</p>
+</section>
+<section id="case-2-tau2-to-0-degenerate-heterogeneity" class="level3" data-number="8.4.2">
+<h3 data-number="8.4.2" class="anchored" data-anchor-id="case-2-tau2-to-0-degenerate-heterogeneity"><span class="header-section-number">8.4.2</span> Case 2: <span class="math inline">\(\tau^2 \to 0\)</span> (Degenerate Heterogeneity)</h3>
+<p>As <span class="math inline">\(\tau^2 \to 0\)</span>, the between-study variance vanishes and the marginal weights <span class="math inline">\(W_j \to (1/\bar{s}^2_j) I_{n_j}\)</span> reduce to the inverse sampling variance. In this limit:</p>
+<ul>
+<li>The hat matrix converges to the standard OLS leverage, and high-leverage studies can produce <span class="math inline">\(H_{jj}\)</span> with eigenvalues near 1;</li>
+<li>The CR2 adjustment <span class="math inline">\((I - H_{jj})^{-1/2}\)</span> becomes ill-conditioned for high-leverage clusters;</li>
+<li>Satterthwaite degrees of freedom may collapse to very small values, producing extremely wide CCC-<span class="math inline">\(t\)</span> intervals.</li>
+</ul>
+<p>The software monitors this boundary through the <code>tau_diag</code> component returned by <code>.check_tau_boundary()</code>, which flags when a large fraction of posterior draws have <span class="math inline">\(\tau\)</span> near zero. While no automatic fallback is triggered (the user may genuinely have a near-homogeneous meta-analysis), the summary output includes a diagnostic warning when <span class="math inline">\(\tau\)</span> boundary behavior is detected.</p>
+</section>
+<section id="case-3-sigma_mathrmmcmc-not-positive-definite" class="level3" data-number="8.4.3">
+<h3 data-number="8.4.3" class="anchored" data-anchor-id="case-3-sigma_mathrmmcmc-not-positive-definite"><span class="header-section-number">8.4.3</span> Case 3: <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> Not Positive Definite</h3>
+<p>The MCMC posterior covariance <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> can fail to be PD when the sampler generates too few effective draws or becomes stuck. The <code>.ccc_beta_block()</code> function handles this via <code>.safe_chol()</code>, which:</p>
+<ol type="1">
+<li>Attempts direct Cholesky decomposition of <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span>;</li>
+<li>On failure, applies <code>Matrix::nearPD()</code> to project to the nearest PD matrix;</li>
+<li>Retries the Cholesky decomposition on the projected matrix;</li>
+<li>Aborts only if the projected matrix also fails decomposition.</li>
+</ol>
+<p>This <code>nearPD</code> correction is applied <em>only</em> to <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> (the source covariance), never to <span class="math inline">\(V_{\mathrm{CR2}}\)</span> (the target). Applying <code>nearPD</code> to the sandwich target would alter the frequentist calibration target and defeat the purpose of the CCC correction. This asymmetry is a deliberate design decision documented in the codebase.</p>
+</section>
+<section id="case-4-v_mathrmcr2-not-positive-definite" class="level3" data-number="8.4.4">
+<h3 data-number="8.4.4" class="anchored" data-anchor-id="case-4-v_mathrmcr2-not-positive-definite"><span class="header-section-number">8.4.4</span> Case 4: <span class="math inline">\(V_{\mathrm{CR2}}\)</span> Not Positive Definite</h3>
+<p>When <span class="math inline">\(V_{\mathrm{CR2}}\)</span> fails the PD check (<code>.is_pd()</code> with tolerance <span class="math inline">\(10^{-8}\)</span>), the Cholesky factorization <span class="math inline">\(L_2 = \mathrm{chol}(V_{\mathrm{CR2}})\)</span> cannot proceed. Unlike <span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span>, no <code>nearPD</code> correction is applied. Instead, the beta-block CCC is skipped entirely:</p>
+<ul>
+<li>The <code>sandwich()</code> function sets <code>diagnostics$beta_pd = FALSE</code>;</li>
+<li>The <code>ccc()</code> function detects <code>!beta_pd</code> and returns uncalibrated beta draws;</li>
+<li>The <code>method</code> field is set to <code>"fallback_raw"</code>.</li>
+</ul>
+<p>This can occur when numerical cancellation in the sandwich computation produces small negative eigenvalues (typically <span class="math inline">\(|{\lambda_{\min}}| &lt; 10^{-8}\)</span>). It is most likely when <span class="math inline">\(J\)</span> is close to <span class="math inline">\(K\)</span>, the study sizes are highly unbalanced, or the design matrix is near-collinear.</p>
+</section>
+<section id="case-5-singular-che-hessian" class="level3" data-number="8.4.5">
+<h3 data-number="8.4.5" class="anchored" data-anchor-id="case-5-singular-che-hessian"><span class="header-section-number">8.4.5</span> Case 5: Singular CHE Hessian</h3>
+<p>For the CHE model, the posterior Hessian <span class="math inline">\(H\)</span> is <span class="math inline">\((K+2) \times (K+2)\)</span>, incorporating both <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> components. When this Hessian is singular (or has negative eigenvalues due to numerical issues), the <code>.build_che_hessian()</code> function applies a <code>nearPD</code> correction with a warning. If the Hessian is truly singular, <code>MASS::ginv()</code> (Moore-Penrose pseudoinverse) is used as a fallback for the sandwich inversion. Similarly, when the WLS bread matrix <span class="math inline">\(X^\top W X\)</span> is singular, <code>.compute_wls_bread()</code> falls back to <code>MASS::ginv()</code>.</p>
+</section>
+</section>
+<section id="sec-env-singletons" class="level2" data-number="8.5">
+<h2 data-number="8.5" class="anchored" data-anchor-id="sec-env-singletons"><span class="header-section-number">8.5</span> Singletons and CHE-Specific Warnings</h2>
+<section id="singleton-non-identifiability-decision-d22" class="level3" data-number="8.5.1">
+<h3 data-number="8.5.1" class="anchored" data-anchor-id="singleton-non-identifiability-decision-d22"><span class="header-section-number">8.5.1</span> Singleton Non-Identifiability (Decision D22)</h3>
+<p>In the CHE model, the between-study variance <span class="math inline">\(\tau^2\)</span> and the within-study heterogeneity <span class="math inline">\(\omega^2\)</span> enter the marginal variance as <span class="math inline">\(v_{ij} = s^2_{ij} + \omega^2 + \tau^2\)</span>. For singleton studies (studies contributing exactly one effect size, <span class="math inline">\(n_j = 1\)</span>), there is no within-study replication to distinguish <span class="math inline">\(\omega^2\)</span> from <span class="math inline">\(\tau^2\)</span>. The variance components are confounded: any increase in <span class="math inline">\(\omega^2\)</span> can be offset by a corresponding decrease in <span class="math inline">\(\tau^2\)</span> without changing the marginal likelihood.</p>
+<p>The <code>bayesRVE</code> implementation enforces Decision D22 with a two-tier warning system in <code>.che_sandwich()</code>:</p>
+<ul>
+<li><p><strong>All singletons</strong> (<span class="math inline">\(n_j = 1\)</span> for all <span class="math inline">\(j = 1, \ldots, J\)</span>): A warning is emitted stating that <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> are <em>not separately identified</em>. Posterior separation relies entirely on the prior distributions. The CR2 sandwich benchmark from a frequentist multi-level analysis may diverge from the Bayesian posterior because the frequentist estimator (typically REML) faces the same identification problem but resolves it differently (often setting one component to zero).</p></li>
+<li><p><strong>Majority singletons</strong> (<span class="math inline">\(&gt; 50\%\)</span> of studies have <span class="math inline">\(n_j = 1\)</span>): A warning is emitted stating that <span class="math inline">\(\tau^2\)</span> and <span class="math inline">\(\omega^2\)</span> <em>may be weakly identified</em>. The posterior is prior-sensitive, and a sensitivity analysis varying the half-Cauchy scale parameters is recommended.</p></li>
+</ul>
+<p>These warnings do not trigger fallback behavior; the sandwich and CCC computations proceed normally. The warnings serve to alert the analyst that the variance decomposition is driven primarily by the prior rather than the data, and that the CCC calibration (which plugs in posterior mean variance components) inherits this prior sensitivity.</p>
+</section>
+<section id="che-prior-sensitivity" class="level3" data-number="8.5.2">
+<h3 data-number="8.5.2" class="anchored" data-anchor-id="che-prior-sensitivity"><span class="header-section-number">8.5.2</span> CHE Prior Sensitivity</h3>
+<p>When singletons dominate, the half-Cauchy prior scale for <span class="math inline">\(\omega\)</span> <span class="citation" data-cites="gelman2006">Polson &amp; Scott (<a href="#ref-polson2012" role="doc-biblioref">2012</a>)</span> becomes a critical tuning parameter. A wide prior (e.g., <span class="math inline">\(\omega \sim \mathrm{half\text{-}Cauchy}(0, 1)\)</span>) allows <span class="math inline">\(\omega^2\)</span> to absorb substantial variance, potentially inflating the marginal weights and altering the sandwich. A narrow prior concentrates <span class="math inline">\(\omega\)</span> near zero, effectively reducing the CHE to a CE model. The <code>bm_sensitivity_rho()</code> function provides systematic tools for assessing sensitivity to the working correlation <span class="math inline">\(\rho\)</span>; prior scale sensitivity for <span class="math inline">\(\omega\)</span> requires refitting the model with different <code>bm_prior()</code> specifications and comparing the resulting CCC intervals.</p>
+</section>
+<section id="che-theta-quarantine" class="level3" data-number="8.5.3">
+<h3 data-number="8.5.3" class="anchored" data-anchor-id="che-theta-quarantine"><span class="header-section-number">8.5.3</span> CHE Theta Quarantine</h3>
+<p>In the CHE model, the study-specific effects <span class="math inline">\(\theta_j\)</span> are analytically integrated out of the marginal likelihood (see <a href="#sec-models" class="quarto-xref"><span class="quarto-unresolved-ref">sec-models</span></a>). No posterior draws of <span class="math inline">\(\theta_j\)</span> exist. For API compatibility with the CE pathway, the <code>bm_ccc</code> object returned by <code>.ccc_che()</code> contains dummy zero-valued theta draws. These dummy values are quarantined in all downstream methods:</p>
+<ul>
+<li><code>coef(cal, type = "theta")</code> returns zeros with a warning for CHE objects;</li>
+<li><code>confint()</code> applies CCC-<span class="math inline">\(t\)</span> intervals only to the beta block; theta intervals are meaningless;</li>
+<li><code>summary()</code> and <code>print()</code> suppress theta output when <code>model = "che"</code>.</li>
+</ul>
+<p>The <code>bm_ccc$model</code> field (set to <code>"che"</code>) enables clean dispatch in all downstream methods, preventing accidental interpretation of the dummy theta values as real posterior summaries.</p>
+</section>
+</section>
+<section id="sec-env-fallback" class="level2" data-number="8.6">
+<h2 data-number="8.6" class="anchored" data-anchor-id="sec-env-fallback"><span class="header-section-number">8.6</span> Fallback Semantics</h2>
+<p>The bayesRVE pipeline implements a cascading fallback system across the three main functions: <code>sandwich()</code>, <code>ccc()</code>, and <code>confint()</code>. <a href="#tbl-fallback" class="quarto-xref">Table&nbsp;<span class="quarto-unresolved-ref">tbl-fallback</span></a> provides a comprehensive decision table summarizing the behavior under each boundary condition.</p>
+<div id="tbl-fallback" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-fallback-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;8.2: Comprehensive fallback decision table for the bayesRVE CCC pipeline. Each row represents a boundary condition, with columns showing the behavior of each pipeline stage.
+</figcaption>
+<div aria-describedby="tbl-fallback-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 19%">
+<col style="width: 13%">
+<col style="width: 17%">
+<col style="width: 14%">
+<col style="width: 19%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Condition</th>
+<th style="text-align: left;"><code>sandwich()</code></th>
+<th style="text-align: left;"><code>ccc()</code></th>
+<th style="text-align: left;"><code>confint()</code></th>
+<th style="text-align: left;"><code>method</code></th>
+<th style="text-align: left;">User Message</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(J \geq J_{\min}\)</span>, PD</td>
+<td style="text-align: left;">CR2 + Satterthwaite</td>
+<td style="text-align: left;">Full Cholesky CCC</td>
+<td style="text-align: left;">CCC-<span class="math inline">\(t\)</span></td>
+<td style="text-align: left;"><code>"ccc"</code></td>
+<td style="text-align: left;">(none)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><span class="math inline">\(J \geq J_{\min}\)</span>, <span class="math inline">\(V_{\mathrm{CR2}}\)</span> not PD</td>
+<td style="text-align: left;">HC0 (sandwich computed, <code>beta_pd = FALSE</code>)</td>
+<td style="text-align: left;">Beta skipped, theta proceeds</td>
+<td style="text-align: left;">Quantile-based</td>
+<td style="text-align: left;"><code>"fallback_raw"</code></td>
+<td style="text-align: left;">Warning: V not PD</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(J &lt; J_{\min}\)</span></td>
+<td style="text-align: left;"><code>fallback = TRUE</code></td>
+<td style="text-align: left;">Beta skipped, theta proceeds</td>
+<td style="text-align: left;">Quantile-based</td>
+<td style="text-align: left;"><code>"ccc_partial"</code></td>
+<td style="text-align: left;">Info: below envelope</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><span class="math inline">\(J \leq K\)</span></td>
+<td style="text-align: left;">Rank-deficient sandwich</td>
+<td style="text-align: left;">Beta skipped unconditionally</td>
+<td style="text-align: left;">Quantile-based</td>
+<td style="text-align: left;"><code>"fallback_raw"</code></td>
+<td style="text-align: left;">Warning: singular</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><span class="math inline">\(\Sigma_{\mathrm{MCMC}}\)</span> not PD</td>
+<td style="text-align: left;">(any)</td>
+<td style="text-align: left;"><code>nearPD</code> correction, then CCC</td>
+<td style="text-align: left;">CCC-<span class="math inline">\(t\)</span></td>
+<td style="text-align: left;"><code>"ccc"</code></td>
+<td style="text-align: left;">Warning: nearPD applied</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CHE, all singletons</td>
+<td style="text-align: left;">CR2 (proceeds)</td>
+<td style="text-align: left;">Beta Cholesky (proceeds)</td>
+<td style="text-align: left;">CCC-<span class="math inline">\(t\)</span></td>
+<td style="text-align: left;"><code>"ccc"</code></td>
+<td style="text-align: left;">Warning: not identified</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="the-method-field" class="level3" data-number="8.6.1">
+<h3 data-number="8.6.1" class="anchored" data-anchor-id="the-method-field"><span class="header-section-number">8.6.1</span> The <code>method</code> Field</h3>
+<p>The <code>bm_ccc</code> object carries a <code>method</code> field that records the CCC path taken. This field governs downstream inference:</p>
+<ul>
+<li><p><strong><code>"ccc"</code></strong>: Full CCC was applied. The beta-block Cholesky transformation matched the posterior covariance to <span class="math inline">\(V_{\mathrm{CR2}}\)</span>. The <code>confint()</code> method uses CCC-<span class="math inline">\(t\)</span> intervals with Satterthwaite degrees of freedom by default.</p></li>
+<li><p><strong><code>"ccc_partial"</code></strong>: The beta-block was skipped due to the <span class="math inline">\(J_{\min}\)</span> operating envelope check (<code>sandwich$fallback == TRUE</code>), but the theta-block diagonal rescaling was applied (CE models only). Beta intervals fall back to quantile-based (CCC-<span class="math inline">\(q\)</span>). The <code>confint()</code> method forces <code>df = "normal"</code> when <code>method</code> is <code>"ccc_partial"</code>.</p></li>
+<li><p><strong><code>"fallback_raw"</code></strong>: The beta-block was skipped for a reason other than the <span class="math inline">\(J_{\min}\)</span> check—typically because <span class="math inline">\(V_{\mathrm{CR2}}\)</span> was not positive definite or <span class="math inline">\(J \leq K\)</span>. The <code>confint()</code> method forces <code>df = "normal"</code>. The <code>beta_skip_reason</code> field provides a human-readable explanation.</p></li>
+</ul>
+</section>
+<section id="pipeline-flow" class="level3" data-number="8.6.2">
+<h3 data-number="8.6.2" class="anchored" data-anchor-id="pipeline-flow"><span class="header-section-number">8.6.2</span> Pipeline Flow</h3>
+<p>The fallback logic propagates through the pipeline as follows:</p>
+<ol type="1">
+<li><p><strong><code>sandwich(x)</code></strong> evaluates <span class="math inline">\(J \geq J_{\min}\)</span>. If not, it sets <code>fallback = TRUE</code> and <code>fallback_reason = "J_too_small"</code>. It computes the sandwich regardless (for diagnostic purposes) but flags the result.</p></li>
+<li><p><strong><code>ccc(x, sandwich_obj)</code></strong> inspects <code>sandwich_obj$fallback</code>. If <code>TRUE</code>, it skips the beta-block Cholesky and sets <code>method = "ccc_partial"</code>. If <code>FALSE</code>, it inspects <code>sandwich_obj$diagnostics$beta_pd</code>. If <code>FALSE</code>, it skips the beta-block and sets <code>method = "fallback_raw"</code>. Otherwise, it applies the full Cholesky CCC and sets <code>method = "ccc"</code>.</p></li>
+<li><p><strong><code>confint(cal)</code></strong> inspects <code>cal$method</code>. If the method is <code>"ccc_partial"</code> or <code>"fallback_raw"</code>, it forces <code>df = "normal"</code> with a warning, yielding quantile-based intervals from the (uncalibrated) posterior draws. If the method is <code>"ccc"</code>, it proceeds with the default Satterthwaite degrees of freedom to produce CCC-<span class="math inline">\(t\)</span> intervals.</p></li>
+</ol>
+<p>This cascade ensures that no layer of the pipeline silently produces invalid results. Every degradation is accompanied by an explicit warning message and is encoded in the <code>method</code> field, enabling programmatic detection by downstream analysis scripts.</p>
+</section>
+<section id="the-three-interval-types" class="level3" data-number="8.6.3">
+<h3 data-number="8.6.3" class="anchored" data-anchor-id="the-three-interval-types"><span class="header-section-number">8.6.3</span> The Three Interval Types</h3>
+<p>The fallback semantics produce three distinct interval types, listed in decreasing order of inferential quality:</p>
+<ol type="1">
+<li><p><strong>CCC-<span class="math inline">\(t\)</span></strong> (Three-Layer Calibration): Full Cholesky CCC with CR2 target and Satterthwaite degrees of freedom. Available when <code>method = "ccc"</code> and <code>df = "satterthwaite"</code>. This is the recommended default.</p></li>
+<li><p><strong>CCC-<span class="math inline">\(t\)</span> (naive df)</strong>: Full Cholesky CCC with scalar <span class="math inline">\(\mathrm{df} = J - K\)</span>. Available when <code>method = "ccc"</code> and <code>df = "naive"</code>. Less precise than Satterthwaite df but still uses the calibrated posterior.</p></li>
+<li><p><strong>CCC-<span class="math inline">\(q\)</span></strong> (quantile-based): Raw posterior quantiles, with or without partial CCC calibration. Used when <code>method</code> is <code>"ccc_partial"</code> or <code>"fallback_raw"</code>. The <code>confint()</code> method computes the <span class="math inline">\(\alpha/2\)</span> and <span class="math inline">\(1 - \alpha/2\)</span> quantiles directly from the (possibly uncalibrated) posterior draws.</p></li>
+</ol>
+<p>The simulation study in <a href="#sec-results" class="quarto-xref"><span class="quarto-unresolved-ref">sec-results</span></a> demonstrates that CCC-<span class="math inline">\(t\)</span> achieves near-nominal coverage (94.5–95.3%) while CCC-<span class="math inline">\(q\)</span> exhibits undercoverage (91–94%) at moderate <span class="math inline">\(J\)</span>, confirming that the Satterthwaite adjustment in Layer 3 is essential for reliable inference.</p>
+</section>
+</section>
+<section id="sec-env-quickref" class="level2" data-number="8.7">
+<h2 data-number="8.7" class="anchored" data-anchor-id="sec-env-quickref"><span class="header-section-number">8.7</span> Quick Reference: When to Worry</h2>
+<div class="callout callout-style-simple callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Safe (Standard Operation)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(J \geq 20\)</span>, <span class="math inline">\(K \leq 3\)</span>, no singletons or singletons a small minority (<span class="math inline">\(&lt;25\%\)</span>). Console output is silent (no warnings). <code>cal$method == "ccc"</code>, <code>sw$diagnostics$beta_pd == TRUE</code>, all <code>sw$df_source</code> entries are <code>"satterthwaite"</code>. Simulation evidence (sim3) shows CCC-<span class="math inline">\(t\)</span> coverage between 94.5% and 95.3% under these conditions.</p>
+</div>
+</div>
+<div class="callout callout-style-simple callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Caution (Verify Results)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(8 \leq J &lt; 20\)</span>, especially with <span class="math inline">\(K \geq 3\)</span>. More than 50% singleton studies (CHE). Some <code>df_source</code> entries are <code>"naive"</code>. `sw<span class="math inline">\(diagnostics\)</span>H_condition &gt; 10^6$. The pipeline completes but operates near its limits. Recommended: (1) compare CCC-calibrated intervals with raw posterior, (2) leave-one-out sensitivity, (3) prior sensitivity for CHE variance components.</p>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Investigate (Results May Be Unreliable)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><span class="math inline">\(J &lt; 8\)</span>, or <span class="math inline">\(J \leq K\)</span>, or PD failure warnings from <code>sandwich()</code> or <code>ccc()</code>. <code>cal$method == "fallback_raw"</code> or <code>cal$beta_skipped == TRUE</code>. The frequentist calibration guarantee of CCC does not apply. Options: (1) simplify the model, (2) expand literature search, (3) report raw Bayesian credible intervals with appropriate caveats.</p>
+</div>
+</div>
+
+
+<!-- -->
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-gelman2006" class="csl-entry" role="listitem">
+Gelman, A. (2006). Prior distributions for variance parameters in hierarchical models (comment on article by <span>Browne</span> and <span>Draper</span>). <em>Bayesian Analysis</em>, <em>1</em>(3), 515–534. <a href="https://doi.org/10.1214/06-BA117A">https://doi.org/10.1214/06-BA117A</a>
+</div>
+<div id="ref-little2012" class="csl-entry" role="listitem">
+Little, R. J. (2012). Calibrated <span>B</span>ayes, an alternative inferential paradigm for official statistics. <em>Journal of Official Statistics</em>, <em>28</em>(3), 309–334.
+</div>
+<div id="ref-polson2012" class="csl-entry" role="listitem">
+Polson, N. G., &amp; Scott, J. G. (2012). On the half-<span>C</span>auchy prior for a global scale parameter. <em>Bayesian Analysis</em>, <em>7</em>(4), 887–902. <a href="https://doi.org/10.1214/12-BA730">https://doi.org/10.1214/12-BA730</a>
+</div>
+<div id="ref-pustejovsky2018" class="csl-entry" role="listitem">
+Pustejovsky, J. E., &amp; Tipton, E. (2018). Small-sample methods for cluster-robust variance estimation and hypothesis testing in fixed effects models. <em>Journal of Business &amp; Economic Statistics</em>, <em>36</em>(4), 672–683. <a href="https://doi.org/10.1080/07350015.2016.1247004">https://doi.org/10.1080/07350015.2016.1247004</a>
+</div>
+<div id="ref-satterthwaite1946" class="csl-entry" role="listitem">
+Satterthwaite, F. E. (1946). An approximate distribution of estimates of variance components. <em>Biometrics Bulletin</em>, <em>2</em>(6), 110–114. <a href="https://doi.org/10.2307/3002019">https://doi.org/10.2307/3002019</a>
+</div>
+<div id="ref-tipton2015" class="csl-entry" role="listitem">
+Tipton, E. (2015). Small sample adjustments for robust variance estimation with meta-regression. <em>Psychological Methods</em>, <em>20</em>(3), 375–393. <a href="https://doi.org/10.1037/met0000011">https://doi.org/10.1037/met0000011</a>
+</div>
+</div>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./ch04-ccc.html" class="pagination-link" aria-label="Cholesky Calibration Correction">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Cholesky Calibration Correction</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./ch06-architecture.html" class="pagination-link" aria-label="Software Architecture">
+        <span class="nav-page-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Architecture</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Operating Envelope and Boundary Behavior"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu"># Operating Envelope and Boundary Behavior {#sec-envelope}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>The Cholesky Calibration Correction (CCC) framework, as developed in @sec-ccc, produces exact covariance matching under the assumptions stated in Theorem 2. However, these guarantees rest on regularity conditions that can fail in small or degenerate meta-analytic datasets. This chapter formally states the conditions required for valid CCC inference, delineates the operating envelope within which bayesRVE is designed to function reliably, taxonomizes the boundary cases that arise when these conditions are violated, and documents the fallback semantics that govern the software's behavior at the margins.</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">## Coverage Conditions and Regularity Assumptions {#sec-env-conditions}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>The Three-Layer Calibration framework (Layer 1: posterior mean centering; Layer 2: CR2 sandwich target; Layer 3: Satterthwaite degrees of freedom) provides frequentist-calibrated intervals from Bayesian posterior draws. The validity of this procedure rests on four regularity conditions.</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>**Condition 1 (Posterior Approximate Normality).** The marginal posterior for $\beta$ is approximately multivariate normal:</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>p(\beta \mid y) \approx N_K<span class="sc">\!</span>\bigl(\hat\beta,\; \Sigma_{\mathrm{MCMC}}\bigr),</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>where $\hat\beta$ is the posterior mean and $\Sigma_{\mathrm{MCMC}} = \mathrm{Cov}(\beta \mid y)$. This condition holds by Bayesian CLT arguments when the number of studies $J$ is large relative to $K$, the prior is not overly informative, and the likelihood is regular. The CCC affine transformation preserves any departures from normality (it maps quantiles linearly), but the CCC-$t$ interval construction in Layer 3 presumes approximate normality for the $t$-distribution pivotal argument to hold.</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>**Condition 2 ($V_{\mathrm{CR2}}$ Positive Definite).** The bias-corrected cluster-robust sandwich variance $V_{\mathrm{CR2}}$ is positive definite. Since $V_{\mathrm{CR2}}$ is assembled from $J$ outer-product contributions (see @sec-sandwich), this requires:</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$J &gt; K$ (more clusters than parameters, so the meat matrix has rank $\geq K$);</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>No perfect multicollinearity in the between-study design matrix;</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Finite and non-degenerate marginal variances $v_j = \bar{s}^2_j / n_j + \tau^2 &gt; 0$ for all $j$.</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>When $J \leq K$, the meat matrix is rank-deficient, and $V_{\mathrm{CR2}}$ is necessarily singular. The Cholesky factorization $L_2 = \mathrm{chol}(V_{\mathrm{CR2}})$ required for the CCC transformation does not exist, and the beta-block CCC must be skipped.</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>**Condition 3 ($\Sigma_{\mathrm{MCMC}}$ Positive Definite).** The MCMC posterior covariance $\Sigma_{\mathrm{MCMC}}$ is positive definite. This is the sample covariance of $S$ posterior draws:</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>\Sigma_{\mathrm{MCMC}} = \frac{1}{S-1}\sum_{s=1}^{S} (\beta^{(s)} - \hat\beta)(\beta^{(s)} - \hat\beta)^\top.</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>The matrix $\Sigma_{\mathrm{MCMC}}$ has rank $\min(S - 1, K)$, so it is PD whenever $S &gt; K$. With typical MCMC sample sizes ($S = 4000$ in bayesRVE defaults), this condition is virtually always satisfied. It can fail with pathologically few draws or when the sampler becomes stuck in a mode. The Cholesky factorization $L_1 = \mathrm{chol}(\Sigma_{\mathrm{MCMC}})$ required for CCC fails when this condition is violated; bayesRVE applies a <span class="in">`nearPD`</span> correction as a fallback (see @sec-env-boundary).</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>**Condition 4 (Consistent Centering).** The posterior mean $\hat\beta$ converges to the true $\beta_0$ as $J \to \infty$:</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>\hat\beta \xrightarrow{p} \beta_0 \quad \text{as } J \to \infty.</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>This is the standard Bayesian consistency requirement under model misspecification: even when the assumed model (CE or CHE) is not the true data-generating process, the posterior mean of $\beta$ converges to the pseudo-true value that the sandwich variance targets. The CCC transformation centers at $\hat\beta$ and the CR2 sandwich estimates the variance of $\hat\beta$ around this limit, so consistency of both components is required for the CCC-$t$ interval to achieve nominal coverage.</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>These four conditions are grounded in the Calibrated Bayes framework of @little2012, which establishes that Bayesian procedures can achieve frequentist coverage properties when the posterior concentrates appropriately. The CR2 correction and Satterthwaite degrees of freedom follow @pustejovsky2018, ensuring finite-sample accuracy of the variance target even when $J$ is moderate.</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## Exact versus Asymptotic Guarantees {#sec-env-exact}</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>A critical distinction must be maintained between what the CCC transformation guarantees exactly and what it guarantees only asymptotically.</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>**The CCC transformation is exact.** Theorem 2 (@sec-ccc) establishes that for any number of posterior draws $S$, the CCC-calibrated draws $\beta^{*(s)} = \hat\beta + A(\beta^{(s)} - \hat\beta)$ satisfy:</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>\mathrm{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\mathrm{CR2}}^{(\beta)},</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>where $\mathrm{Cov}_S$ denotes the sample covariance across the $S$ draws. This is not an asymptotic statement; it holds exactly for any $S \geq K + 1$ (so that $\hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)}$ is nonsingular). The proof follows from the matrix identity $\mathbf{L}_2 \mathbf{L}_1^{-1} \hat{\boldsymbol{\Sigma}}_{\mathrm{MCMC}}^{(\beta)} \mathbf{L}_1^{-\top} \mathbf{L}_2^\top = \mathbf{V}_{\mathrm{CR2}}^{(\beta)}$.</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>**The CCC-$t$ interval is asymptotic.** The Three-Layer Calibration interval for coefficient $\beta_k$ takes the form:</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>\hat\beta_k \;\pm\; t_{\nu_k,\, 1-\alpha/2} \times \mathrm{SD}_{\mathrm{CCC}}(\beta_k^*),</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>where $\nu_k$ is the Satterthwaite degrees of freedom for the $k$-th coefficient and $\mathrm{SD}_{\mathrm{CCC}}$ is the standard deviation of the calibrated draws. This interval achieves nominal coverage only in the limit as $J \to \infty$ (where $\nu_k \to \infty$ and the $t$-distribution converges to the normal). For finite $J$, the coverage guarantee is approximate, with the quality of approximation depending on:</span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>The accuracy of the Satterthwaite moment-matching approximation for $\nu_k$ <span class="co">[</span><span class="ot">@satterthwaite1946</span><span class="co">]</span>;</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>The validity of the normal approximation to the posterior (Condition 1);</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>The quality of the plug-in variance component estimates ($\tau^2$, $\omega^2$) used in constructing $V_{\mathrm{CR2}}$.</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>The Satterthwaite degrees of freedom $\nu_k$ are computed by matching the first two moments of a quadratic form to a scaled $\chi^2$ distribution (see @sec-sandwich for the computational formula). This is itself an approximation: the exact sampling distribution of the sandwich variance estimator is unknown in closed form, and the moment-matching procedure is most accurate when the underlying scores are approximately normal. As documented in the simulation study (@sec-results), the CCC-$t$ interval achieves 94.5--95.3\% empirical coverage across the 24 conditions in sim3, validating the approximation quality for the configurations studied.</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>In summary: the covariance calibration is an algebraic identity; the inferential coverage is a statistical approximation that improves with $J$.</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## Operating Envelope: $J_{\min}$ {#sec-env-jmin}</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>The operating envelope defines the minimum number of studies $J$ required for the full CCC pipeline to function. The threshold is governed by Decision D7:</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>J_{\min} = \max(8,\; 2K + 2),</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>where $K$ is the number of fixed-effect coefficients (including the intercept).</span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a><span class="fu">### Rationale for the $2K + 2$ Component</span></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>The $2K + 2$ threshold is a conservative heuristic motivated by rank requirements, residual degrees of freedom, and the small-cluster CRVE literature. The meat matrix $M = \sum_{j=1}^J s_j s_j^\top$ is a sum of $J$ rank-one outer products, giving $\mathrm{rank}(M) \leq J$. For $V_{\mathrm{CR2}}$ to be full-rank ($K \times K$), we need $J \geq K$. However, the CR2 bias correction involves the adjustment matrices $A_j = (I - H_{jj})^{-1/2}$, where $H_{jj}$ is the leverage block for study $j$. The aggregate leverage satisfies $\sum_j \mathrm{tr}(H_{jj}) = K$, so the effective residual degrees of freedom are $J - K$. Setting $J - K \geq K + 2$ yields $J \geq 2K + 2$, which provides:</span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$K$ degrees of freedom consumed by the fixed effects;</span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$K$ degrees of freedom for the $K \times K$ sandwich to be estimable;</span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$2$ additional degrees of freedom as a stability margin for the CR2 bias correction.</span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>This requirement controls the *average* study leverage: since $\sum_j \mathrm{tr}(H_{jj}) = K$, we have $\bar{h} = K/J \leq K/(2K+2) &lt; 1/2$ when $J \geq 2K+2$. Note, however, that the bound applies to the average, not to any individual study. With highly unbalanced study sizes, a single study can still have $\mathrm{tr}(H_{jj})$ near or above $1/2$, making its CR2 adjustment $A_j$ ill-conditioned. The software guards against this at runtime: <span class="in">`.compute_hat_blocks()`</span> issues a warning when the maximum per-study leverage exceeds $0.5$ (see @sec-env-boundary).</span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Floor of 8</span></span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>The floor $J_{\min} \geq 8$ is imposed regardless of $K$ and reflects simulation evidence from @tipton2015, who demonstrated that cluster-robust inference with fewer than approximately 8--10 clusters exhibits substantial coverage distortion even for intercept-only models ($K = 1$). The value 8 is chosen as a pragmatic lower bound below which the asymptotic sandwich theory provides unreliable guidance.</span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a><span class="fu">### $J_{\min}$ for Common Configurations</span></span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $K$ (coefficients) <span class="pp">|</span> $2K + 2$ <span class="pp">|</span> $J_{\min}$ <span class="pp">|</span></span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a><span class="pp">|:-------------------:|:--------:|:----------:|</span></span>
+<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 1 (intercept only)  <span class="pp">|</span> 4        <span class="pp">|</span> 8          <span class="pp">|</span></span>
+<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 2                    <span class="pp">|</span> 6        <span class="pp">|</span> 8          <span class="pp">|</span></span>
+<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 3                    <span class="pp">|</span> 8        <span class="pp">|</span> 8          <span class="pp">|</span></span>
+<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 4                    <span class="pp">|</span> 10       <span class="pp">|</span> 10         <span class="pp">|</span></span>
+<span id="cb1-100"><a href="#cb1-100" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 5                    <span class="pp">|</span> 12       <span class="pp">|</span> 12         <span class="pp">|</span></span>
+<span id="cb1-101"><a href="#cb1-101" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 6                    <span class="pp">|</span> 14       <span class="pp">|</span> 14         <span class="pp">|</span></span>
+<span id="cb1-102"><a href="#cb1-102" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> 10                   <span class="pp">|</span> 22       <span class="pp">|</span> 22         <span class="pp">|</span></span>
+<span id="cb1-103"><a href="#cb1-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-104"><a href="#cb1-104" aria-hidden="true" tabindex="-1"></a>: $J_{\min}$ values as a function of the number of fixed-effect coefficients $K$. The floor of 8 binds for $K \leq 3$. {#tbl-jmin}</span>
+<span id="cb1-105"><a href="#cb1-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-106"><a href="#cb1-106" aria-hidden="true" tabindex="-1"></a><span class="fu">### Worked Example</span></span>
+<span id="cb1-107"><a href="#cb1-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-108"><a href="#cb1-108" aria-hidden="true" tabindex="-1"></a>Consider a researcher with $J = 6$ studies estimating a model with an intercept and two categorical moderators ($K = 3$).</span>
+<span id="cb1-109"><a href="#cb1-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-110"><a href="#cb1-110" aria-hidden="true" tabindex="-1"></a>**Step 1.** Compute $J_{\min} = \max(8, 2 \times 3 + 2) = 8$.</span>
+<span id="cb1-111"><a href="#cb1-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-112"><a href="#cb1-112" aria-hidden="true" tabindex="-1"></a>**Step 2.** Since $J = 6 &lt; 8 = J_{\min}$, the operating envelope is violated.</span>
+<span id="cb1-113"><a href="#cb1-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a>**Step 3.** bayesRVE response:</span>
+<span id="cb1-115"><a href="#cb1-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`sandwich()`</span> sets <span class="in">`fallback = TRUE`</span>, <span class="in">`fallback_reason = "J_too_small"`</span></span>
+<span id="cb1-117"><a href="#cb1-117" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`ccc()`</span> skips beta-block CCC; <span class="in">`method = "ccc_partial"`</span></span>
+<span id="cb1-118"><a href="#cb1-118" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`confint()`</span> returns quantile-based intervals for $\beta$</span>
+<span id="cb1-119"><a href="#cb1-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-120"><a href="#cb1-120" aria-hidden="true" tabindex="-1"></a>**Step 4.** User options (in order of preference):</span>
+<span id="cb1-121"><a href="#cb1-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-122"><a href="#cb1-122" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Expand the literature search** to bring $J \geq 8$.</span>
+<span id="cb1-123"><a href="#cb1-123" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Reduce model complexity** (e.g., drop a moderator to $K = 2$); but note the floor of 8 still binds.</span>
+<span id="cb1-124"><a href="#cb1-124" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Report raw Bayesian credible intervals** with a note that sandwich calibration was not applied.</span>
+<span id="cb1-125"><a href="#cb1-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-126"><a href="#cb1-126" aria-hidden="true" tabindex="-1"></a><span class="fu">### Behavior Below $J_{\min}$</span></span>
+<span id="cb1-127"><a href="#cb1-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-128"><a href="#cb1-128" aria-hidden="true" tabindex="-1"></a>When $J &lt; J_{\min}$, the <span class="in">`sandwich()`</span> function sets <span class="in">`fallback = TRUE`</span> and emits an informational message. The downstream consequences are:</span>
+<span id="cb1-129"><a href="#cb1-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-130"><a href="#cb1-130" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The beta-block sandwich $V_{\mathrm{CR2}}$ is still computed (and stored in <span class="in">`V_sand_marg`</span>), but it is flagged as unreliable;</span>
+<span id="cb1-131"><a href="#cb1-131" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The <span class="in">`ccc()`</span> function detects <span class="in">`sandwich_obj$fallback == TRUE`</span> and skips the beta-block Cholesky transformation, returning the original (uncalibrated) posterior draws for $\beta$;</span>
+<span id="cb1-132"><a href="#cb1-132" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>For CE models, the theta-block diagonal rescaling proceeds normally (it depends on per-study conditional sandwich variances, which do not require $J &gt; J_{\min}$);</span>
+<span id="cb1-133"><a href="#cb1-133" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The <span class="in">`confint()`</span> method forces <span class="in">`df = "normal"`</span> (quantile-based intervals), since the CCC-$t$ infrastructure requires a fully calibrated beta block.</span>
+<span id="cb1-134"><a href="#cb1-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-135"><a href="#cb1-135" aria-hidden="true" tabindex="-1"></a>The <span class="in">`method`</span> field in the resulting <span class="in">`bm_ccc`</span> object is set to <span class="in">`"ccc_partial"`</span>, indicating that the theta-block was calibrated but the beta-block was not.</span>
+<span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-137"><a href="#cb1-137" aria-hidden="true" tabindex="-1"></a>::: {.callout-note title="Small-$J$ Alternatives Beyond bayesRVE"}</span>
+<span id="cb1-138"><a href="#cb1-138" aria-hidden="true" tabindex="-1"></a>When the operating envelope cannot be met, alternatives include the wild cluster bootstrap (Cameron, Gelbach, and Miller, 2008), the jackknife cluster-robust estimator (MacKinnon, Nielsen, and Webb, 2023), and randomization inference under the sharp null. These methods relax the large-$J$ asymptotics that CCC inherits from the sandwich estimator, but are not currently implemented in bayesRVE.</span>
+<span id="cb1-139"><a href="#cb1-139" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-140"><a href="#cb1-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-141"><a href="#cb1-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-142"><a href="#cb1-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## Boundary Cases and PD Failures {#sec-env-boundary}</span></span>
+<span id="cb1-143"><a href="#cb1-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-144"><a href="#cb1-144" aria-hidden="true" tabindex="-1"></a>Even when $J \geq J_{\min}$, boundary conditions can cause the CCC pipeline to degrade. This section catalogs the principal failure modes and the software's response to each.</span>
+<span id="cb1-145"><a href="#cb1-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-146"><a href="#cb1-146" aria-hidden="true" tabindex="-1"></a><span class="fu">### Case 1: $J \leq K$ (Structural Singularity)</span></span>
+<span id="cb1-147"><a href="#cb1-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-148"><a href="#cb1-148" aria-hidden="true" tabindex="-1"></a>When $J \leq K$, the between-study design matrix has more columns than rows, and the meat matrix is structurally rank-deficient. The sandwich $V_{\mathrm{CR2}}$ is singular regardless of the data values. The <span class="in">`ccc()`</span> function detects this condition and unconditionally skips the beta-block CCC:</span>
+<span id="cb1-149"><a href="#cb1-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-150"><a href="#cb1-150" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>For $J &lt; K$: a warning is emitted noting structural singularity, and the method is set to <span class="in">`"fallback_raw"`</span>.</span>
+<span id="cb1-151"><a href="#cb1-151" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>For $J = K$: the sandwich may or may not be PD depending on the specific data configuration. If PD, <span class="in">`ccc()`</span> proceeds with a zero-excess-df warning. If not PD, the beta-block is skipped.</span>
+<span id="cb1-152"><a href="#cb1-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-153"><a href="#cb1-153" aria-hidden="true" tabindex="-1"></a>In either case, the theta-block (CE models only) proceeds normally, as conditional per-study variances require only $n_j \geq 1$.</span>
+<span id="cb1-154"><a href="#cb1-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-155"><a href="#cb1-155" aria-hidden="true" tabindex="-1"></a><span class="fu">### Case 2: $\tau^2 \to 0$ (Degenerate Heterogeneity)</span></span>
+<span id="cb1-156"><a href="#cb1-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-157"><a href="#cb1-157" aria-hidden="true" tabindex="-1"></a>As $\tau^2 \to 0$, the between-study variance vanishes and the marginal weights $W_j \to (1/\bar{s}^2_j) I_{n_j}$ reduce to the inverse sampling variance. In this limit:</span>
+<span id="cb1-158"><a href="#cb1-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-159"><a href="#cb1-159" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The hat matrix converges to the standard OLS leverage, and high-leverage studies can produce $H_{jj}$ with eigenvalues near 1;</span>
+<span id="cb1-160"><a href="#cb1-160" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The CR2 adjustment $(I - H_{jj})^{-1/2}$ becomes ill-conditioned for high-leverage clusters;</span>
+<span id="cb1-161"><a href="#cb1-161" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Satterthwaite degrees of freedom may collapse to very small values, producing extremely wide CCC-$t$ intervals.</span>
+<span id="cb1-162"><a href="#cb1-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-163"><a href="#cb1-163" aria-hidden="true" tabindex="-1"></a>The software monitors this boundary through the <span class="in">`tau_diag`</span> component returned by <span class="in">`.check_tau_boundary()`</span>, which flags when a large fraction of posterior draws have $\tau$ near zero. While no automatic fallback is triggered (the user may genuinely have a near-homogeneous meta-analysis), the summary output includes a diagnostic warning when $\tau$ boundary behavior is detected.</span>
+<span id="cb1-164"><a href="#cb1-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-165"><a href="#cb1-165" aria-hidden="true" tabindex="-1"></a><span class="fu">### Case 3: $\Sigma_{\mathrm{MCMC}}$ Not Positive Definite</span></span>
+<span id="cb1-166"><a href="#cb1-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-167"><a href="#cb1-167" aria-hidden="true" tabindex="-1"></a>The MCMC posterior covariance $\Sigma_{\mathrm{MCMC}}$ can fail to be PD when the sampler generates too few effective draws or becomes stuck. The <span class="in">`.ccc_beta_block()`</span> function handles this via <span class="in">`.safe_chol()`</span>, which:</span>
+<span id="cb1-168"><a href="#cb1-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-169"><a href="#cb1-169" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Attempts direct Cholesky decomposition of $\Sigma_{\mathrm{MCMC}}$;</span>
+<span id="cb1-170"><a href="#cb1-170" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>On failure, applies <span class="in">`Matrix::nearPD()`</span> to project to the nearest PD matrix;</span>
+<span id="cb1-171"><a href="#cb1-171" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Retries the Cholesky decomposition on the projected matrix;</span>
+<span id="cb1-172"><a href="#cb1-172" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Aborts only if the projected matrix also fails decomposition.</span>
+<span id="cb1-173"><a href="#cb1-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-174"><a href="#cb1-174" aria-hidden="true" tabindex="-1"></a>This <span class="in">`nearPD`</span> correction is applied *only* to $\Sigma_{\mathrm{MCMC}}$ (the source covariance), never to $V_{\mathrm{CR2}}$ (the target). Applying <span class="in">`nearPD`</span> to the sandwich target would alter the frequentist calibration target and defeat the purpose of the CCC correction. This asymmetry is a deliberate design decision documented in the codebase.</span>
+<span id="cb1-175"><a href="#cb1-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-176"><a href="#cb1-176" aria-hidden="true" tabindex="-1"></a><span class="fu">### Case 4: $V_{\mathrm{CR2}}$ Not Positive Definite</span></span>
+<span id="cb1-177"><a href="#cb1-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-178"><a href="#cb1-178" aria-hidden="true" tabindex="-1"></a>When $V_{\mathrm{CR2}}$ fails the PD check (<span class="in">`.is_pd()`</span> with tolerance $10^{-8}$), the Cholesky factorization $L_2 = \mathrm{chol}(V_{\mathrm{CR2}})$ cannot proceed. Unlike $\Sigma_{\mathrm{MCMC}}$, no <span class="in">`nearPD`</span> correction is applied. Instead, the beta-block CCC is skipped entirely:</span>
+<span id="cb1-179"><a href="#cb1-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-180"><a href="#cb1-180" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The <span class="in">`sandwich()`</span> function sets <span class="in">`diagnostics$beta_pd = FALSE`</span>;</span>
+<span id="cb1-181"><a href="#cb1-181" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The <span class="in">`ccc()`</span> function detects <span class="in">`!beta_pd`</span> and returns uncalibrated beta draws;</span>
+<span id="cb1-182"><a href="#cb1-182" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The <span class="in">`method`</span> field is set to <span class="in">`"fallback_raw"`</span>.</span>
+<span id="cb1-183"><a href="#cb1-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-184"><a href="#cb1-184" aria-hidden="true" tabindex="-1"></a>This can occur when numerical cancellation in the sandwich computation produces small negative eigenvalues (typically $|{\lambda_{\min}}| &lt; 10^{-8}$). It is most likely when $J$ is close to $K$, the study sizes are highly unbalanced, or the design matrix is near-collinear.</span>
+<span id="cb1-185"><a href="#cb1-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-186"><a href="#cb1-186" aria-hidden="true" tabindex="-1"></a><span class="fu">### Case 5: Singular CHE Hessian</span></span>
+<span id="cb1-187"><a href="#cb1-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-188"><a href="#cb1-188" aria-hidden="true" tabindex="-1"></a>For the CHE model, the posterior Hessian $H$ is $(K+2) \times (K+2)$, incorporating both $\tau^2$ and $\omega^2$ components. When this Hessian is singular (or has negative eigenvalues due to numerical issues), the <span class="in">`.build_che_hessian()`</span> function applies a <span class="in">`nearPD`</span> correction with a warning. If the Hessian is truly singular, <span class="in">`MASS::ginv()`</span> (Moore-Penrose pseudoinverse) is used as a fallback for the sandwich inversion. Similarly, when the WLS bread matrix $X^\top W X$ is singular, <span class="in">`.compute_wls_bread()`</span> falls back to <span class="in">`MASS::ginv()`</span>.</span>
+<span id="cb1-189"><a href="#cb1-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-190"><a href="#cb1-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-191"><a href="#cb1-191" aria-hidden="true" tabindex="-1"></a><span class="fu">## Singletons and CHE-Specific Warnings {#sec-env-singletons}</span></span>
+<span id="cb1-192"><a href="#cb1-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-193"><a href="#cb1-193" aria-hidden="true" tabindex="-1"></a><span class="fu">### Singleton Non-Identifiability (Decision D22)</span></span>
+<span id="cb1-194"><a href="#cb1-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-195"><a href="#cb1-195" aria-hidden="true" tabindex="-1"></a>In the CHE model, the between-study variance $\tau^2$ and the within-study heterogeneity $\omega^2$ enter the marginal variance as $v_{ij} = s^2_{ij} + \omega^2 + \tau^2$. For singleton studies (studies contributing exactly one effect size, $n_j = 1$), there is no within-study replication to distinguish $\omega^2$ from $\tau^2$. The variance components are confounded: any increase in $\omega^2$ can be offset by a corresponding decrease in $\tau^2$ without changing the marginal likelihood.</span>
+<span id="cb1-196"><a href="#cb1-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-197"><a href="#cb1-197" aria-hidden="true" tabindex="-1"></a>The <span class="in">`bayesRVE`</span> implementation enforces Decision D22 with a two-tier warning system in <span class="in">`.che_sandwich()`</span>:</span>
+<span id="cb1-198"><a href="#cb1-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-199"><a href="#cb1-199" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**All singletons** ($n_j = 1$ for all $j = 1, \ldots, J$): A warning is emitted stating that $\tau^2$ and $\omega^2$ are *not separately identified*. Posterior separation relies entirely on the prior distributions. The CR2 sandwich benchmark from a frequentist multi-level analysis may diverge from the Bayesian posterior because the frequentist estimator (typically REML) faces the same identification problem but resolves it differently (often setting one component to zero).</span>
+<span id="cb1-200"><a href="#cb1-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-201"><a href="#cb1-201" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Majority singletons** ($&gt; 50\%$ of studies have $n_j = 1$): A warning is emitted stating that $\tau^2$ and $\omega^2$ *may be weakly identified*. The posterior is prior-sensitive, and a sensitivity analysis varying the half-Cauchy scale parameters is recommended.</span>
+<span id="cb1-202"><a href="#cb1-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-203"><a href="#cb1-203" aria-hidden="true" tabindex="-1"></a>These warnings do not trigger fallback behavior; the sandwich and CCC computations proceed normally. The warnings serve to alert the analyst that the variance decomposition is driven primarily by the prior rather than the data, and that the CCC calibration (which plugs in posterior mean variance components) inherits this prior sensitivity.</span>
+<span id="cb1-204"><a href="#cb1-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-205"><a href="#cb1-205" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE Prior Sensitivity</span></span>
+<span id="cb1-206"><a href="#cb1-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-207"><a href="#cb1-207" aria-hidden="true" tabindex="-1"></a>When singletons dominate, the half-Cauchy prior scale for $\omega$ <span class="co">[</span><span class="ot">introduced by @gelman2006 and theoretically justified by @polson2012</span><span class="co">]</span> becomes a critical tuning parameter. A wide prior (e.g., $\omega \sim \mathrm{half\text{-}Cauchy}(0, 1)$) allows $\omega^2$ to absorb substantial variance, potentially inflating the marginal weights and altering the sandwich. A narrow prior concentrates $\omega$ near zero, effectively reducing the CHE to a CE model. The <span class="in">`bm_sensitivity_rho()`</span> function provides systematic tools for assessing sensitivity to the working correlation $\rho$; prior scale sensitivity for $\omega$ requires refitting the model with different <span class="in">`bm_prior()`</span> specifications and comparing the resulting CCC intervals.</span>
+<span id="cb1-208"><a href="#cb1-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-209"><a href="#cb1-209" aria-hidden="true" tabindex="-1"></a><span class="fu">### CHE Theta Quarantine</span></span>
+<span id="cb1-210"><a href="#cb1-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-211"><a href="#cb1-211" aria-hidden="true" tabindex="-1"></a>In the CHE model, the study-specific effects $\theta_j$ are analytically integrated out of the marginal likelihood (see @sec-models). No posterior draws of $\theta_j$ exist. For API compatibility with the CE pathway, the <span class="in">`bm_ccc`</span> object returned by <span class="in">`.ccc_che()`</span> contains dummy zero-valued theta draws. These dummy values are quarantined in all downstream methods:</span>
+<span id="cb1-212"><a href="#cb1-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-213"><a href="#cb1-213" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`coef(cal, type = "theta")`</span> returns zeros with a warning for CHE objects;</span>
+<span id="cb1-214"><a href="#cb1-214" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`confint()`</span> applies CCC-$t$ intervals only to the beta block; theta intervals are meaningless;</span>
+<span id="cb1-215"><a href="#cb1-215" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`summary()`</span> and <span class="in">`print()`</span> suppress theta output when <span class="in">`model = "che"`</span>.</span>
+<span id="cb1-216"><a href="#cb1-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-217"><a href="#cb1-217" aria-hidden="true" tabindex="-1"></a>The <span class="in">`bm_ccc$model`</span> field (set to <span class="in">`"che"`</span>) enables clean dispatch in all downstream methods, preventing accidental interpretation of the dummy theta values as real posterior summaries.</span>
+<span id="cb1-218"><a href="#cb1-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-219"><a href="#cb1-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-220"><a href="#cb1-220" aria-hidden="true" tabindex="-1"></a><span class="fu">## Fallback Semantics {#sec-env-fallback}</span></span>
+<span id="cb1-221"><a href="#cb1-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-222"><a href="#cb1-222" aria-hidden="true" tabindex="-1"></a>The bayesRVE pipeline implements a cascading fallback system across the three main functions: <span class="in">`sandwich()`</span>, <span class="in">`ccc()`</span>, and <span class="in">`confint()`</span>. @tbl-fallback provides a comprehensive decision table summarizing the behavior under each boundary condition.</span>
+<span id="cb1-223"><a href="#cb1-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-224"><a href="#cb1-224" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Condition <span class="pp">|</span> <span class="in">`sandwich()`</span> <span class="pp">|</span> <span class="in">`ccc()`</span> <span class="pp">|</span> <span class="in">`confint()`</span> <span class="pp">|</span> <span class="in">`method`</span> <span class="pp">|</span> User Message <span class="pp">|</span></span>
+<span id="cb1-225"><a href="#cb1-225" aria-hidden="true" tabindex="-1"></a><span class="pp">|:----------|:------------|:--------|:-----------|:---------|:------------|</span></span>
+<span id="cb1-226"><a href="#cb1-226" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $J \geq J_{\min}$, PD <span class="pp">|</span> CR2 + Satterthwaite <span class="pp">|</span> Full Cholesky CCC <span class="pp">|</span> CCC-$t$ <span class="pp">|</span> <span class="in">`"ccc"`</span> <span class="pp">|</span> (none) <span class="pp">|</span></span>
+<span id="cb1-227"><a href="#cb1-227" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $J \geq J_{\min}$, $V_{\mathrm{CR2}}$ not PD <span class="pp">|</span> HC0 (sandwich computed, <span class="in">`beta_pd = FALSE`</span>) <span class="pp">|</span> Beta skipped, theta proceeds <span class="pp">|</span> Quantile-based <span class="pp">|</span> <span class="in">`"fallback_raw"`</span> <span class="pp">|</span> Warning: V not PD <span class="pp">|</span></span>
+<span id="cb1-228"><a href="#cb1-228" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $J &lt; J_{\min}$ <span class="pp">|</span> <span class="in">`fallback = TRUE`</span> <span class="pp">|</span> Beta skipped, theta proceeds <span class="pp">|</span> Quantile-based <span class="pp">|</span> <span class="in">`"ccc_partial"`</span> <span class="pp">|</span> Info: below envelope <span class="pp">|</span></span>
+<span id="cb1-229"><a href="#cb1-229" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $J \leq K$ <span class="pp">|</span> Rank-deficient sandwich <span class="pp">|</span> Beta skipped unconditionally <span class="pp">|</span> Quantile-based <span class="pp">|</span> <span class="in">`"fallback_raw"`</span> <span class="pp">|</span> Warning: singular <span class="pp">|</span></span>
+<span id="cb1-230"><a href="#cb1-230" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\Sigma_{\mathrm{MCMC}}$ not PD <span class="pp">|</span> (any) <span class="pp">|</span> <span class="in">`nearPD`</span> correction, then CCC <span class="pp">|</span> CCC-$t$ <span class="pp">|</span> <span class="in">`"ccc"`</span> <span class="pp">|</span> Warning: nearPD applied <span class="pp">|</span></span>
+<span id="cb1-231"><a href="#cb1-231" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CHE, all singletons <span class="pp">|</span> CR2 (proceeds) <span class="pp">|</span> Beta Cholesky (proceeds) <span class="pp">|</span> CCC-$t$ <span class="pp">|</span> <span class="in">`"ccc"`</span> <span class="pp">|</span> Warning: not identified <span class="pp">|</span></span>
+<span id="cb1-232"><a href="#cb1-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-233"><a href="#cb1-233" aria-hidden="true" tabindex="-1"></a>: Comprehensive fallback decision table for the bayesRVE CCC pipeline. Each row represents a boundary condition, with columns showing the behavior of each pipeline stage. {#tbl-fallback}</span>
+<span id="cb1-234"><a href="#cb1-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-235"><a href="#cb1-235" aria-hidden="true" tabindex="-1"></a><span class="fu">### The `method` Field</span></span>
+<span id="cb1-236"><a href="#cb1-236" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-237"><a href="#cb1-237" aria-hidden="true" tabindex="-1"></a>The <span class="in">`bm_ccc`</span> object carries a <span class="in">`method`</span> field that records the CCC path taken. This field governs downstream inference:</span>
+<span id="cb1-238"><a href="#cb1-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-239"><a href="#cb1-239" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`"ccc"`**: Full CCC was applied. The beta-block Cholesky transformation matched the posterior covariance to $V_{\mathrm{CR2}}$. The <span class="in">`confint()`</span> method uses CCC-$t$ intervals with Satterthwaite degrees of freedom by default.</span>
+<span id="cb1-240"><a href="#cb1-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-241"><a href="#cb1-241" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`"ccc_partial"`**: The beta-block was skipped due to the $J_{\min}$ operating envelope check (<span class="in">`sandwich$fallback == TRUE`</span>), but the theta-block diagonal rescaling was applied (CE models only). Beta intervals fall back to quantile-based (CCC-$q$). The <span class="in">`confint()`</span> method forces <span class="in">`df = "normal"`</span> when <span class="in">`method`</span> is <span class="in">`"ccc_partial"`</span>.</span>
+<span id="cb1-242"><a href="#cb1-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-243"><a href="#cb1-243" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**`"fallback_raw"`**: The beta-block was skipped for a reason other than the $J_{\min}$ check---typically because $V_{\mathrm{CR2}}$ was not positive definite or $J \leq K$. The <span class="in">`confint()`</span> method forces <span class="in">`df = "normal"`</span>. The <span class="in">`beta_skip_reason`</span> field provides a human-readable explanation.</span>
+<span id="cb1-244"><a href="#cb1-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-245"><a href="#cb1-245" aria-hidden="true" tabindex="-1"></a><span class="fu">### Pipeline Flow</span></span>
+<span id="cb1-246"><a href="#cb1-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-247"><a href="#cb1-247" aria-hidden="true" tabindex="-1"></a>The fallback logic propagates through the pipeline as follows:</span>
+<span id="cb1-248"><a href="#cb1-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-249"><a href="#cb1-249" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**`sandwich(x)`** evaluates $J \geq J_{\min}$. If not, it sets <span class="in">`fallback = TRUE`</span> and <span class="in">`fallback_reason = "J_too_small"`</span>. It computes the sandwich regardless (for diagnostic purposes) but flags the result.</span>
+<span id="cb1-250"><a href="#cb1-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-251"><a href="#cb1-251" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**`ccc(x, sandwich_obj)`** inspects <span class="in">`sandwich_obj$fallback`</span>. If <span class="in">`TRUE`</span>, it skips the beta-block Cholesky and sets <span class="in">`method = "ccc_partial"`</span>. If <span class="in">`FALSE`</span>, it inspects <span class="in">`sandwich_obj$diagnostics$beta_pd`</span>. If <span class="in">`FALSE`</span>, it skips the beta-block and sets <span class="in">`method = "fallback_raw"`</span>. Otherwise, it applies the full Cholesky CCC and sets <span class="in">`method = "ccc"`</span>.</span>
+<span id="cb1-252"><a href="#cb1-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-253"><a href="#cb1-253" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**`confint(cal)`** inspects <span class="in">`cal$method`</span>. If the method is <span class="in">`"ccc_partial"`</span> or <span class="in">`"fallback_raw"`</span>, it forces <span class="in">`df = "normal"`</span> with a warning, yielding quantile-based intervals from the (uncalibrated) posterior draws. If the method is <span class="in">`"ccc"`</span>, it proceeds with the default Satterthwaite degrees of freedom to produce CCC-$t$ intervals.</span>
+<span id="cb1-254"><a href="#cb1-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-255"><a href="#cb1-255" aria-hidden="true" tabindex="-1"></a>This cascade ensures that no layer of the pipeline silently produces invalid results. Every degradation is accompanied by an explicit warning message and is encoded in the <span class="in">`method`</span> field, enabling programmatic detection by downstream analysis scripts.</span>
+<span id="cb1-256"><a href="#cb1-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-257"><a href="#cb1-257" aria-hidden="true" tabindex="-1"></a><span class="fu">### The Three Interval Types</span></span>
+<span id="cb1-258"><a href="#cb1-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-259"><a href="#cb1-259" aria-hidden="true" tabindex="-1"></a>The fallback semantics produce three distinct interval types, listed in decreasing order of inferential quality:</span>
+<span id="cb1-260"><a href="#cb1-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-261"><a href="#cb1-261" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**CCC-$t$** (Three-Layer Calibration): Full Cholesky CCC with CR2 target and Satterthwaite degrees of freedom. Available when <span class="in">`method = "ccc"`</span> and <span class="in">`df = "satterthwaite"`</span>. This is the recommended default.</span>
+<span id="cb1-262"><a href="#cb1-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-263"><a href="#cb1-263" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**CCC-$t$ (naive df)**: Full Cholesky CCC with scalar $\mathrm{df} = J - K$. Available when <span class="in">`method = "ccc"`</span> and <span class="in">`df = "naive"`</span>. Less precise than Satterthwaite df but still uses the calibrated posterior.</span>
+<span id="cb1-264"><a href="#cb1-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-265"><a href="#cb1-265" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**CCC-$q$** (quantile-based): Raw posterior quantiles, with or without partial CCC calibration. Used when <span class="in">`method`</span> is <span class="in">`"ccc_partial"`</span> or <span class="in">`"fallback_raw"`</span>. The <span class="in">`confint()`</span> method computes the $\alpha/2$ and $1 - \alpha/2$ quantiles directly from the (possibly uncalibrated) posterior draws.</span>
+<span id="cb1-266"><a href="#cb1-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-267"><a href="#cb1-267" aria-hidden="true" tabindex="-1"></a>The simulation study in @sec-results demonstrates that CCC-$t$ achieves near-nominal coverage (94.5--95.3\%) while CCC-$q$ exhibits undercoverage (91--94\%) at moderate $J$, confirming that the Satterthwaite adjustment in Layer 3 is essential for reliable inference.</span>
+<span id="cb1-268"><a href="#cb1-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-269"><a href="#cb1-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-270"><a href="#cb1-270" aria-hidden="true" tabindex="-1"></a><span class="fu">## Quick Reference: When to Worry {#sec-env-quickref}</span></span>
+<span id="cb1-271"><a href="#cb1-271" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-272"><a href="#cb1-272" aria-hidden="true" tabindex="-1"></a>::: {.callout-note appearance="simple"}</span>
+<span id="cb1-273"><a href="#cb1-273" aria-hidden="true" tabindex="-1"></a><span class="fu">### Safe (Standard Operation)</span></span>
+<span id="cb1-274"><a href="#cb1-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-275"><a href="#cb1-275" aria-hidden="true" tabindex="-1"></a>$J \geq 20$, $K \leq 3$, no singletons or singletons a small minority ($&lt;25\%$). Console output is silent (no warnings). <span class="in">`cal$method == "ccc"`</span>, <span class="in">`sw$diagnostics$beta_pd == TRUE`</span>, all <span class="in">`sw$df_source`</span> entries are <span class="in">`"satterthwaite"`</span>. Simulation evidence (sim3) shows CCC-$t$ coverage between 94.5% and 95.3% under these conditions.</span>
+<span id="cb1-276"><a href="#cb1-276" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-277"><a href="#cb1-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-278"><a href="#cb1-278" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning appearance="simple"}</span>
+<span id="cb1-279"><a href="#cb1-279" aria-hidden="true" tabindex="-1"></a><span class="fu">### Caution (Verify Results)</span></span>
+<span id="cb1-280"><a href="#cb1-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-281"><a href="#cb1-281" aria-hidden="true" tabindex="-1"></a>$8 \leq J &lt; 20$, especially with $K \geq 3$. More than 50% singleton studies (CHE). Some <span class="in">`df_source`</span> entries are <span class="in">`"naive"`</span>. `sw$diagnostics$H_condition &gt; 10^6$. The pipeline completes but operates near its limits. Recommended: (1) compare CCC-calibrated intervals with raw posterior, (2) leave-one-out sensitivity, (3) prior sensitivity for CHE variance components.</span>
+<span id="cb1-282"><a href="#cb1-282" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-283"><a href="#cb1-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-284"><a href="#cb1-284" aria-hidden="true" tabindex="-1"></a>::: {.callout-important appearance="simple"}</span>
+<span id="cb1-285"><a href="#cb1-285" aria-hidden="true" tabindex="-1"></a><span class="fu">### Investigate (Results May Be Unreliable)</span></span>
+<span id="cb1-286"><a href="#cb1-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-287"><a href="#cb1-287" aria-hidden="true" tabindex="-1"></a>$J &lt; 8$, or $J \leq K$, or PD failure warnings from <span class="in">`sandwich()`</span> or <span class="in">`ccc()`</span>. <span class="in">`cal$method == "fallback_raw"`</span> or <span class="in">`cal$beta_skipped == TRUE`</span>. The frequentist calibration guarantee of CCC does not apply. Options: (1) simplify the model, (2) expand literature search, (3) report raw Bayesian credible intervals with appropriate caveats.</span>
+<span id="cb1-288"><a href="#cb1-288" aria-hidden="true" tabindex="-1"></a>:::</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

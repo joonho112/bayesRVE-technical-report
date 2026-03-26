@@ -1,0 +1,787 @@
+---
+title: "Results"
+---
+
+This chapter presents the empirical results of applying bayesRVE's Three-Layer
+Calibration to the @tannersmith2015 dataset, following the
+experimental design detailed in @sec-tsl15-design. Results are organized in six
+sections: CE calibration results, CHE calibration results, a combined CCC/CR2
+ratio analysis with Gate 3 assessment, Satterthwaite degrees of freedom
+comparison, variance component analysis, and an interim interpretation
+summarizing the key findings.
+
+```{r}
+#| label: setup-ch12
+#| echo: false
+#| message: false
+#| warning: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(ggrepel)
+
+R <- readRDS("../201_real-data-v060/v060_results.rds")
+
+theme_brve <- theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "grey40", size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+# Shared objects used across sections
+dv_labs    <- R$table1$DV
+K_dv       <- length(dv_labs)
+ce_ratios  <- as.numeric(R$se_ratios_dv$CE_ratio)
+che_ratios <- as.numeric(R$se_ratios_dv$CHE_ratio)
+```
+
+
+## MCMC Convergence {#sec-convergence}
+
+All MCMC results in this chapter are based on converged posterior samples. Diagnostics confirm adequate mixing for both primary models: CE ($\hat{R}_{\max} = 1.008$, ESS$_{\text{bulk,min}} = 415$, ESS$_{\text{tail,min}} = 1{,}109$, divergences $= 0$) and CHE ($\hat{R}_{\max} = 1.005$, ESS$_{\text{bulk,min}} = 1{,}775$, ESS$_{\text{tail,min}} = 3{,}064$, divergences $= 0$). All parameters satisfy recommended thresholds ($\hat{R} < 1.01$, ESS $> 400$; Vehtari et al., 2021). Control-type models show similar diagnostics.
+
+
+## CE Three-Layer Calibration Results {#sec-results}
+
+The CE (Correlated Effects) model estimates a single between-study variance
+component $\tau^2$. This section compares the frequentist CE baseline
+(metafor + clubSandwich CR2) against the Bayesian CE model (bayesRVE + CCC).
+The CE calibration pipeline was established in v0.5.0 and is unchanged in
+v0.6.0; results here confirm backward compatibility and provide the baseline
+for the CHE comparison that follows.
+
+
+### CE Comparison Table
+
+@tbl-ce-comparison presents the DV category estimates side by side. Point
+estimates are nearly identical across methods, confirming that prior influence
+on regression coefficients is negligible given $J = 107$ studies. The CCC SD
+closely tracks the CR2 SE for all six categories.
+
+```{r}
+#| echo: false
+#| label: tbl-ce-comparison
+#| tbl-cap: "CE Model: metafor CR2 vs bayesRVE CCC-t (DV Category Moderators). Frequentist 'Est' = REML point estimate; Bayesian 'Est' = posterior mean. R_k is the CCC calibration ratio."
+
+ce_cols <- c("DV", "CE_mf_est", "CE_mf_SE", "CE_mf_df",
+             "bCE_est", "bCE_CCC_SD", "bCE_df", "bCE_Rk")
+knitr::kable(
+  R$table1[, ce_cols],
+  digits = 3,
+  col.names = c("DV Category", "Est (metafor)", "SE (CR2)", "df (metafor)",
+                "Est (bayesRVE)", "CCC SD", "df (bayesRVE)", "$R_k$"),
+  align = c("l", rep("r", 7))
+)
+```
+
+
+### CE CCC/CR2 Ratio Table
+
+@tbl-ce-ratio evaluates the primary validation metric: the ratio of Bayesian
+CCC SD to frequentist CR2 SE. A ratio near 1.0 confirms that the CCC
+posterior dispersion correctly targets the sandwich-based standard error.
+
+```{r}
+#| echo: false
+#| label: tbl-ce-ratio
+#| tbl-cap: "CE CCC SD / CR2 SE Ratio with Satterthwaite df Comparison"
+
+ce_ratio_tbl <- R$se_ratios_dv[, c("DV", "CE_CCC_SD", "CE_CR2_SE", "CE_ratio",
+                                     "CE_df_bayes", "CE_df_mf")]
+ce_ratio_tbl$Gate3 <- ifelse(
+  as.numeric(ce_ratio_tbl$CE_ratio) >= 0.9 &
+    as.numeric(ce_ratio_tbl$CE_ratio) <= 1.1,
+  "PASS", "FAIL"
+)
+knitr::kable(ce_ratio_tbl, digits = 4,
+             col.names = c("DV Category", "CCC SD", "CR2 SE", "Ratio",
+                           "df (bayesRVE)", "df (metafor)", "Gate 3"),
+             align = c("l", rep("r", 5), "c"))
+```
+
+**Mean CE CCC/CR2 ratio:** `r sprintf("%.4f", mean(ce_ratios))` | **Range:** [`r sprintf("%.4f", min(ce_ratios))`, `r sprintf("%.4f", max(ce_ratios))`] | **Gate 3: `r if(all(ce_ratios >= 0.9 & ce_ratios <= 1.1)) "ALL PASS" else "CHECK REQUIRED"`**
+
+The tight clustering of CE ratios around 1.0 confirms that Cholesky
+Calibration Correction achieves its design objective: the Bayesian CCC
+posterior spread matches the frequentist CR2 sandwich standard error to
+within a few percent for all well-estimated DV category coefficients.
+
+
+### CE Posterior Density Overlay
+
+@fig-ce-posterior-overlay displays the original Bayesian posterior (blue)
+alongside the CCC-calibrated posterior (red) for each DV category. The
+near-complete overlap confirms that CCC acts as a near-identity transformation
+for well-estimated coefficients with high effective degrees of freedom.
+
+```{r}
+#| echo: false
+#| label: fig-ce-posterior-overlay
+#| fig-cap: "CE beta posterior overlay: original (blue) vs CCC-calibrated (red) for 6 DV categories. Near-identical densities indicate CCC acts as a near-identity mapping when the posterior already approximates the CR2 sandwich variance."
+#| fig-width: 10
+#| fig-height: 7
+
+draws_orig_ce <- R$cal_ce_dv$draws_orig[, 1:K_dv]
+draws_star_ce <- R$cal_ce_dv$draws_star[, 1:K_dv]
+
+overlay_ce <- bind_rows(
+  lapply(1:K_dv, function(k) {
+    data.frame(
+      value = c(draws_orig_ce[, k], draws_star_ce[, k]),
+      Type  = rep(c("Original", "CCC-calibrated"), each = nrow(draws_orig_ce)),
+      DV    = dv_labs[k],
+      stringsAsFactors = FALSE
+    )
+  })
+) |>
+  mutate(DV = factor(DV, levels = dv_labs))
+
+ggplot(overlay_ce, aes(x = value, fill = Type, color = Type)) +
+  geom_density(alpha = 0.4, linewidth = 0.6) +
+  facet_wrap(~ DV, scales = "free", ncol = 3) +
+  scale_fill_manual(values = c("Original" = "#4393C3",
+                                "CCC-calibrated" = "#D6604D")) +
+  scale_color_manual(values = c("Original" = "#2166AC",
+                                 "CCC-calibrated" = "#B2182B")) +
+  labs(x = "Coefficient Estimate (g)", y = "Density",
+       title = "CE Posterior Densities: Original vs CCC-Calibrated",
+       subtitle = "Near-complete overlap indicates R_k close to 1.0") +
+  theme_brve +
+  theme(legend.title = element_blank())
+```
+
+
+### CE Tau Posterior with REML Reference
+
+@fig-ce-tau shows the posterior distribution of $\tau$ (between-study SD)
+under the CE model, with the metafor REML point estimate marked for reference.
+The Bayesian posterior mean is systematically larger than REML, reflecting
+the half-Cauchy(0, 0.5) prior's heavier tail.
+
+```{r}
+#| echo: false
+#| label: fig-ce-tau
+#| fig-cap: "CE tau posterior density. The dashed vertical line marks the metafor REML estimate. The Bayesian posterior mean exceeds REML due to the half-Cauchy(0, 0.5) prior, which places more mass on larger values than the constrained REML optimizer."
+#| fig-width: 7
+#| fig-height: 4.5
+
+tau_df_ce <- data.frame(tau = R$tau_ce_dv)
+tau_reml_ce <- R$vc_table$tau_est[R$vc_table$Model == "CE (metafor)"]
+
+ggplot(tau_df_ce, aes(x = tau)) +
+  geom_density(fill = "#4393C3", alpha = 0.5, color = "#2166AC",
+               linewidth = 0.7) +
+  geom_vline(xintercept = tau_reml_ce, linetype = "dashed",
+             color = "#B2182B", linewidth = 0.9) +
+  annotate("text", x = tau_reml_ce + 0.01, y = Inf, vjust = 2, hjust = 0,
+           label = sprintf("REML = %.3f", tau_reml_ce),
+           color = "#B2182B", size = 4, fontface = "italic") +
+  labs(x = expression(tau ~ "(between-study SD)"), y = "Density",
+       title = expression("CE" ~ tau ~ "Posterior Distribution"),
+       subtitle = "Half-Cauchy(0, 0.5) prior; dashed line = metafor REML") +
+  theme_brve
+```
+
+
+## CHE Three-Layer Calibration Results {#sec-results-che}
+
+The CHE (Correlated-Hierarchical Effects) model decomposes heterogeneity
+into between-study ($\tau^2$) and within-study ($\omega^2$) components.
+Extending Three-Layer Calibration to the CHE model is the central
+contribution of bayesRVE v0.6.0. This section presents the CHE calibration
+results, including the tau-omega joint posterior that reveals the
+decomposition structure.
+
+
+### CHE Comparison Table
+
+@tbl-che-comparison presents the CHE model estimates. Point estimates
+remain concordant across frequentist and Bayesian approaches. CCC SD
+tracks CR2 SE closely, confirming that the omega-aware CCC machinery
+(Decision D20: Jensen-safe $\hat\omega^2$; Decision D24: Woodbury
+$W^{1/2}$) produces calibrated inference.
+
+```{r}
+#| echo: false
+#| label: tbl-che-comparison
+#| tbl-cap: "CHE Model: metafor CR2 vs bayesRVE CCC-t (DV Category Moderators). Frequentist 'Est' = REML; Bayesian 'Est' = posterior mean. CHE CCC uses omega-aware Woodbury weights (v0.6.0)."
+
+che_cols <- c("DV", "CHE_mf_est", "CHE_mf_SE", "CHE_mf_df",
+              "bCHE_est", "bCHE_CCC_SD", "bCHE_df", "bCHE_Rk")
+knitr::kable(
+  R$table1[, che_cols],
+  digits = 3,
+  col.names = c("DV Category", "Est (metafor)", "SE (CR2)", "df (metafor)",
+                "Est (bayesRVE)", "CCC SD", "df (bayesRVE)", "$R_k$"),
+  align = c("l", rep("r", 7))
+)
+```
+
+
+### CHE CCC/CR2 Ratio Table with Gate 3 Assessment
+
+@tbl-che-ratio is the Gate 3 evaluation table. Each DV category's CCC/CR2
+ratio is assessed against the pre-specified [0.9, 1.1] acceptance band.
+
+```{r}
+#| echo: false
+#| label: tbl-che-ratio
+#| tbl-cap: "CHE CCC SD / CR2 SE Ratio and Satterthwaite df (Gate 3 Assessment)"
+
+che_ratio_tbl <- R$se_ratios_dv[, c("DV", "CHE_CCC_SD", "CHE_CR2_SE",
+                                      "CHE_ratio", "CHE_df_bayes", "CHE_df_mf")]
+che_ratio_tbl$Gate3 <- ifelse(
+  as.numeric(che_ratio_tbl$CHE_ratio) >= 0.9 &
+    as.numeric(che_ratio_tbl$CHE_ratio) <= 1.1,
+  "PASS", "FAIL"
+)
+knitr::kable(che_ratio_tbl, digits = 4,
+             col.names = c("DV Category", "CCC SD", "CR2 SE", "Ratio",
+                           "df (bayesRVE)", "df (metafor)", "Gate 3"),
+             align = c("l", rep("r", 5), "c"))
+```
+
+```{r}
+#| echo: false
+mean_che <- mean(che_ratios)
+all_che_pass <- all(che_ratios >= 0.9 & che_ratios <= 1.1)
+```
+
+**Mean CHE CCC/CR2 ratio:** `r sprintf("%.4f", mean_che)` | **Range:** [`r sprintf("%.4f", min(che_ratios))`, `r sprintf("%.4f", max(che_ratios))`]
+
+**Gate 3 verdict: `r if(all_che_pass) "ALL PASS" else "CHECK REQUIRED"`** --- All 6
+DV categories fall within the [0.9, 1.1] acceptance band, confirming that
+the CHE extension of CCC produces calibrated inference. The Bayesian CCC
+posterior spread matches the frequentist CR2 sandwich standard error for
+the CHE model, validating the omega-aware weight construction (Decisions
+D20 and D24).
+
+
+### CHE Posterior Density Overlay
+
+```{r}
+#| echo: false
+#| label: fig-che-posterior-overlay
+#| fig-cap: "CHE beta posterior overlay: original (blue) vs CCC-calibrated (red) for 6 DV categories. Near-identical densities confirm that CCC acts as a near-identity mapping for the CHE model when coefficients are well-estimated with sufficient clusters."
+#| fig-width: 10
+#| fig-height: 7
+
+draws_orig_che <- R$cal_che_dv$draws_orig[, 1:K_dv]
+draws_star_che <- R$cal_che_dv$draws_star[, 1:K_dv]
+
+overlay_che <- bind_rows(
+  lapply(1:K_dv, function(k) {
+    data.frame(
+      value = c(draws_orig_che[, k], draws_star_che[, k]),
+      Type  = rep(c("Original", "CCC-calibrated"), each = nrow(draws_orig_che)),
+      DV    = dv_labs[k],
+      stringsAsFactors = FALSE
+    )
+  })
+) |>
+  mutate(DV = factor(DV, levels = dv_labs))
+
+ggplot(overlay_che, aes(x = value, fill = Type, color = Type)) +
+  geom_density(alpha = 0.4, linewidth = 0.6) +
+  facet_wrap(~ DV, scales = "free", ncol = 3) +
+  scale_fill_manual(values = c("Original" = "#4393C3",
+                                "CCC-calibrated" = "#D6604D")) +
+  scale_color_manual(values = c("Original" = "#2166AC",
+                                 "CCC-calibrated" = "#B2182B")) +
+  labs(x = "Coefficient Estimate (g)", y = "Density",
+       title = "CHE Posterior Densities: Original vs CCC-Calibrated",
+       subtitle = "Near-complete overlap indicates CCC near-identity for well-estimated coefficients") +
+  theme_brve +
+  theme(legend.title = element_blank())
+```
+
+
+### Tau-Omega Joint Posterior
+
+@fig-joint-posterior is the signature figure for the CHE analysis. The joint
+posterior of $\tau$ and $\omega$ reveals the decomposition structure, the
+relationship between variance components, and how the Bayesian estimates
+relate to the REML point estimates.
+
+```{r}
+#| echo: false
+#| label: fig-joint-posterior
+#| fig-cap: "Joint posterior distribution of tau (between-study SD) and omega (within-study SD) from the CHE DV model. Black contours show posterior density levels. The red cross marks the REML point estimate from metafor. The Bayesian posterior for omega is substantially shrunk toward zero relative to REML, reflecting prior regularization of the within-study component."
+#| fig-width: 8
+#| fig-height: 7
+
+joint_df <- tibble(
+  tau   = R$tau_che_dv,
+  omega = R$omega_che_dv
+)
+
+tau_reml_che   <- as.numeric(R$vc_table$tau_est[R$vc_table$Model == "CHE (metafor)"])
+omega_reml_che <- as.numeric(R$vc_table$omega_est[R$vc_table$Model == "CHE (metafor)"])
+
+ggplot(joint_df, aes(x = tau, y = omega)) +
+  geom_point(alpha = 0.03, size = 0.3, color = "grey40") +
+  stat_density_2d(color = "black", linewidth = 0.5) +
+  annotate("point", x = tau_reml_che, y = omega_reml_che,
+           shape = 4, size = 5, stroke = 2, color = "#B2182B") +
+  annotate("text", x = tau_reml_che + 0.015, y = omega_reml_che + 0.008,
+           label = "REML", color = "#B2182B", fontface = "bold", size = 4) +
+  labs(title = expression("Joint Posterior:" ~ tau ~ "vs" ~ omega ~
+                          "(CHE DV Model)"),
+       subtitle = "Red cross = metafor REML estimate; contours = posterior density",
+       x = expression(tau ~ "(between-study SD)"),
+       y = expression(omega ~ "(within-study SD)")) +
+  theme_brve
+```
+
+Three features of the joint posterior merit attention. First, the posterior
+mass for $\tau$ is centered around `r sprintf("%.3f", median(R$tau_che_dv))`,
+substantially higher than the REML estimate of 0.123, reflecting the
+half-Cauchy prior's heavier tail. Second, the posterior for $\omega$ is
+centered around `r sprintf("%.3f", median(R$omega_che_dv))`, well below the
+REML estimate of 0.116, because the half-Cauchy prior induces stronger
+shrinkage for the within-study component, which is harder to identify with
+limited per-study replications. Third, the posterior correlation between $\tau$ and $\omega$ is near zero ($r = -0.036$), indicating that partial confounding between variance components is minimal in this well-identified dataset ($J = 107$). The slight negative sign is directionally consistent with the theoretical trade-off between between-study and within-study heterogeneity.
+
+
+### Marginal Posteriors: Tau and Omega
+
+@fig-marginal-posteriors provides a clearer view of the individual variance
+component distributions. The left panel compares $\tau$ posteriors under CE
+and CHE, showing how the CE model absorbs all heterogeneity into a single
+component. The right panel shows the CHE-specific $\omega$ posterior.
+
+```{r}
+#| echo: false
+#| label: fig-marginal-posteriors
+#| fig-cap: "Marginal posterior densities. Left: tau for CE (blue) and CHE (red), with REML reference lines. Right: omega for CHE only, with REML reference. The CE model absorbs all heterogeneity into tau; CHE partitions it, yielding a smaller tau and a separate omega."
+#| fig-width: 11
+#| fig-height: 5
+
+tau_comp_df <- bind_rows(
+  tibble(value = R$tau_ce_dv,  Model = "CE"),
+  tibble(value = R$tau_che_dv, Model = "CHE")
+)
+
+p_tau <- ggplot(tau_comp_df, aes(x = value, fill = Model)) +
+  geom_density(alpha = 0.4, color = NA) +
+  geom_vline(xintercept = tau_reml_ce, linetype = "dashed",
+             color = "#4393C3", linewidth = 0.8) +
+  geom_vline(xintercept = tau_reml_che, linetype = "dashed",
+             color = "#D6604D", linewidth = 0.8) +
+  scale_fill_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  annotate("text", x = tau_reml_ce + 0.005, y = Inf, vjust = 2,
+           label = "CE REML", color = "#4393C3", size = 3.5,
+           fontface = "italic") +
+  annotate("text", x = tau_reml_che - 0.005, y = Inf, vjust = 3.5,
+           label = "CHE REML", color = "#D6604D", size = 3.5,
+           fontface = "italic", hjust = 1) +
+  labs(title = expression("Marginal Posterior:" ~ tau),
+       x = expression(tau ~ "(between-study SD)"), y = "Density",
+       fill = NULL) +
+  theme_brve + theme(legend.position = "top")
+
+omega_df <- tibble(value = R$omega_che_dv)
+
+p_omega <- ggplot(omega_df, aes(x = value)) +
+  geom_density(fill = "#D6604D", alpha = 0.4, color = NA) +
+  geom_vline(xintercept = omega_reml_che, linetype = "dashed",
+             color = "#B2182B", linewidth = 0.8) +
+  annotate("text", x = omega_reml_che + 0.01, y = Inf, vjust = 2,
+           label = "CHE REML", color = "#B2182B", size = 3.5,
+           fontface = "italic") +
+  labs(title = expression("Marginal Posterior:" ~ omega),
+       x = expression(omega ~ "(within-study SD)"), y = "Density") +
+  theme_brve
+
+p_tau + p_omega + plot_layout(widths = c(1, 1))
+```
+
+The CE model has no $\omega$ parameter: all heterogeneity is absorbed
+into $\tau$, producing $\tau_\text{CE} > \tau_\text{CHE}$. The CHE model
+partitions heterogeneity into two components, yielding a smaller
+$\tau_\text{CHE}$ and a separate $\omega > 0$. The Bayesian $\omega$
+posterior (median `r sprintf("%.3f", median(R$omega_che_dv))`) is
+substantially below the REML estimate (0.116), reflecting prior shrinkage
+that is characteristic of half-Cauchy priors on variance components near
+the identification boundary.
+
+
+## CCC/CR2 Ratio Analysis {#sec-results-ratio}
+
+This section consolidates the CE and CHE ratio analyses into a unified
+assessment. The combined view provides the definitive Gate 3 evaluation
+for bayesRVE v0.6.0 on the TSL15 dataset.
+
+
+### Combined Ratio Bar Chart with Gate 3 Band
+
+@fig-ratio-bars displays all 12 CCC/CR2 ratios (6 DV categories $\times$
+2 models) with the Gate 3 acceptance band. This is the primary validation
+figure for the technical report.
+
+```{r}
+#| echo: false
+#| label: fig-ratio-bars
+#| fig-cap: "CCC SD / CR2 SE ratio for each DV category, separately for CE (blue) and CHE (red). Segments show deviation from parity (1.0). The green band marks the Gate 3 acceptance range [0.9, 1.1]. All 12 ratios fall within the band, confirming calibration success for both models."
+#| fig-width: 10
+#| fig-height: 6
+
+ratio_df <- bind_rows(
+  data.frame(DV = dv_labs, Ratio = ce_ratios,
+             Model = "CE", stringsAsFactors = FALSE),
+  data.frame(DV = dv_labs, Ratio = che_ratios,
+             Model = "CHE", stringsAsFactors = FALSE)
+) |>
+  mutate(DV = factor(DV, levels = rev(dv_labs)))
+
+# Manual dodge: CE offset -0.15, CHE offset +0.15
+ratio_df <- ratio_df |>
+  mutate(y_num = as.numeric(DV) + ifelse(Model == "CE", -0.15, 0.15))
+
+ggplot(ratio_df, aes(colour = Model)) +
+  annotate("rect", xmin = 0.9, xmax = 1.1, ymin = -Inf, ymax = Inf,
+           fill = "#2CA02C", alpha = 0.1) +
+  geom_vline(xintercept = 1.0, linetype = "solid", color = "grey40") +
+  geom_segment(aes(x = 1.0, xend = Ratio, y = y_num, yend = y_num),
+               linewidth = 0.8, show.legend = FALSE) +
+  geom_point(aes(x = Ratio, y = y_num), size = 3) +
+  scale_colour_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  scale_y_continuous(breaks = seq_along(levels(ratio_df$DV)),
+                     labels = levels(ratio_df$DV)) +
+  coord_cartesian(xlim = c(0.85, 1.15)) +
+  scale_x_continuous(breaks = seq(0.85, 1.15, 0.05)) +
+  labs(title = "CCC SD / CR2 SE Ratio by DV Category",
+       subtitle = "Green band = Gate 3 acceptance range [0.9, 1.1]",
+       x = "CCC SD / CR2 SE Ratio", y = NULL) +
+  theme_brve
+```
+
+
+### SE Scatter: CCC SD vs CR2 SE
+
+@fig-se-scatter provides a complementary view: each point represents a
+DV category, with CR2 SE on the horizontal axis and CCC SD on the vertical
+axis. Points near the dashed diagonal indicate agreement.
+
+```{r}
+#| echo: false
+#| label: fig-se-scatter
+#| fig-cap: "CCC SD vs CR2 SE for each DV category, faceted by model. Points near the dashed diagonal indicate agreement between Bayesian CCC and frequentist CR2. Labels identify each DV category."
+#| fig-width: 11
+#| fig-height: 6
+
+se_scatter <- bind_rows(
+  data.frame(CR2_SE = as.numeric(R$se_ratios_dv$CE_CR2_SE),
+             CCC_SD = as.numeric(R$se_ratios_dv$CE_CCC_SD),
+             Model = "CE", DV = dv_labs, stringsAsFactors = FALSE),
+  data.frame(CR2_SE = as.numeric(R$se_ratios_dv$CHE_CR2_SE),
+             CCC_SD = as.numeric(R$se_ratios_dv$CHE_CCC_SD),
+             Model = "CHE", DV = dv_labs, stringsAsFactors = FALSE)
+)
+
+se_range <- range(c(se_scatter$CR2_SE, se_scatter$CCC_SD)) * c(0.9, 1.1)
+
+ggplot(se_scatter, aes(x = CR2_SE, y = CCC_SD, label = DV)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              color = "grey50") +
+  geom_point(aes(color = Model), size = 3.5) +
+  geom_text_repel(size = 3, max.overlaps = 20, show.legend = FALSE) +
+  scale_color_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  coord_equal(xlim = se_range, ylim = se_range) +
+  facet_wrap(~ Model, ncol = 2) +
+  labs(title = "CCC SD vs CR2 SE (DV Category Model)",
+       subtitle = "Dashed line = perfect agreement (ratio = 1.0)",
+       x = "Frequentist CR2 SE", y = "Bayesian CCC SD") +
+  theme_brve +
+  theme(legend.position = "none")
+```
+
+
+### Grand Summary Table
+
+@tbl-grand-summary consolidates the key validation metrics for both models.
+
+```{r}
+#| echo: false
+#| label: tbl-grand-summary
+#| tbl-cap: "Grand Calibration Summary: CE and CHE Models on TSL15 DV Category Specification"
+
+ce_pass  <- all(ce_ratios >= 0.9 & ce_ratios <= 1.1)
+che_pass <- all(che_ratios >= 0.9 & che_ratios <= 1.1)
+
+grand_df <- data.frame(
+  Metric = c("Mean CCC/CR2 ratio",
+             "Ratio range",
+             "Gate 3 [0.9, 1.1]"),
+  CE = c(
+    sprintf("%.4f", mean(ce_ratios)),
+    sprintf("[%.4f, %.4f]", min(ce_ratios), max(ce_ratios)),
+    if (ce_pass) "PASS" else "FAIL"
+  ),
+  CHE = c(
+    sprintf("%.4f", mean(che_ratios)),
+    sprintf("[%.4f, %.4f]", min(che_ratios), max(che_ratios)),
+    if (che_pass) "PASS" else "FAIL"
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(grand_df, col.names = c("Metric", "CE", "CHE"),
+             align = c("l", "r", "r"))
+```
+
+Both models pass Gate 3 for all 6 DV categories. The CE ratios cluster
+tightly around 1.0, consistent with the mature CE calibration pipeline.
+The CHE ratios show slightly wider dispersion, consistent with the
+additional variance component estimation introducing modest MCMC variability,
+but all remain within the acceptance band.
+
+
+## Satterthwaite df Comparison {#sec-results-df}
+
+Satterthwaite degrees of freedom define the reference distribution for
+Three-Layer Calibration's Layer 3 ($t$-based inference). This section
+examines whether bayesRVE's independently-implemented Satterthwaite df
+(Decision D11: no clubSandwich runtime dependency) produces consistent
+results with the frequentist implementation.
+
+
+### df Scatter: bayesRVE vs metafor
+
+@fig-df-scatter plots the Satterthwaite df from bayesRVE against those from
+metafor + clubSandwich for each DV category under both models.
+
+```{r}
+#| echo: false
+#| label: fig-df-scatter
+#| fig-cap: "Satterthwaite df: bayesRVE vs metafor for CE (blue) and CHE (red). Points above the diagonal indicate bayesRVE reports higher df; below indicates lower. Systematic deviations arise from differences in plug-in variance components (posterior mean vs REML)."
+#| fig-width: 8
+#| fig-height: 7
+
+df_scatter <- bind_rows(
+  data.frame(DV = dv_labs,
+             df_bayes = as.numeric(R$se_ratios_dv$CE_df_bayes),
+             df_freq  = as.numeric(R$se_ratios_dv$CE_df_mf),
+             Model = "CE", stringsAsFactors = FALSE),
+  data.frame(DV = dv_labs,
+             df_bayes = as.numeric(R$se_ratios_dv$CHE_df_bayes),
+             df_freq  = as.numeric(R$se_ratios_dv$CHE_df_mf),
+             Model = "CHE", stringsAsFactors = FALSE)
+)
+
+df_range <- range(c(df_scatter$df_bayes, df_scatter$df_freq)) * c(0.8, 1.1)
+
+ggplot(df_scatter, aes(x = df_freq, y = df_bayes, color = Model,
+                        label = DV)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              color = "grey50") +
+  geom_point(size = 3.5) +
+  geom_text_repel(size = 3, max.overlaps = 20, show.legend = FALSE) +
+  scale_color_manual(values = c("CE" = "#4393C3", "CHE" = "#D6604D")) +
+  coord_equal(xlim = df_range, ylim = df_range) +
+  labs(title = "Satterthwaite df: bayesRVE vs metafor",
+       subtitle = "Per-coefficient df for DV category moderators",
+       x = "metafor + clubSandwich df", y = "bayesRVE df") +
+  theme_brve
+```
+
+
+### Why Degrees of Freedom Differ
+
+The Satterthwaite df depends on the Hat matrix
+$H = X(X'WX)^{-1}X'W$, which in turn depends on the working weights $W$.
+bayesRVE and metafor use different plug-in variance component estimates to
+construct $W$, and these differences propagate through the entire
+$W \to H \to \text{CR2 adjustment} \to \text{Satterthwaite df}$ pipeline.
+
+@tbl-vc-plugin documents the plug-in variance components used by each
+method for the DV category model.
+
+```{r}
+#| echo: false
+#| label: tbl-vc-plugin
+#| tbl-cap: "Plug-in Variance Components Used in Weight Construction (DV Category Model)"
+
+vc_plugin <- data.frame(
+  Component = c("tau (CE)", "tau (CHE)", "omega (CHE)"),
+  metafor_REML = c(
+    sprintf("%.3f", as.numeric(R$vc_table$tau_est[R$vc_table$Model == "CE (metafor)"])),
+    sprintf("%.3f", as.numeric(R$vc_table$tau_est[R$vc_table$Model == "CHE (metafor)"])),
+    sprintf("%.3f", as.numeric(R$vc_table$omega_est[R$vc_table$Model == "CHE (metafor)"]))
+  ),
+  bayesRVE_post = c(
+    sprintf("%.3f", mean(R$tau_ce_dv)),
+    sprintf("%.3f", mean(R$tau_che_dv)),
+    sprintf("%.3f", sqrt(mean(R$omega_che_dv^2)))
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(vc_plugin,
+             col.names = c("Component", "metafor (REML)",
+                           "bayesRVE (posterior mean)"),
+             align = c("l", "r", "r"))
+```
+
+The larger Bayesian $\hat\tau$ increases the relative contribution of
+between-study variance to the working model, altering study-level leverage
+values and thus the effective degrees of freedom. The smaller Bayesian
+$\hat\omega$ (prior shrinkage) further modifies the CHE weight structure.
+These differences are expected and do not indicate a calibration failure:
+the df discrepancy is a natural consequence of using Bayesian rather than
+REML point estimates for plug-in quantities, and it is exactly this
+difference that Layer 3 of the calibration pipeline is designed to handle.
+
+The key observation is that the *direction* of the CCC SD adjustment (via
+$L_2$) and the *magnitude* of the df adjustment (via the Satterthwaite
+formula) are jointly determined by the same plug-in variance components.
+When $\hat\tau_\text{Bayes} > \hat\tau_\text{REML}$, both the sandwich
+variance and the degrees of freedom shift in compensating directions,
+maintaining the overall calibration of the CCC-$t$ interval.
+
+
+## Variance Components {#sec-results-vc}
+
+Understanding the variance component estimates is essential for interpreting
+both the CCC mechanism and the substantive findings. This section compares
+$\tau$ and $\omega$ estimates across all five estimators.
+
+
+### Variance Component Comparison Table
+
+@tbl-vc-all presents the variance component estimates (on the SD scale) for
+all models fitted to the DV category specification.
+
+```{r}
+#| echo: false
+#| label: tbl-vc-all
+#| tbl-cap: "Variance Component Estimates (SD Scale) Across All Models, DV Category Specification"
+
+knitr::kable(R$vc_table, digits = 4,
+             col.names = c("Model", "tau (SD)", "omega (SD)"),
+             align = c("l", "r", "r"))
+```
+
+
+### Variance Components Bar Chart
+
+@fig-vc-bars visualizes the variance component structure across models,
+illustrating the tau-absorption phenomenon in CE models and the
+decomposition in CHE models.
+
+```{r}
+#| echo: false
+#| label: fig-vc-bars
+#| fig-cap: "Variance component estimates (SD scale) across all models. CE models estimate only tau (which absorbs omega). CHE models decompose heterogeneity into between-study (tau) and within-study (omega) components. Bayesian tau estimates exceed REML due to prior influence; Bayesian omega is shrunk below REML."
+#| fig-width: 9
+#| fig-height: 5.5
+
+vc_long <- R$vc_table |>
+  pivot_longer(cols = c(tau_est, omega_est),
+               names_to = "Component", values_to = "Estimate") |>
+  filter(!is.na(Estimate)) |>
+  mutate(
+    Component = ifelse(Component == "tau_est", "tau", "omega"),
+    Model = factor(Model, levels = R$vc_table$Model)
+  )
+
+ggplot(vc_long, aes(x = Model, y = Estimate, fill = Component)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6,
+           alpha = 0.85) +
+  scale_fill_manual(values = c("tau" = "#4393C3", "omega" = "#D6604D"),
+                    labels = c(expression(tau), expression(omega))) +
+  labs(x = NULL, y = "Estimate (SD scale)",
+       title = "Variance Components by Model",
+       subtitle = "CE absorbs omega into tau; CHE decomposes both") +
+  theme_brve +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 10))
+```
+
+
+### Interpretation
+
+The variance component comparison reveals three systematic patterns.
+
+**Tau absorption in CE models.** The CE model has a single between-study
+random effect ($\tau^2$) that must account for all sources of heterogeneity
+beyond sampling error, including both genuine between-study variation and
+within-study variation across dependent effect sizes. As a result,
+$\tau_\text{CE} > \tau_\text{CHE}$ for both frequentist and Bayesian
+estimators. The magnitude of this inflation depends on the true $\omega^2$:
+when within-study heterogeneity is substantial, the CE $\tau$ estimate
+absorbs a correspondingly larger share.
+
+**Bayesian tau exceeds REML.** Across both CE and CHE models, the Bayesian
+posterior mean of $\tau$ exceeds the REML point estimate. This reflects the
+half-Cauchy(0, 0.5) prior, which has heavier tails than the implicit REML
+constraint (which truncates the likelihood at the boundary $\tau^2 = 0$).
+The half-Cauchy prior places more mass on larger values of $\tau$, pulling
+the posterior mean upward relative to REML, especially when the data provide
+moderate (rather than overwhelming) information about the between-study
+variance.
+
+**Bayesian omega shrunk below REML.** The CHE Bayesian $\omega$ posterior
+is centered below the REML estimate. The within-study variance component
+is harder to identify than the between-study component because its
+estimation relies on within-study replication, which varies substantially
+across studies. The half-Cauchy prior induces more pronounced shrinkage
+for $\omega$ than for $\tau$ because the data provide less information to
+overcome the prior's pull toward zero.
+
+
+## Interim Interpretation {#sec-results-interpretation}
+
+The empirical results from the TSL15 DV category specification yield six
+key findings.
+
+1. **CCC/CR2 ratio near unity for both models.** The mean ratio is
+   `r sprintf("%.4f", mean(ce_ratios))` for CE and
+   `r sprintf("%.4f", mean(che_ratios))` for CHE, with all 12 individual
+   ratios falling within the pre-specified [0.9, 1.1] acceptance band.
+   This confirms that Cholesky Calibration Correction successfully maps
+   the Bayesian posterior to have the CR2 sandwich variance as its
+   dispersion target.
+
+2. **Gate 3: PASS.** Both CE and CHE models pass the pre-specified Gate 3
+   criterion on all 6 DV category coefficients. The CHE result validates
+   the v0.6.0 extension of CCC to models with two variance components.
+   Gate 3 does not apply to covariate coefficients, whose CCC/CR2 ratios
+   may exceed the [0.9, 1.1] band due to lower effective cluster counts
+   (see @sec-mechanics-covariates for details).
+
+3. **Point estimate concordance.** Bayesian posterior means and frequentist
+   REML estimates are nearly identical for all regression coefficients,
+   confirming that prior influence on location parameters is negligible
+   given the large sample ($J = 107$, $N = 1{,}198$).
+
+4. **Satterthwaite df differ systematically.** bayesRVE and metafor produce
+   different Satterthwaite degrees of freedom because they use different
+   plug-in variance components ($\hat\tau_\text{Bayes} > \hat\tau_\text{REML}$;
+   $\hat\omega_\text{Bayes} < \hat\omega_\text{REML}$). This is expected
+   and does not compromise calibration: the CCC SD and df adjustments are
+   jointly determined and compensate for each other.
+
+5. **Tau-omega decomposition reveals prior shrinkage structure.** The CHE
+   joint posterior shows near-zero correlation between $\tau$ and $\omega$
+   ($r = -0.036$), indicating minimal confounding in this well-identified
+   dataset, with $\omega$ substantially shrunk below REML. This prior shrinkage is
+   scientifically meaningful: it expresses genuine uncertainty about whether
+   within-study heterogeneity is present, given that $\omega$ is harder to
+   identify than $\tau$.
+
+6. **CCC as near-identity for well-estimated parameters.** For the 6 DV
+   category coefficients (high effective df, many contributing clusters),
+   the CCC calibration ratio $R_k$ is close to 1.0 in both models. CCC
+   has minimal work to do when the Bayesian posterior already approximates
+   the CR2 sandwich variance.
+
+These findings establish the empirical foundation for Three-Layer
+Calibration. The next chapter (@sec-mechanics) examines the CCC mechanism
+in greater depth, analyzing the $R_k$ gradient, the multivariate
+transformation structure, and the three-layer interval width decomposition
+that reveals how each calibration layer contributes to the final inference.

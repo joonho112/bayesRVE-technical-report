@@ -1,0 +1,311 @@
+---
+title: "Inference-Relevant Design Decisions"
+---
+
+## Introduction {#sec-decisions-intro}
+
+The development of bayesRVE involved 25 numbered design decisions (D1--D25), established across versions 0.1.0 through 0.6.0. These decisions were documented in development logs, debated through systematic review, and --- at major milestones --- subjected to systematic code review.
+
+This appendix documents the subset of 18 decisions that directly affect statistical inference: the calibration target, the small-sample correction procedure, the degrees-of-freedom approximation, the variance-component plug-in rule, and related choices. Purely software-engineering decisions (D1: package naming; D4: pilot simulation sample size; D19: CHE scope deferral; D21: method cleanup classification; D23: simulation deferral) are omitted because they do not change any computed quantity.
+
+Each entry records:
+
+- **Decision:** A concise statement of the choice made.
+- **Rationale:** The statistical or computational reason for the choice.
+- **Affects:** The source files most directly changed.
+- **Chapter:** Cross-reference to the chapter where the decision is discussed.
+- **Review status:** When the decision was established and in which version it was confirmed.
+
+
+## Design Decision Registry {#sec-decision-registry}
+
+
+### D2: Blockwise Hybrid CCC {#sec-decision-d2}
+
+**Decision:** The beta-block ($K \times K$) uses the full marginal sandwich covariance and Cholesky CCC; the theta-block (variance components) uses diagonal rescaling rather than a joint $(K+J) \times (K+J)$ transformation.
+
+**Rationale:** The full $(K+J) \times (K+J)$ meat matrix has structural rank at most $J$ (one score contribution per study), but the parameter dimension is $K+J$. Since $\text{rank}(\mathbf{M}_{\text{full}}) \leq J < K + J$, the full sandwich is necessarily singular --- the Neyman--Scott problem in the sandwich setting. Blockwise decomposition isolates the well-conditioned beta-block (the inferential target, with $J \gg K$ in the operating envelope) from the theta-block, where only scale --- not shape --- correction is meaningful. For the CHE model, CCC operates on the beta-block exclusively, because the CHE theta parameters ($\tau^2$, $\omega^2$) are analytically marginalized out of the sandwich.
+
+**Affects:** `ccc.R`, `methods.R`
+
+**Chapter:** @sec-ccc, @sec-ccc-impl-dispatch
+
+**Review status:** Established v0.1.0; Confirmed in v0.4.0 development. CHE beta-only simplification confirmed v0.6.0.
+
+
+### D3: Non-Centered Parameterization as Default {#sec-decision-d3}
+
+**Decision:** The default Stan parameterization is NCP (non-centered parameterization): $\beta_k = \mu_k + \tau \cdot z_k$ where $z_k \sim \text{Normal}(0, 1)$. Centered parameterization (CP) is available as an option.
+
+**Rationale:** NCP avoids the funnel geometry that arises when $\tau$ is small relative to the sampling variances. Since low heterogeneity is the most common regime in education and psychology meta-analyses, NCP provides more reliable sampling across the operating envelope. The asymmetric risk profile --- NCP degrades gracefully when heterogeneity is large, but CP can fail catastrophically when heterogeneity is small --- motivates the default.
+
+**Affects:** `bm_ce_ncp.stan`, `bm_ce_cp.stan`, `bm_che_ncp.stan`, `bm_fit.R`
+
+**Chapter:** @sec-models, @sec-fitting
+
+**Review status:** Established v0.1.0; Reaffirmed in subsequent development.
+
+
+### D5: Working Correlation Handled in `sandwich()` {#sec-decision-d5}
+
+**Decision:** The working correlation $\rho$ is a parameter of `sandwich()`, not of `bm_fit()`. The MCMC posterior is computed under $\rho_{\text{work}} = 0$ (independent working model); the sandwich estimator then corrects for the true dependence structure using the user-specified $\rho$.
+
+**Rationale:** Separation of concerns. The Bayesian model fitting stage should not require a working-correlation assumption that is ultimately corrected away by the sandwich. This design mirrors the frequentist RVE workflow (fit under independence, then apply robust variance estimation) and simplifies the Stan model code.
+
+**Affects:** `sandwich.R`, `bm_fit.R`
+
+**Chapter:** @sec-sandwich, @sec-sandwich-impl
+
+**Review status:** Established v0.1.0; confirmed across all subsequent versions.
+
+
+### D6: Within-Study Varying Moderators in Sandwich {#sec-decision-d6}
+
+**Decision:** The sandwich estimator supports observation-level design matrices $\mathbf{X}_{ij}$ that vary within studies. When moderator values differ across effect sizes within a study, the sandwich uses the full observation-level $\mathbf{X}$ rather than collapsing to study-level means.
+
+**Rationale:** Within-study moderator variation is common in practice (e.g., different outcome measures or time points within a study). Collapsing to study-level means $\bar{X}_j$ would introduce bias in the meat of the sandwich. The observation-level formulation matches the generality of `metafor::rma.mv` and `clubSandwich`.
+
+**Affects:** `sandwich.R`, `.compute_meat()`, `.compute_cr2_adjustments()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Implemented v0.3.0 after auto-dispatch replaced the `.check_cluster_constant()` blocker. Verified against `clubSandwich` benchmarks.
+
+
+### D7: Operating Envelope $J_{\min}$ {#sec-decision-d7}
+
+**Decision:** The minimum number of studies for valid inference is $J_{\min} = \max(8,\; 2K + 2)$, where $K$ is the number of fixed-effect parameters. When $J < J_{\min}$, the beta-block CCC falls back to a partial correction (method = `"ccc_partial"`) that preserves theta-block rescaling but does not attempt the Cholesky transformation for beta.
+
+**Rationale:** With too few clusters, the sandwich covariance $V_{\text{CR2}}$ is unreliable and the Satterthwaite degrees of freedom can collapse below meaningful thresholds. The $2K + 2$ lower bound is a conservative heuristic that ensures at least two residual degrees of freedom per parameter after accounting for the effective number of parameters estimated (see @sec-env-jmin for the full rationale). The floor of 8 reflects the practical minimum established in the RVE literature.
+
+**Affects:** `ccc.R`, `sandwich.R`, `methods.R`
+
+**Chapter:** @sec-envelope
+
+**Review status:** Established v0.2.0 with small-sample corrections. Fallback logic confirmed during implementation.
+
+
+### D8: Confidence Interval Default Method {#sec-decision-d8}
+
+**Decision:** The `confint()` method for `bm_ccc` objects defaults to Satterthwaite $t$-based intervals (updated from the original `"naive"` default in v0.2.0 to `"satterthwaite"` in v0.5.0 per D13).
+
+**Rationale:** Simulation results from sim3 demonstrated that naive quantile-based CCC intervals (CCC-q) undercover by 1--3 percentage points at $J \leq 20$ (see @sec-verification for coverage tables). The Satterthwaite $t$-distribution (CCC-t, Three-Layer Calibration) restores nominal coverage. Changing the default ensures that users obtain calibrated intervals without additional configuration.
+
+**Affects:** `methods.R`, `confint.bm_ccc()`
+
+**Chapter:** @sec-ccc, @sec-results
+
+**Review status:** Original default (v0.2.0) updated to Satterthwaite in v0.5.0 after sim3 evidence. See also D13.
+
+
+### D9: Scalar Small-Sample Correction Factor {#sec-decision-d9}
+
+**Decision:** The HC0-era small-sample correction used a scalar $c_\beta = J / (J - p_{\text{eff},\beta})$ applied uniformly to all elements of the sandwich covariance. This was superseded by CR2 (D12) starting in v0.5.0.
+
+**Rationale:** The scalar correction provides a simple bias reduction analogous to the HC1 correction in heteroskedasticity-consistent estimation. While adequate for balanced designs, it does not account for leverage variation across studies. The transition to CR2 (D12) provides a more principled correction that handles leverage heterogeneity through study-specific adjustment matrices.
+
+**Affects:** `sandwich.R` (historical; replaced by CR2 pathway)
+
+**Chapter:** @sec-sandwich
+
+**Review status:** Established v0.2.0; superseded by D12 in v0.5.0.
+
+
+### D10: Leverage-Dispersion Warning {#sec-decision-d10}
+
+**Decision:** When the ratio $\max(h_j) / \min(h_j) > 3$ (where $h_j$ are the diagonal elements of the hat matrix), a diagnostic warning is issued indicating substantial leverage dispersion.
+
+**Rationale:** High leverage dispersion signals that certain studies exert disproportionate influence on the fixed-effect estimates. Under HC0 or scalar small-sample corrections, leverage dispersion inflates downward bias in the sandwich variance. Even under CR2, extreme leverage dispersion can degrade the Satterthwaite approximation. The threshold of 3 is a practical heuristic that flags datasets requiring closer inspection.
+
+**Affects:** `sandwich.R`, diagnostic output in `summary()`
+
+**Chapter:** @sec-sandwich-impl, @sec-envelope
+
+**Review status:** Established v0.2.0; retained through v0.6.0. Threshold value confirmed in pilot simulations.
+
+
+### D11: Independent CR2 Implementation {#sec-decision-d11}
+
+**Decision:** The CR2 bias-corrected sandwich estimator and the Satterthwaite degrees-of-freedom approximation are implemented independently within bayesRVE, without any runtime dependency on the `clubSandwich` package.
+
+**Rationale:** Three motivations. First, academic: an independent implementation demonstrates understanding of the methodology and permits verification against the reference implementation. Second, architectural: `clubSandwich` operates on `metafor` objects, requiring a translation layer that would couple bayesRVE to frequentist model internals. Third, the bayesRVE sandwich must accommodate MCMC-derived variance component estimates (posterior means), which `clubSandwich` does not natively support. The `clubSandwich` package remains in `Suggests` for plug-in parity testing (D25).
+
+**Affects:** `sandwich.R`, `DESCRIPTION` (Suggests, not Imports)
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Confirmed in v0.5.0 development. Validated via D25 plug-in parity.
+
+
+### D12: CCC Target Is $V_{\text{CR2}}$ {#sec-decision-d12}
+
+**Decision:** Starting in v0.5.0, the Cholesky CCC calibration target $L_2$ is the Cholesky factor of $V_{\text{CR2}}$ (the CR2 bias-corrected sandwich), replacing the earlier target $V_{\text{HC0}} \cdot c_\beta$.
+
+**Rationale:** The CR2 estimator is approximately unbiased at the aggregate meat level ($\mathbb{E}[V_{\text{CR2}}] \approx \mathbf{Q}$; see @thm-cr2-property), whereas $\text{HC0} \cdot c_\beta$ only corrects for degrees of freedom in a scalar fashion and can remain biased when leverage varies across studies. Using $V_{\text{CR2}}$ as the CCC target means that Layer 2 of the Three-Layer Calibration directly injects a bias-corrected frequentist variance estimate, making the calibrated posterior both Bayesian (in shape) and frequentist (in scale).
+
+**Affects:** `ccc.R`, `sandwich.R`
+
+**Chapter:** @sec-ccc, @sec-sandwich
+
+**Review status:** Established v0.5.0 after sim3 results showed CCC-q undercoverage with HC0 target. Externally reviewed.
+
+
+### D13: Default to Satterthwaite Degrees of Freedom {#sec-decision-d13}
+
+**Decision:** `confint()` defaults to `df = "satterthwaite"` and `sandwich()` defaults to `small_sample = "CR2"`.
+
+**Rationale:** Simulation evidence from sim3 (24 conditions, 11,600 fits) showed that CCC-t intervals (using Satterthwaite $df$) achieve 94.5--95.3% coverage compared to 91--94% for CCC-q intervals. The Satterthwaite approximation is essential at small $J$ ($\leq 20$) and converges to the normal quantile at large $J$ ($\geq 40$), so it imposes no cost in large samples. Making CR2 and Satterthwaite the defaults ensures that the out-of-the-box experience delivers calibrated inference.
+
+**Affects:** `methods.R`, `sandwich.R`
+
+**Chapter:** @sec-ccc, @sec-results
+
+**Review status:** Confirmed v0.5.0 after sim3 completion. Represents the culmination of Three-Layer Calibration.
+
+
+### D14: CCC as Core Identity {#sec-decision-d14}
+
+**Decision:** The CCC transformation operates on the full posterior distribution, not merely on summary statistics. The `bm_ccc` object stores the calibrated draws $\psi^{*(s)}$, preserving the ability to compute any posterior functional (quantiles, highest-density intervals, derived quantities) from the calibrated posterior.
+
+**Rationale:** A calibration method that only adjusts point estimates and standard errors reduces Bayesian inference to five numbers (estimate, SE, $df$, lower CI, upper CI). Retaining the full calibrated draws maintains the qualitative advantage of Bayesian inference --- the ability to compute arbitrary posterior summaries --- while importing the frequentist calibration guarantee from the sandwich.
+
+**Affects:** `ccc.R`, `methods.R`, object structure of `bm_ccc`
+
+**Chapter:** @sec-ccc
+
+**Review status:** Established as a design principle from v0.1.0; reaffirmed in v0.5.0 handoff.
+
+
+### D15: WLS Bread Matrix {#sec-decision-d15}
+
+**Decision:** The bread matrix in the CR2 sandwich is the weighted least squares (WLS) bread $\mathbf{Q} = (\mathbf{X}'\mathbf{W}\mathbf{X})^{-1}$, not the posterior Hessian from the MCMC sampler.
+
+**Rationale:** The CR2 correction is defined relative to the frequentist working model. Using the posterior Hessian would conflate prior information with the sandwich correction, breaking the separation between the Bayesian model (which contributes shape via the posterior) and the frequentist correction (which contributes scale via the sandwich). The WLS bread matches the `clubSandwich` reference implementation and ensures D25 plug-in parity.
+
+**Affects:** `sandwich.R`, `.compute_wls_bread()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Established in v0.5.0 development. Verified during implementation.
+
+
+### D16: $\mathbf{W}^{1/2}$ Symmetrization for CR2 {#sec-decision-d16}
+
+**Decision:** The observation-level hat matrix for CR2 is constructed using the symmetric square root $\mathbf{W}^{1/2}$, computed as $\mathbf{W}^{1/2} = \text{diag}(\sqrt{w_i})$ for diagonal weight matrices. For the CHE compound-symmetric case, the analytical formula (D24) is used.
+
+**Rationale:** The CR2 adjustment matrices $\mathbf{A}_j = (\mathbf{I} - \mathbf{H}_{jj})^{-1/2}$ require the hat matrix $\mathbf{H} = \mathbf{W}^{1/2}\mathbf{X}(\mathbf{X}'\mathbf{W}\mathbf{X})^{-1}\mathbf{X}'\mathbf{W}^{1/2}$. Using the symmetric (not asymmetric) square root ensures that $\mathbf{H}$ is symmetric and idempotent, which is required for the CR2 theory. An asymmetric factorization would produce a hat matrix whose eigenvalues are correct but whose eigenvectors are rotated, invalidating the adjustment.
+
+**Affects:** `sandwich.R`, `.compute_cr2_adjustments()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Established in v0.5.0 development. Verified during implementation.
+
+
+### D17: Satterthwaite Trace Formula {#sec-decision-d17}
+
+**Decision:** The Satterthwaite degrees of freedom use the residual-free $\mathbf{P}_k$ trace formula: $\nu_k = \text{tr}(\mathbf{P}_k)^2 / \text{tr}(\mathbf{P}_k^2)$, where $\mathbf{P}_k$ is a $J \times J$ matrix constructed from the deterministic gradient vectors $\mathbf{g}_{jk} = \mathbf{A}_j' \mathbf{W}_j \mathbf{X}_j \mathbf{Q} \mathbf{c}_k$. No residuals enter the computation.
+
+**Rationale:** The Satterthwaite approximation matches the first two moments of the sandwich variance estimator to a scaled chi-squared distribution. The $\mathbf{P}_k$ trace formula is entirely deterministic conditional on plug-in variance components --- it depends only on the design matrices, weight matrices, CR2 adjustment matrices, and the WLS bread $\mathbf{Q}$. This follows @bell2002 and @tipton2015, and matches the approach in `clubSandwich::Satterthwaite`.
+
+**Affects:** `sandwich.R`, `.satterthwaite_df()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Established in v0.5.0 development. Verified during implementation; confirmed to match `clubSandwich` output within numerical tolerance.
+
+
+### D18: Low Degrees-of-Freedom Warning {#sec-decision-d18}
+
+**Decision:** When any Satterthwaite $df_k < 4$, a diagnostic warning is issued. The warning is informational and does not alter the computed intervals, but signals that the $t$-approximation may be unreliable.
+
+**Rationale:** The $t$-distribution with fewer than 4 degrees of freedom has heavy tails and undefined variance ($df \leq 2$) or kurtosis ($df \leq 4$). In these regimes, confidence interval coverage can deviate substantially from the nominal level regardless of the calibration method. The warning prompts users to consider whether additional studies are needed or whether the moderator structure should be simplified.
+
+**Affects:** `methods.R`, `summary.bm_ccc()`
+
+**Chapter:** @sec-envelope, @sec-ccc
+
+**Review status:** Established during v0.5.0 development. Implemented v0.5.0.
+
+
+### D20: Jensen-Safe Variance Component Plug-In {#sec-decision-d20}
+
+**Decision:** The plug-in estimate of $\omega^2$ for the CHE sandwich weights is $\hat\omega^2 = \text{mean}(\omega^{2(s)})$ --- the posterior mean of the variance, not $[\text{mean}(\omega^{(s)})]^2$ (the square of the posterior mean of the standard deviation).
+
+**Rationale:** By Jensen's inequality, $E[\omega^2] \geq (E[\omega])^2$. Using the posterior mean of $\omega^2$ directly avoids the downward bias that would result from squaring the posterior mean of $\omega$. This convention is consistent with the CE model, where $\hat\tau^2 = \text{mean}(\tau^{2(s)})$ is already used. The Jensen-safe plug-in ensures that the CHE sandwich weights are not systematically too large (i.e., within-study variance is not underestimated).
+
+**Affects:** `sandwich.R`, `.compute_W_j()`, `.compute_wls_bread()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Established during v0.6.0 development. Confirmed by plug-in parity testing (D25).
+
+
+### D22: Singleton Non-Identifiability Warning {#sec-decision-d22}
+
+**Decision:** When all studies are singletons ($n_j = 1$ for all $j$), $\omega^2$ is flagged as "not identified" and the CHE model reduces to the CE model. When more than 50% of studies are singletons, $\omega^2$ is flagged as "weakly identified."
+
+**Rationale:** The within-study variance component $\omega^2$ is identified by within-study variation in effect sizes. A singleton study contributes no information about $\omega^2$; its total variance $\tau^2 + \omega^2$ is identified, but the decomposition is not. When all studies are singletons, $\omega^2$ is completely confounded with $\tau^2$, and the CHE model offers no advantage over the CE model. The 50% threshold for the "weakly identified" warning is a practical heuristic.
+
+**Affects:** `sandwich.R`, `methods.R`, diagnostic output
+
+**Chapter:** @sec-sandwich-impl, @sec-envelope
+
+**Review status:** Established in v0.6.0 development. Implemented in v0.6.0.
+
+
+### D24: Analytical $\mathbf{W}^{1/2}$ via Woodbury Rank-1 Formula {#sec-decision-d24}
+
+**Decision:** For the CHE compound-symmetric weight matrix $\mathbf{W}_j = (1/a_j)\mathbf{I} - [\tau^2/(a_j \cdot c_j)]\mathbf{J}$, where $a_j = \bar{s}^2_j + \omega^2$ and $c_j = a_j + n_j\tau^2$, the symmetric square root is computed analytically:
+$$\mathbf{W}_j^{1/2} = \frac{1}{\sqrt{a_j}}\mathbf{I} + \frac{1}{n_j}\left(\frac{1}{\sqrt{c_j}} - \frac{1}{\sqrt{a_j}}\right)\mathbf{J}$$
+
+**Rationale:** The compound-symmetric structure of $\mathbf{W}_j$ admits a closed-form eigendecomposition: one eigenvalue $1/c_j$ with eigenvector $\mathbf{1}/\sqrt{n_j}$, and $(n_j - 1)$ eigenvalues $1/a_j$ in the orthogonal complement. The analytical formula avoids $O(n_j^3)$ matrix decomposition per study, reducing the computational cost to $O(n_j)$. This is particularly valuable for datasets with large studies.
+
+**Affects:** `sandwich.R`, `.compute_cr2_adjustments()`
+
+**Chapter:** @sec-sandwich-impl
+
+**Review status:** Derived during v0.6.0 development. Verified by plug-in parity testing (D25).
+
+
+### D25: Plug-In Parity Verification {#sec-decision-d25}
+
+**Decision:** A mandatory verification tier: when REML point estimates of $\tau^2$ (and $\omega^2$ for CHE) are injected into the bayesRVE sandwich machinery, the resulting $V_{\text{CR2}}$ must match `clubSandwich` output to within $10^{-6}$.
+
+**Rationale:** The plug-in parity test isolates the linear algebra of the CR2 computation from MCMC sampling noise. By replacing the posterior means with REML estimates (which `clubSandwich` uses internally), any discrepancy between bayesRVE and `clubSandwich` must arise from a bug in the matrix computations, not from differences in variance-component estimation. This makes D25 an essential debugging tool: it either confirms correctness of the linear algebra or pinpoints the source of error.
+
+**Affects:** `test-ce-cr2-contract.R`, `test-che-cr2-contract.R`, `test-phase4-step42-tier1.R` (plug-in parity tests T1-04a through T1-04c)
+
+**Chapter:** @sec-verification
+
+**Review status:** Established during v0.6.0 development. Verified: all parity tests pass at $10^{-6}$ tolerance for both CE and CHE models.
+
+
+## Summary Table {#sec-decisions-summary}
+
+@tbl-decisions-summary provides a compact reference for all inference-relevant design decisions.
+
+| ID | Short Name | Primary Affect | Chapter |
+|:---|:-----------|:---------------|:--------|
+| D2 | Blockwise hybrid CCC | Calibration structure | @sec-ccc |
+| D3 | NCP default parameterization | MCMC sampling efficiency | @sec-models |
+| D5 | $\rho$ in `sandwich()` | Separation of model and correction | @sec-sandwich |
+| D6 | Within-study varying moderators | Sandwich generality | @sec-sandwich-impl |
+| D7 | Operating envelope $J_{\min}$ | Fallback logic | @sec-envelope |
+| D8 | Confidence interval default | User-facing defaults | @sec-ccc |
+| D9 | Scalar $c_\beta$ correction | Small-sample bias (superseded) | @sec-sandwich |
+| D10 | Leverage-dispersion warning | Diagnostic output | @sec-sandwich-impl |
+| D11 | Independent CR2 implementation | No runtime dependency | @sec-sandwich-impl |
+| D12 | CCC target = $V_{\text{CR2}}$ | Calibration target | @sec-ccc |
+| D13 | Satterthwaite + CR2 defaults | Three-Layer Calibration | @sec-ccc |
+| D14 | CCC as core identity | Full posterior preservation | @sec-ccc |
+| D15 | WLS bread matrix | Sandwich bread specification | @sec-sandwich-impl |
+| D16 | $\mathbf{W}^{1/2}$ symmetrization | CR2 hat matrix correctness | @sec-sandwich-impl |
+| D17 | Satterthwaite trace formula | Degrees-of-freedom computation | @sec-sandwich-impl |
+| D18 | Low $df$ warning | Diagnostic output | @sec-envelope |
+| D20 | Jensen-safe $\hat\omega^2$ | CHE variance plug-in | @sec-sandwich-impl |
+| D22 | Singleton warning | CHE identifiability diagnostic | @sec-envelope |
+| D24 | Analytical $\mathbf{W}^{1/2}$ | CHE computational efficiency | @sec-sandwich-impl |
+| D25 | Plug-in parity verification | Verification methodology | @sec-verification |
+
+: Inference-relevant design decisions in bayesRVE. {#tbl-decisions-summary}

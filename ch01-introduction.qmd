@@ -1,0 +1,236 @@
+---
+title: "Introduction and Inferential Architecture"
+---
+
+# Introduction and Inferential Architecture {#sec-introduction}
+
+## The Inferential Mismatch {#sec-mismatch}
+
+Consider a meta-analysis of $J = 20$ studies, each contributing between 2 and 15 effect sizes, for a total of $N = 120$ observations. A Bayesian analyst fits a correlated-effects (CE) working model with a shared between-study variance $\tau^2$ and a working correlation $\rho_{\text{work}} = 0.8$. The posterior yields $\hat{\beta}_1 = 0.35$ for a moderator coefficient, with a posterior standard deviation of $\text{SD}_{\text{post}} = 0.062$, producing a 95% equi-tailed credible interval of $(0.23, 0.47)$.
+
+A frequentist colleague analyzes the same data with robust variance estimation (RVE). Using the CR2 sandwich estimator, she obtains $\hat{\beta}_1 = 0.34$---close to the posterior mean, as expected with a weakly informative prior---but a standard error of $\text{SE}_{\text{CR2}} = 0.091$. With Satterthwaite degrees of freedom $\text{df} = 11.3$, her 95% confidence interval is $(0.14, 0.54)$, substantially wider than the Bayesian interval.
+
+The discrepancy is not a coding error. The Bayesian interval is narrower because the posterior variance encodes the assumed correlation structure: with $\rho_{\text{work}} = 0.8$, effect sizes within a study are treated as highly correlated, and the effective sample size is relatively large. But if the true within-study correlation is $\rho_{\text{true}} = 0.4$, the working model borrows too much information across correlated outcomes within studies, and the posterior is over-concentrated. The sandwich variance, by contrast, does not trust the working model's correlation structure; it estimates the sampling variability of $\hat{\boldsymbol{\beta}}$ from the empirical cross-study variation of the score contributions, yielding a standard error that is consistent regardless of $\rho_{\text{true}}$.
+
+This *inferential mismatch*---the gap between the model-dependent posterior variance and the misspecification-robust sandwich variance---is the central problem that motivates this report and the bayesRVE package.
+
+Three features of dependent-effect meta-analysis make the mismatch particularly consequential:
+
+1. **Working model misspecification is the norm, not the exception.** Within-study correlations among effect sizes are almost never known and are typically set to a single working value. Whether the analyst chooses $\rho = 0.6$, $0.8$, or estimates $\rho$ from the data, the assumed correlation structure is, at best, an approximation. The posterior variance inherits this approximation; the sandwich variance does not.
+
+2. **Small $J$ amplifies the discrepancy.** With many studies ($J > 50$), the Bayesian and frequentist estimators tend to agree, because the posterior concentrates around the true parameter and its variance converges to the sandwich variance under regularity conditions. With $J \leq 20$---a common regime in education, psychology, and clinical research---the posterior can be substantially miscalibrated relative to the sandwich variance.
+
+3. **Unbalanced study sizes create heterogeneous leverage.** When some studies contribute 2 effect sizes and others contribute 30, the studies with large $n_j$ exert disproportionate influence on the posterior. The sandwich estimator accounts for this through the leverage structure of the design matrix; the posterior variance does not.
+
+The mismatch is not a deficiency of Bayesian inference per se. It is a structural consequence of the fact that the posterior variance measures uncertainty *conditional on the model being correct*, while the sandwich variance measures uncertainty *regardless of whether the model is correct*. When the model is correctly specified, the two should agree---and CCC reduces to the identity (Theorem 3, @sec-ccc). When it is not, the posterior can be arbitrarily miscalibrated, and the analyst who reports posterior credible intervals without calibration is implicitly asserting a level of model confidence that the data do not support.
+
+To make this concrete, define the per-coefficient mismatch ratio
+$$
+M_k = \frac{\text{SD}_{\text{post},k}}{\text{SE}_{\text{CR2},k}},
+$$ {#eq-mk-mismatch}
+where $\text{SD}_{\text{post},k}$ is the posterior standard deviation and $\text{SE}_{\text{CR2},k}$ is the CR2 sandwich standard error for coefficient $\beta_k$. When $M_k < 1$, the posterior is too narrow and credible interval undercoverage is expected. When $M_k > 1$, the posterior is too wide. When $M_k = 1$, the model is well-calibrated for that coefficient and no correction is needed. In the example above, $M_1 = 0.062 / 0.091 = 0.68$, indicating substantial under-dispersion: the posterior width is only 68% of the sandwich-based width. Without calibration, the 95% credible interval would undercover by a wide margin.
+
+After CCC calibration, the software reports a related but distinct quantity: the calibration ratio $R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)$, which measures the factor by which CCC adjusted each parameter's posterior spread. When $M_k < 1$ (posterior too narrow), CCC widens the draws and $R_k > 1$; the two ratios are approximately reciprocals.
+
+The magnitude of $M_k$ depends on the interaction of three factors: the degree of within-study correlation misspecification, the number of studies $J$, and the distribution of study sizes $n_j$. The simulation study in @sec-verification explores these interactions systematically.
+
+
+## Why Dependent-Effect Meta-Analysis Needs Calibration {#sec-calibration-need}
+
+The statistical challenge of dependent effect sizes arises because a single study often contributes more than one effect size estimate. A randomized trial of a brief alcohol intervention might report outcomes on alcohol consumption, alcohol-related problems, and peak blood alcohol concentration, each measured at 3-month and 6-month follow-up, producing six effect sizes from a single study. These estimates share the same participants, the same intervention, and the same study-level characteristics; they are correlated. The within-study correlation matrix is almost never reported, and even when it can be estimated, it is subject to substantial uncertainty.
+
+The frequentist response to this challenge, developed by @hedges2010, is RVE: specify a working model for the marginal mean of the effect sizes, compute point estimates via weighted least squares, and then correct the standard errors using a sandwich (Huber-White) variance estimator that is consistent under arbitrary within-study dependence. The key insight is that one need not know the within-study correlations to obtain valid inference about the regression coefficients---the sandwich estimator absorbs the unknown dependence into the cross-study variation of the score contributions. With the CR2 small-sample correction [@tipton2015; @bell2002] and Satterthwaite degrees of freedom, this approach provides confidence intervals with accurate coverage even when $J$ is modest.
+
+Bayesian meta-analysts have no analogous robustification. The standard approach is to specify a hierarchical model---either a CE model with a single $\tau^2$ and a working correlation, or a correlated-hierarchical-effects (CHE) model with both between-study heterogeneity $\tau^2$ and within-study heterogeneity $\omega^2$---fit the model via MCMC, and report posterior summaries. The posterior variance of the regression coefficients depends on the assumed model, including the parameterization of the within-study dependence. When this parameterization is wrong, the credible intervals may have coverage far from nominal.
+
+This gap is not merely academic. The increasing popularity of Bayesian meta-analytic software means that applied researchers are routinely reporting posterior credible intervals for regression coefficients in dependent-effect meta-analyses without any check on whether those intervals have adequate frequentist coverage. The methodological literature has, to date, offered no general-purpose correction.
+
+The need for calibration connects to a broader intellectual tradition. @little2006 [-@little2012] articulated the philosophy of *Calibrated Bayes*: Bayesian models should be evaluated and, where necessary, adjusted to ensure that their posterior inferences have acceptable frequentist repeated-sampling properties. This is not a rejection of Bayesian inference but an extension of it. A Bayesian analyst who values coherent probability statements should also value calibration---the property that a 95% credible interval, averaged over the data-generating process, contains the true parameter approximately 95% of the time.
+
+@rubin1984 anticipated a similar idea in arguing that Bayesian inference should be assessed by its frequentist operating characteristics. The two traditions---Bayesian posterior inference and frequentist robust variance estimation---have developed largely in parallel, each with genuine strengths that the other lacks. Bayesian methods give a full posterior distribution with shrinkage and probabilistic interpretation; RVE gives coverage guarantees under misspecification.
+
+The Three-Layer Calibration framework developed in this report operationalizes the Calibrated Bayes vision for dependent-effect meta-analysis: retain the Bayesian point estimate (Layer 1), replace the model-dependent spread with a sandwich-robust alternative (Layer 2), and correct the tail behavior for small samples (Layer 3). CCC is the mechanism that makes Layer 2 concrete.
+
+
+## Three-Layer Architecture {#sec-three-layer-arch}
+
+The bayesRVE inference pipeline consists of three calibration layers, applied sequentially. Each layer addresses a distinct aspect of the inferential mismatch described in @sec-mismatch.
+
+### Layer 1: Location via Posterior Mean
+
+The posterior mean $\hat{\boldsymbol{\beta}} = \mathbb{E}[\boldsymbol{\beta} \mid \mathbf{y}]$ serves as the point estimate. This estimate incorporates *partial pooling* across studies: extreme study-level estimates are shrunk toward the grand mean, with the degree of shrinkage determined by the ratio of within-study to between-study variance. Partial pooling is a well-established advantage of hierarchical models, and there is no reason to abandon it when calibrating the uncertainty.
+
+Importantly, CCC preserves the posterior mean exactly (Theorem 1, @sec-ccc). The point estimate after calibration is identical to the point estimate before calibration. Layer 1 is therefore costless within the calibration framework---the analyst obtains the benefits of Bayesian shrinkage without any sacrifice in terms of the subsequent calibration.
+
+### Layer 2: Spread via CCC
+
+The Cholesky Calibration Correction is an affine transformation applied to the MCMC posterior draws:
+$$
+\boldsymbol{\psi}^{*(s)} = \hat{\boldsymbol{\psi}} + \mathbf{L}_2 \mathbf{L}_1^{-1}\bigl(\boldsymbol{\psi}^{(s)} - \hat{\boldsymbol{\psi}}\bigr), \quad s = 1, \ldots, S,
+$$ {#eq-ccc-intro}
+where $\mathbf{L}_1 = \text{chol}(\hat{\boldsymbol{\Sigma}}_{\text{MCMC}})$ and $\mathbf{L}_2 = \text{chol}(\mathbf{V}_{\text{CR2}})$ are the lower-triangular Cholesky factors of the posterior covariance and the CR2 sandwich variance, respectively.
+
+CCC replaces the model-dependent posterior dispersion with the sandwich-robust alternative. Within the beta-block, the covariance of the calibrated draws equals the CR2 sandwich variance *exactly*: $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$. This is a finite-sample algebraic identity, not an asymptotic approximation (Theorem 2, applied to the beta-block; see @sec-ccc-blockwise for the full blockwise structure). When the model is correctly specified so that $\hat{\boldsymbol{\Sigma}}_{\text{MCMC}}^{(\beta)} = \mathbf{V}_{\text{CR2}}^{(\beta)}$, CCC reduces to the identity transformation and changes nothing (Theorem 3, @sec-ccc). There is no penalty for applying CCC when it is not needed.
+
+In the scalar case ($K = 1$), CCC reduces to a simple rescaling of the centered draws by the factor $1/M_k$ from @eq-mk-mismatch. When $M_k < 1$ (posterior too narrow), the factor is greater than 1 and CCC widens the interval. When $M_k > 1$ (posterior too wide), CCC narrows it. The multivariate case requires the full Cholesky machinery to handle correlations between coefficients, but the intuition is the same: CCC rescales and rotates the posterior draws to match the sandwich covariance structure.
+
+### Layer 3: Tail Correction via Satterthwaite Degrees of Freedom
+
+Even with the correct standard error, the reference distribution matters. With $J = 15$ studies and $K = 3$ predictors, using a normal reference distribution ($z$-critical values) for the confidence interval can lead to undercoverage, because the sandwich variance estimator has substantial sampling variability. Satterthwaite degrees of freedom approximate the effective sample size for each coefficient, yielding a $t$-distribution reference:
+$$
+\hat{\beta}_k \pm t_{\alpha/2,\,\text{df}_k} \cdot \text{SD}(\beta_k^*).
+$$ {#eq-ccc-t-intro}
+
+The degrees of freedom are computed from the CR2 adjustment matrices (see @sec-sandwich for details) and can differ across coefficients. In the CE model, the intercept may have $\text{df} = 18$ while a moderator with missing values in some studies might have $\text{df} = 7$. Layer 3 ensures that the confidence interval accounts for this heterogeneity in information content.
+
+We refer to the resulting intervals as **CCC-$t$ intervals**. The simulation evidence in @sec-verification demonstrates that CCC-$t$ intervals achieve coverage within one percentage point of nominal (e.g., 94.5--95.3% at the 95% level), matching the coverage of frequentist CR2 confidence intervals based on REML estimation. By contrast, CCC-$z$ intervals (which use normal quantiles instead of $t$-quantiles) undercover at 91--94% in the same conditions, confirming that Layer 3 is essential, not merely a theoretical refinement.
+
+::: {.callout-note}
+## Architecture Diagram: Three-Layer Calibration Pipeline
+
+The complete pipeline proceeds in four function calls, with each layer contributing a distinct ingredient to the final inference:
+
+```
+                         bayesRVE Pipeline
+ ──────────────────────────────────────────────────────────
+ bm_fit()    →   MCMC posterior draws {ψ^(s)}, s = 1,...,S
+                    │
+                  Layer 1: Posterior mean ψ̂           [LOCATION]
+                    │            (shrinkage, partial pooling)
+                    │
+ sandwich()  →   V_CR2, df_k  (from clustered score contributions)
+                    │
+ ccc()       →   Layer 2: Affine transform            [SPREAD]
+                    │        ψ*(s) = ψ̂ + L₂ L₁⁻¹(ψ(s) − ψ̂)
+                    │            (Cov_S(β*) = V_CR2^(β) exactly)
+                    │
+ summary()   →   Layer 3: t(df_k) reference           [TAILS]
+                             β̂_k ± t_{α/2, df_k} · SD(β*_k)
+                                 (small-sample correction)
+ ──────────────────────────────────────────────────────────
+
+ Input:  y_i, v_i, X_i, study labels, working ρ
+ Output: CCC-t intervals
+         (Bayesian location, sandwich width, Satterthwaite tails)
+```
+
+**Why the order matters.** Layer 1 must precede Layer 2 because CCC is centered at the posterior mean; changing the point estimate after CCC would violate the center-preservation property (Theorem 1). Layer 2 must precede Layer 3 because the Satterthwaite degrees of freedom are properties of the sandwich variance estimator, not of the posterior; they are meaningful only after the spread has been calibrated to the sandwich target. Reversing any pair of layers produces either mathematically incoherent or operationally suboptimal inference.
+:::
+
+### The Sequential Logic
+
+The three layers address three distinct sources of the inferential mismatch:
+
+| Layer | Addresses | Mechanism | Guarantee |
+|:------|:----------|:----------|:----------|
+| 1 (Location) | Estimation efficiency | Bayesian shrinkage / partial pooling | $\hat{\boldsymbol{\beta}}$ preserved exactly (Thm 1) |
+| 2 (Spread) | Variance miscalibration | CCC affine transformation | $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$ exactly (Thm 2, beta-block) |
+| 3 (Tails) | Small-sample reference distribution | Satterthwaite $\text{df}_k$ | Coverage correction for finite $J$ |
+
+: Three-Layer Calibration: what each layer contributes. {#tbl-three-layers}
+
+No single layer suffices. Without Layer 2, the posterior spread is model-dependent and potentially miscalibrated. Without Layer 3, the intervals undercover when $J$ is small. Without Layer 1, one loses the shrinkage benefits of Bayesian estimation entirely. The three layers are not merely conceptual divisions; they correspond to separable computations with independent failure modes and independent test suites. A failure in one layer---say, a misspecified Satterthwaite approximation at very small $J$---does not compromise the other layers. Improvements to any single layer (e.g., replacing Satterthwaite with a bootstrap-based degrees of freedom) can be incorporated without modifying the remaining layers.
+
+
+## Claims, Guarantees, and Exclusions {#sec-claims}
+
+Scientific software should be explicit about what it guarantees, what it provides as a diagnostic, and what remains the subject of ongoing empirical investigation. @tbl-guarantees organizes the claims made by bayesRVE into three categories.
+
+| Claim | Category | Evidence | Reference |
+|:------|:---------|:---------|:----------|
+| CCC preserves posterior mean | Exact theorem | Machine-precision verification | @sec-ccc, Thm 1 |
+| $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$ (beta-block) | Exact theorem | Machine-precision verification | @sec-ccc, Thm 2 |
+| CCC $= \mathbf{I}$ under correct specification | Exact theorem | Machine-precision verification | @sec-ccc, Thm 3 |
+| CR2 variance matches clubSandwich (plug-in) | Numerical parity | $< 10^{-6}$ tolerance | @sec-verification |
+| Satterthwaite df matches clubSandwich (plug-in) | Numerical parity | $< 10^{-6}$ tolerance | @sec-verification |
+| $R_k$ quantifies per-coefficient miscalibration | Diagnostic | Always available | @sec-ccc |
+| $\lVert\mathbf{A} - \mathbf{I}\rVert_F$ measures CCC magnitude | Diagnostic | Always available; no universal threshold | @sec-ccc |
+| CCC-$t$ coverage $\approx$ 95% | Simulation evidence | 94.5--95.3% across 24 conditions | @sec-verification |
+| CCC SD / CR2 SE $\approx 1.0$ on TSL15 data | Empirical | Confirmed ($J = 107$, $N = 1{,}198$) | @sec-results |
+
+: What bayesRVE guarantees (exact theorems), provides diagnostically (ratios), and supports with simulation evidence (coverage). {#tbl-guarantees}
+
+::: {.callout-note title="Exact vs. Approximate Guarantees"}
+Theorems 1--3 are stated generically in @sec-ccc. In the bayesRVE pipeline, CCC is applied blockwise (@sec-ccc-blockwise), so the operational guarantees are:
+
+1. **Exact: posterior-mean preservation (Thm 1).** $\bar{\boldsymbol{\beta}}^* = \hat{\boldsymbol{\beta}}$ to machine precision. Holds independently per block.
+2. **Exact: beta-block sample covariance matching (Thm 2).** $\operatorname{Cov}_S(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CR2}}^{(\beta)}$, including all off-diagonal elements. Finite-sample algebraic identity.
+3. **Exact: scalar theta variance matching (CE only).** Each $\operatorname{Var}_S(\theta_j^*) = V_{\text{sand,cond}}^{(\theta_j)}$ via diagonal rescaling. Cross-covariances among $\theta_j$ and the $\boldsymbol{\beta}$--$\boldsymbol{\theta}$ cross-block are not targeted.
+4. **Approximate: frequentist coverage.** CCC-$t$ intervals achieve nominal coverage only asymptotically. For finite $J$, Satterthwaite df and the normal posterior approximation introduce error. Simulation evidence: 94.5--95.3% at the 95% level across 24 conditions.
+
+For the CHE model, $\boldsymbol{\theta}$ is analytically marginalized; CCC operates on the beta-block only. See @sec-env-exact for the full exact-versus-asymptotic analysis.
+:::
+
+The distinction between these categories matters for interpretation. The theorems hold as finite-sample algebraic identities and are verified at machine precision on synthetic data; they carry no distributional assumptions and require only positive definiteness of the input matrices. The plug-in parity results isolate the bayesRVE linear algebra from MCMC sampling noise by injecting known (REML) variance components; they verify that the code implements the intended formulas. The simulation-based coverage results are subject to Monte Carlo error and to the specific conditions studied (24 scenarios varying $J$, $\rho_{\text{true}}$, model specification); they provide evidence of adequate performance across a range of realistic settings but do not constitute a universal guarantee.
+
+### Operating Envelope {#sec-envelope-intro}
+
+The theoretical properties of CCC (Theorems 1--3) hold for any positive-definite inputs, but the practical reliability of the sandwich variance estimator---and hence of the calibrated intervals---depends on having enough independent clusters (studies). bayesRVE enforces the constraint
+$$
+J_{\min} = \max(8,\; 2K + 2),
+$$ {#eq-envelope}
+where $J$ is the number of studies and $K$ is the number of regression coefficients. Below this threshold, the CR2 sandwich variance may not be positive definite, the Satterthwaite degrees of freedom may be excessively small or negative, and the resulting intervals are unreliable. The package emits a warning when $J$ is within 20% of the boundary and an error when $J < J_{\min}$. The rationale and justification of this envelope are given in @sec-envelope.
+
+The lower bound of 8 studies is a practical floor: with fewer than 8 clusters, the sandwich estimator's finite-sample bias is too large for the CR2 correction to overcome reliably. The $2K + 2$ term ensures that the degrees-of-freedom numerator remains positive for all $K$ coefficients. Together, these constraints define the regime in which Three-Layer Calibration can be expected to perform well.
+
+### Explicit Exclusions
+
+The following capabilities are outside the scope of bayesRVE version 0.6.0:
+
+- **Multi-parameter hypothesis tests.** Wald and $F$-tests for joint hypotheses (e.g., testing that a set of moderator coefficients are jointly zero) require the full sandwich covariance matrix and an appropriate $F$-distribution approximation. This is the primary target for version 0.7.0.
+
+- **Prior sensitivity analysis.** The current implementation uses default weakly informative priors for $\tau^2$ (and $\omega^2$ in the CHE model). Systematic investigation of how the prior on variance components affects the CCC-calibrated intervals is deferred to future work.
+
+- **Multivariate meta-analysis.** bayesRVE handles dependent effect sizes through the sandwich variance approach, which treats the within-study dependence as a nuisance. True multivariate meta-analysis, in which the correlation structure is itself a quantity of interest, requires a different modeling framework.
+
+- **Network meta-analysis.** Extensions to indirect comparisons and network structures are not currently supported.
+
+- **Nonlinear meta-regression.** The CCC transformation is defined for the coefficient vector $\boldsymbol{\beta}$ of a linear meta-regression. Extensions to nonlinear link functions would require additional development of both the sandwich estimator and its small-sample corrections.
+
+- **Non-exchangeable within-study structures.** The current implementation assumes exchangeable working correlation within studies; autoregressive or unstructured working correlations are not supported.
+
+
+## Connections to the Literature {#sec-literature}
+
+The Three-Layer Calibration framework draws on, and contributes to, several distinct research traditions. This section situates bayesRVE within its intellectual context and clarifies how it relates to existing work.
+
+### Calibrated Bayes
+
+@little2006 [-@little2012] proposed Calibrated Bayes as a philosophy of inference in which Bayesian models are evaluated by their frequentist operating characteristics and adjusted when calibration fails. The motivating context was survey sampling, where complex designs induce dependencies that are difficult to model correctly. Little argued that a good Bayesian model should produce posterior intervals with approximately nominal frequentist coverage, and that failure to achieve this constitutes evidence of model misspecification requiring correction.
+
+bayesRVE is, to our knowledge, the first concrete implementation of Calibrated Bayes for meta-analysis with dependent effect sizes. The CCC transformation mechanizes Little's prescription: the posterior is evaluated against a frequentist target (the CR2 sandwich variance), and when the two disagree, the posterior spread is adjusted to match. The posterior mean is retained because Bayesian point estimates are generally well-calibrated even under mild misspecification; it is the variance---and hence the interval width---that requires correction.
+
+### Bayesian Sandwich-Adjusted Inference
+
+@williams2020 and @leonnovelo2019 developed methods for adjusting Bayesian posterior inference using sandwich variance estimators in the context of survey data. Their approach shares the fundamental insight that model-based posterior variances can be replaced with design-consistent (sandwich) alternatives without abandoning Bayesian point estimates.
+
+The technical implementation differs in two important respects. First, the survey-sampling methods operate on the asymptotic posterior distribution by replacing the Fisher information matrix with the sandwich matrix, while CCC operates directly on the MCMC draws via an affine transformation. This direct-draw approach allows CCC to handle finite-sample effects through the CR2 correction without additional asymptotic arguments. Second, the survey methods do not incorporate a small-sample correction for the reference distribution; CCC's Layer 3 (Satterthwaite degrees of freedom) addresses this gap, which is particularly important when the number of clusters $J$ is small.
+
+### Sensitivity to Model Assumptions: The Infinitesimal Jackknife
+
+@giordano2024 developed the infinitesimal jackknife (IJ) for Bayesian models, providing a fast approximation to the sensitivity of posterior expectations with respect to data perturbations. Like CCC, the IJ uses a sandwich-type covariance to assess the robustness of posterior inference. The key distinction is that the IJ is *diagnostic*---it measures how much posterior summaries change under infinitesimal reweighting of observations---while CCC is *corrective*---it modifies the posterior to achieve a specific frequentist target.
+
+In principle, the IJ could be used to determine *whether* calibration is needed, while CCC would implement the correction. bayesRVE currently applies CCC in an always-on mode, which is justified by Theorem 3: when the model is correctly specified and correction is not needed, CCC reduces to the identity and changes nothing. The two approaches are complementary, and a formal integration of IJ diagnostics with CCC correction represents a productive direction for future work.
+
+### CR2 and Satterthwaite Corrections
+
+The CR2 bias correction for cluster-robust variance estimators was developed by @bell2002 and extended to the meta-analytic setting by @tipton2015 and @tipton2015b. The correction involves multiplying the residual for each study by an adjustment matrix that accounts for the leverage of that study's design rows, ensuring that the expected value of the sandwich estimator equals the true covariance under the working model. The Satterthwaite approximation then matches the first two moments of the resulting test statistic to a $t$-distribution, yielding degrees of freedom that reflect the effective number of independent pieces of information available for each coefficient.
+
+bayesRVE implements the CR2 correction and Satterthwaite approximation independently, without runtime dependence on the clubSandwich package. This design choice serves two purposes: first, the entire inference pipeline is self-contained and can be audited without external dependencies; second, plug-in parity tests---injecting REML variance components into bayesRVE and verifying agreement with clubSandwich at $10^{-6}$ tolerance---cleanly isolate the linear algebra from MCMC sampling noise, providing a definitive verification path (see @sec-verification).
+
+### How CCC Differs
+
+CCC is distinguished from the approaches reviewed above in three respects. First, it operates on MCMC draws rather than on asymptotic distributions, making it compatible with complex hierarchical models that lack closed-form posteriors. Second, it combines the sandwich adjustment (Layer 2) with small-sample corrections (Layer 3) in a unified framework, rather than treating them as separate problems. Third, it is implemented as a general-purpose R package that handles both CE and CHE working models, with the CHE extension requiring only the substitution $\bar{s}_j^2 \to \bar{s}_j^2 + \hat{\omega}^2$ in the weight matrices (@sec-models)---no new mathematical machinery is needed. This algebraic simplicity is a consequence of the fact that $\omega^2$ enters the marginal variance of the CHE model additively, so the entire CR2 infrastructure can be reused with a single parameter substitution.
+
+
+## Roadmap {#sec-roadmap}
+
+The remainder of this report is organized in three parts.
+
+**Part I: Foundations** (Chapters 2--5) develops the statistical theory. @sec-models defines the CE and CHE working models and their Stan implementations. @sec-sandwich derives the CR2 sandwich variance estimator and Satterthwaite degrees of freedom. @sec-ccc presents the CCC transformation, its algebraic properties (Theorems 1--3), and the blockwise structure required for the CHE model. @sec-envelope establishes the operating envelope, the $J_{\min}$ constraint, and the fallback logic for edge cases.
+
+**Part II: Software** (Chapters 6--10) documents the bayesRVE package internals. Each chapter covers one major component: the package architecture and object contracts (@sec-architecture), the Stan model compilation and fitting interface (@sec-fitting), the sandwich variance computation pipeline (@sec-sandwich-impl), the CCC transformation engine and S3 methods (@sec-ccc-impl), and the multi-tier verification strategy (@sec-verification). Cross-references to specific source files and test cases are provided throughout.
+
+**Part III: Validation** (Chapters 11--13) presents the empirical evidence. @sec-tsl15-design describes the @tannersmith2015 dataset ($J = 107$ studies, $N = 1{,}198$ effect sizes) and the five-estimator comparison design. @sec-results presents the main findings, including the CCC/CR2 SE ratio analysis across six categories of dependent variables for both CE and CHE models. @sec-mechanics examines the mechanics of CCC calibration---how the transformation matrix $\mathbf{A}$, the shrinkage ratio $R_k$, and the Satterthwaite degrees of freedom vary across conditions and what they reveal about the interplay between Bayesian and robust inference.
+
+The parts are designed to be largely self-contained. A reader interested only in the statistical theory can read Part I without reference to the software. A code reviewer can focus on Part II with occasional forward references to the verification strategy. An empirically oriented reader can proceed directly from this introduction to Part III.

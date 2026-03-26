@@ -1,0 +1,765 @@
+---
+title: "Sandwich Variance Estimation"
+---
+
+# Sandwich Variance Estimation {#sec-sandwich}
+
+This chapter develops the complete theory of cluster-robust sandwich variance estimation as implemented in `sandwich.R`, the mathematical heart of bayesRVE.
+The sandwich estimator provides the frequentist-valid variance target that the Cholesky Calibration Correction (CCC, @sec-ccc) uses to recalibrate Bayesian posterior draws.
+We cover the HC0 estimator, the CR2 bias correction of @bell2002, Satterthwaite degrees of freedom following @tipton2015, and the CHE overlay pattern that unifies the correlated-effects (CE) and correlated-hierarchical-effects (CHE) models under a single computational framework.
+
+The presentation is self-contained: a reader familiar with weighted least squares and basic matrix algebra can follow this chapter without reference to other parts of the report.
+
+
+## Why the Full-Joint Sandwich Is the Wrong Target {#sec-wrong-target}
+
+### The Full Parameter Vector
+
+In the CE conditional model (@sec-ce-model), the full parameter vector is
+
+$$
+\boldsymbol{\psi} = (\boldsymbol{\beta}', \theta_1, \ldots, \theta_J)' \in \mathbb{R}^{K+J},
+$$ {#eq-full-param}
+
+where $\boldsymbol{\beta}$ collects $K$ fixed-effect coefficients and $\theta_j$ are study-specific random intercepts.
+A naive approach would compute the full $(K+J) \times (K+J)$ sandwich:
+
+$$
+\mathbf{V}_{\text{sand}}^{\text{full}} = \mathbf{H}_{\text{full}}^{-1} \, \mathbf{M}_{\text{full}} \, \mathbf{H}_{\text{full}}^{-1},
+$$ {#eq-full-joint-sandwich}
+
+where $\mathbf{H}_{\text{full}}$ is the posterior Hessian and $\mathbf{M}_{\text{full}} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j'$ is the outer-product meat.
+This approach fails for three distinct reasons.
+
+**The $\boldsymbol{\beta}$-block collapses.**
+In the conditional model, $\theta_j$ acts as a study-specific intercept that absorbs nearly all between-study variation.
+The $\boldsymbol{\beta}$-scores $\partial \ell_j / \partial \boldsymbol{\beta}$ become nearly constant across studies, so the meat's $\boldsymbol{\beta}$-block---which measures between-study heterogeneity of scores---is near zero.
+The sandwich would dramatically understate the true sampling variance of $\hat{\boldsymbol{\beta}}$.
+
+**Structural rank deficiency.**
+The meat $\mathbf{M}_{\text{full}} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j'$ is a sum of $J$ rank-one matrices, so $\operatorname{rank}(\mathbf{M}_{\text{full}}) \leq J$.
+Since the parameter dimension is $d = K + J > J$ (for $K \geq 1$), $\mathbf{M}_{\text{full}}$ is structurally singular.
+A Cholesky factorization of the full sandwich, as CCC requires, is therefore impossible.
+This reflects the classical incidental-parameters problem [@neyman1948]: with $J$ nuisance parameters estimated from $J$ clusters, the meat cannot span the full parameter space.
+
+**Cubic computational cost.**
+Inverting a $(K+J) \times (K+J)$ Hessian costs $O((K+J)^3)$, which becomes prohibitive as $J$ grows into the hundreds.
+
+
+### The Blockwise Strategy
+
+The correct approach, codified in Decision D2, is a blockwise hybrid target.
+The key insight is that $\boldsymbol{\beta}$ and $\boldsymbol{\theta}$ play fundamentally different roles: $\boldsymbol{\beta}$ is the inferential target; $\boldsymbol{\theta}$ is a vector of nuisance parameters.
+
+For the $\boldsymbol{\beta}$-block, we integrate out $\boldsymbol{\theta}$ to obtain a marginal model in which the between-study heterogeneity captured by $\theta_j$ is absorbed into the marginal variance $v_j = \bar{s}_j^2 / n_j + \tau^2$.
+The marginal sandwich then measures the correct quantity: the between-study variability of $\boldsymbol{\beta}$-scores under the marginal likelihood.
+
+For the $\boldsymbol{\theta}$-block, we condition on $\hat{\boldsymbol{\beta}}$ and exploit the fact that, given $\boldsymbol{\beta}$, the $\theta_j$ are conditionally independent.
+The conditional sandwich reduces to $J$ scalar computations.
+
+The CCC target is therefore block-diagonal:
+
+$$
+\mathbf{V}_{\text{CCC}} = \begin{pmatrix}
+\mathbf{V}_{\text{CCC}}^{(\beta)} & \mathbf{0} \\
+\mathbf{0} & \mathbf{V}_{\text{CCC}}^{(\theta)}
+\end{pmatrix},
+$$ {#eq-blockwise-target}
+
+where $\mathbf{V}_{\text{CCC}}^{(\beta)}$ is a $K \times K$ matrix from the marginal sandwich and $\mathbf{V}_{\text{CCC}}^{(\theta)}$ is a diagonal $J \times J$ matrix from the conditional sandwich.
+The cross-block is set to zero by design (not estimation), reflecting the blockwise application of CCC (@sec-ccc).
+This reduces the Cholesky cost from $O((K+J)^3)$ to $O(K^3 + J)$.
+
+In `sandwich.R`, the marginal sandwich is computed by `.marginal_sandwich()` and the conditional sandwich by `.conditional_sandwich()`.
+The CHE model, where $\boldsymbol{\theta}$ is analytically integrated out, requires only the marginal component (via `.che_sandwich()`).
+The final object is assembled by `.assemble_bm_sandwich()`.
+
+
+## The Marginal Score and HC0 Sandwich {#sec-hc0}
+
+### The CE Marginal Model
+
+Integrating out $\theta_j$ from the CE conditional model (@sec-ce-model) yields the marginal distribution of study means:
+
+$$
+\bar{y}_j \mid \boldsymbol{\beta}, \tau^2 \sim \mathcal{N}\!\left(\bar{\mathbf{x}}_j' \boldsymbol{\beta},\; v_j\right),
+\quad v_j = \frac{\bar{s}_j^2}{n_j} + \tau^2,
+$$ {#eq-ce-marginal-dist}
+
+where $\bar{y}_j = n_j^{-1} \sum_i y_{ij}$ is the study mean, $\bar{\mathbf{x}}_j = n_j^{-1} \sum_i \mathbf{x}_{ij}$ is the study-mean design vector, and $\bar{s}_j^2 = n_j^{-1} \sum_i V_{ij}$ is the mean sampling variance.
+The marginal variance $v_j$ combines within-study sampling uncertainty ($\bar{s}_j^2 / n_j$) and between-study heterogeneity ($\tau^2$).
+
+The marginal parameter vector is $\boldsymbol{\phi} = (\boldsymbol{\beta}', \tau^2)' \in \mathbb{R}^{K+1}$.
+
+
+### Score Function
+
+The study-level marginal log-likelihood is
+
+$$
+\ell_j(\boldsymbol{\phi}) = -\tfrac{1}{2}\!\left[\log(2\pi) + \log v_j + r_j^2 / v_j\right],
+$$ {#eq-marginal-loglik}
+
+where $r_j = \bar{y}_j - \bar{\mathbf{x}}_j' \hat{\boldsymbol{\beta}}$ is the marginal residual.
+Differentiating with respect to each parameter at the posterior mean $\hat{\boldsymbol{\phi}}$ yields the likelihood score vector:
+
+$$
+\mathbf{s}_j = \begin{pmatrix}
+\frac{\partial \ell_j}{\partial \boldsymbol{\beta}} \\[4pt]
+\frac{\partial \ell_j}{\partial \tau^2}
+\end{pmatrix}
+= \begin{pmatrix}
+\frac{r_j}{v_j} \bar{\mathbf{x}}_j \\[4pt]
+-\frac{1}{2v_j} + \frac{r_j^2}{2v_j^2}
+\end{pmatrix}
+\in \mathbb{R}^{K+1}.
+$$ {#eq-ce-score}
+
+The $J \times (K+1)$ score matrix $\mathbf{S} = (\mathbf{s}_1, \ldots, \mathbf{s}_J)'$ is computed in `.marginal_sandwich()`.
+In the study-level path (cluster-constant predictors), the computation is fully vectorized:
+
+```r
+score_beta <- (r_j / v_j) * x_bar       # J x K
+score_tau2 <- -1 / (2 * v_j) + r_j^2 / (2 * v_j^2)
+S <- cbind(score_beta, score_tau2)       # J x (K+1)
+```
+
+
+### Bread, Meat, and HC0 Sandwich
+
+The posterior Hessian (bread) uses the positive-definite convention $\mathbf{H} = -\partial^2 \log p(\boldsymbol{\phi} \mid \mathbf{y}) / \partial \boldsymbol{\phi} \partial \boldsymbol{\phi}'$ and decomposes as
+
+$$
+\mathbf{H}_{\text{post}} = \mathbf{H}_{\text{lik}} + \mathbf{H}_{\text{prior}},
+$$ {#eq-hessian-decomp}
+
+where $\mathbf{H}_{\text{lik}}$ is the negative second derivative of the likelihood and $\mathbf{H}_{\text{prior}}$ captures prior curvature.
+The likelihood Hessian has blocks (computed in `.build_marginal_hessian()`):
+
+$$
+\begin{aligned}
+H_{\beta\beta} &= \sum_{j=1}^{J} \frac{\bar{\mathbf{x}}_j \bar{\mathbf{x}}_j'}{v_j}, &
+H_{\beta,\tau^2} &= \sum_{j=1}^{J} \frac{r_j \bar{\mathbf{x}}_j}{v_j^2}, &
+H_{\tau^2,\tau^2} &= \sum_{j=1}^{J} \left[-\frac{1}{2v_j^2} + \frac{r_j^2}{v_j^3}\right].
+\end{aligned}
+$$ {#eq-hessian-blocks}
+
+The stabilized prior Hessian (`.build_prior_hessian()`) is diagonal: $\operatorname{diag}(1/\sigma_\beta^2, \ldots, 1/\sigma_\beta^2, \,h_{\tau^2})$, where $h_{\tau^2}$ is a numerical ridge stabilizer capped at $10^6$ to prevent overflow when $\hat{\tau}^2 \approx 0$.
+
+The meat is the outer product of likelihood scores only:
+
+$$
+\mathbf{M} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j' = \mathbf{S}'\mathbf{S}.
+$$ {#eq-meat}
+
+Prior scores are excluded from the meat.
+This is the foundational principle of sandwich estimation: the meat measures data-driven between-cluster variability, which captures working-model misspecification.
+Including prior scores would contaminate this signal with data-external information, destroying the estimator's robustness.
+The prior enters only through the bread, where it determines the location of the Bayesian center; its influence is $O(1/J)$ relative to the likelihood contribution and vanishes asymptotically.
+
+The HC0 sandwich estimator is
+
+$$
+\mathbf{V}_{\text{HC0}} = \mathbf{H}_{\text{post}}^{-1} \, \mathbf{M} \, \mathbf{H}_{\text{post}}^{-1}.
+$$ {#eq-hc0-sandwich}
+
+The $\boldsymbol{\beta}$-block target is the upper-left $K \times K$ submatrix of $\mathbf{V}_{\text{HC0}}$.
+In `.marginal_sandwich()`, this extraction is
+
+```r
+V_sand <- H_inv %*% M %*% H_inv
+V_beta <- V_sand[seq_len(K), seq_len(K), drop = FALSE]
+```
+
+
+### Finite-Sample Bias of HC0
+
+While $\mathbf{V}_{\text{HC0}}$ is consistent as $J \to \infty$, it is downward-biased in finite samples:
+
+$$
+\mathrm{E}[\mathbf{V}_{\text{HC0}}] < \mathrm{Var}_{\text{freq}}(\hat{\boldsymbol{\beta}}),
+$$ {#eq-hc0-bias}
+
+because the residuals $\hat{e}_j$ used in the meat understate the true errors---the fitted model absorbs some of the variation that should appear in the residuals.
+This bias is analogous to the well-known $n/(n-p)$ correction in ordinary least squares but takes a matrix-valued form in the clustered setting.
+The CR2 correction of @bell2002, described in @sec-cr2, addresses this bias.
+
+
+## Weight Matrices and the Woodbury Identity {#sec-weight-matrices}
+
+### The Working Covariance and Its Inverse
+
+Under the CE working model ($\rho_{\text{work}} = 0$), the marginal covariance of $\mathbf{y}_j$ is
+
+$$
+\boldsymbol{\Sigma}_j = \bar{s}_j^2 \mathbf{I}_{n_j} + \tau^2 \mathbf{1}_{n_j} \mathbf{1}_{n_j}',
+$$ {#eq-sigma-j}
+
+a scaled identity plus a rank-one matrix.
+The weight matrix $\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1}$ is computed by the Woodbury matrix identity.
+
+Applying the Woodbury matrix identity (the full derivation is given in @sec-proof-woodbury) yields:
+
+$$
+\mathbf{W}_j = \frac{1}{\bar{s}_j^2}\,\mathbf{I}_{n_j} - \frac{\tau^2}{\bar{s}_j^2 \, c_j}\,\mathbf{J}_{n_j},
+$$ {#eq-woodbury-wj}
+
+where $\mathbf{J}_{n_j} = \mathbf{1}_{n_j}\mathbf{1}_{n_j}'$ is the $n_j \times n_j$ all-ones matrix and
+
+$$
+c_j = \bar{s}_j^2 + n_j \tau^2.
+$$ {#eq-cj-def}
+
+The intuition is that the rank-one structure of $\tau^2\mathbf{J}_{n_j}$ allows the Woodbury identity to reduce the $n_j \times n_j$ inversion to a scalar computation.
+The correction term $-(\tau^2/(\bar{s}_j^2 c_j))\mathbf{J}_{n_j}$ downweights the common component shared across effect sizes within a study.
+
+This is implemented in `.compute_W_j()`.
+For singletons ($n_j = 1$), the weight reduces to the scalar $1/(\bar{s}_j^2 + \tau^2)$.
+
+The Woodbury form reduces the computational cost of $\boldsymbol{\Sigma}_j^{-1}$ from $O(n_j^3)$ to $O(n_j)$, and all downstream operations---score computation ($\boldsymbol{\Sigma}_j^{-1} \mathbf{r}_j$), Hessian blocks ($\mathbf{X}_j' \boldsymbol{\Sigma}_j^{-1} \mathbf{X}_j$)---benefit proportionally.
+For example, applying $\mathbf{W}_j$ to a residual vector:
+
+$$
+\boldsymbol{\Sigma}_j^{-1} \mathbf{r}_j = \frac{\mathbf{r}_j}{\bar{s}_j^2} - \frac{\tau^2 \cdot \bar{r}_j}{\bar{s}_j^2 \cdot v_j}\,\mathbf{1}_{n_j},
+$$ {#eq-woodbury-residual}
+
+where $\bar{r}_j = n_j^{-1} \sum_i r_{ij}$ and $v_j = \bar{s}_j^2 / n_j + \tau^2$.
+
+
+### The Study-Level Path
+
+When all predictors are cluster-constant (the common case), the observation-level computation collapses to a scalar path.
+The study-mean marginal model has variance $v_j = \bar{s}_j^2 / n_j + \tau^2$, and the weight is the scalar $w_j = 1/v_j$.
+In `.compute_wls_bread()`, this is the "study" level path:
+
+```r
+v_j <- s_bar2 / n_j + tau2_hat
+W_list[[j]] <- matrix(1 / v_j[j], 1L, 1L)
+X_list[[j]] <- matrix(x_bar[j, ], nrow = 1L)
+```
+
+The study-level and observation-level paths produce identical results for cluster-constant designs but differ when within-study varying moderators are present (@sec-varying-moderators).
+
+
+### CHE Weight Matrices
+
+The CHE model adds within-study heterogeneity $\omega^2$, giving marginal covariance
+
+$$
+\boldsymbol{\Sigma}_j^{\text{CHE}} = (\bar{s}_j^2 + \omega^2)\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{J}_{n_j} = a_j\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{J}_{n_j},
+$$ {#eq-che-sigma}
+
+where the unified absorption parameter is
+
+$$
+a_j = \bar{s}_j^2 + \hat{\omega}^2.
+$$ {#eq-aj-def}
+
+Setting $\omega^2 = 0$ recovers the CE case.
+The Woodbury inverse is identical in form to @eq-woodbury-wj with $\bar{s}_j^2$ replaced by $a_j$:
+
+$$
+\mathbf{W}_j^{\text{CHE}} = \frac{1}{a_j}\,\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\,\mathbf{J}_{n_j},
+\quad c_j = a_j + n_j\tau^2.
+$$ {#eq-che-woodbury}
+
+In `.compute_W_j()`, the `omega2_hat` parameter (default 0) controls this substitution, implementing Decision D20.
+
+
+### Analytical $\mathbf{W}_j^{1/2}$: The Rank-1 Woodbury Square Root {#sec-wsqrt}
+
+The CR2 symmetrization procedure (@sec-cr2) requires both $\mathbf{W}_j^{1/2}$ and $\mathbf{W}_j^{-1/2}$.
+Because $\mathbf{W}_j$ has compound-symmetric structure, its eigenvalues are $\lambda_1 = 1/c_j$ (eigenvector $\mathbf{1}_{n_j}/\sqrt{n_j}$) and $\lambda_2 = 1/a_j$ (multiplicity $n_j - 1$).
+Taking the positive square root of each eigenvalue and reassembling via the spectral theorem yields closed-form expressions (Decision D24). The full derivation is given in @sec-proof-wsqrt.
+
+$$
+\boxed{
+\mathbf{W}_j^{1/2} = \frac{1}{\sqrt{a_j}}\,\mathbf{I}_{n_j} + \frac{1}{n_j}\!\left(\frac{1}{\sqrt{c_j}} - \frac{1}{\sqrt{a_j}}\right)\mathbf{J}_{n_j}.
+}
+$$ {#eq-wsqrt-che}
+
+$$
+\boxed{
+\mathbf{W}_j^{-1/2} = \sqrt{a_j}\,\mathbf{I}_{n_j} + \frac{1}{n_j}\bigl(\sqrt{c_j} - \sqrt{a_j}\bigr)\,\mathbf{J}_{n_j}.
+}
+$$ {#eq-wsqrtinv-che}
+
+The key insight is that the rank-1 structure of $\mathbf{J}_{n_j}$ means $\mathbf{W}_j$ has only two distinct eigenvalues, so both the square root and inverse square root remain in the same $\alpha\mathbf{I} + \beta\mathbf{J}$ family---no eigendecomposition is needed at runtime.
+This analytical formula, implemented in `.compute_W_j_sqrt()`, reduces cost from $O(n_j^3)$ to $O(1)$ scalar operations plus $O(n_j)$ array fills.
+The function falls back to eigendecomposition only when eigenvalues are non-positive (a numerical edge case).
+
+
+## The WLS Bread and Hat Matrix {#sec-wls-bread}
+
+### Why the WLS Bread, Not the Posterior Hessian
+
+Decision D15 mandates that the CR2 computation use the weighted-least-squares (WLS) bread
+
+$$
+\mathbf{Q} = \left(\mathbf{X}'\mathbf{W}\mathbf{X}\right)^{-1} = \left(\sum_{j=1}^{J} \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{X}_j\right)^{-1}
+$$ {#eq-wls-bread}
+
+rather than the posterior Hessian $\mathbf{H}_{\text{post}}^{-1}$.
+This distinction is critical.
+CR2 is a frequentist bias correction derived from the properties of the WLS hat matrix; it assumes the bread is the inverse of the weighted normal equations.
+The posterior Hessian includes prior precision, which would distort the hat matrix and invalidate the CR2 adjustment.
+
+In the study-level path, @eq-wls-bread simplifies to
+
+$$
+\mathbf{Q} = \left(\sum_{j=1}^{J} \frac{\bar{\mathbf{x}}_j\,\bar{\mathbf{x}}_j'}{v_j}\right)^{-1},
+$$ {#eq-wls-bread-study}
+
+where $v_j = a_j / n_j + \tau^2$.
+In the observation-level path (within-study varying predictors), the full $n_j \times n_j$ weight matrices $\mathbf{W}_j$ are used.
+
+The WLS bread is computed by `.compute_wls_bread()`, which returns $\mathbf{Q}$, the per-study weight matrices $\mathbf{W}_j$, design matrices $\mathbf{X}_j$, and a level indicator ("study" or "obs").
+For the CHE model, the `omega2_hat` argument flows through to `.compute_W_j()`, implementing the $a_j = \bar{s}_j^2 + \hat{\omega}^2$ substitution.
+
+
+### The Hat Matrix
+
+The cluster-level hat matrix block for study $j$ is
+
+$$
+\mathbf{H}_{jj} = \mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j,
+$$ {#eq-hat-block}
+
+an $n_j \times n_j$ matrix (generally not symmetric).
+In the study-level path, this reduces to the scalar leverage $h_j = \bar{\mathbf{x}}_j'\,\mathbf{Q}\,\bar{\mathbf{x}}_j / v_j$.
+The hat matrix blocks are computed by `.compute_hat_blocks()`, which also tracks diagnostic quantities including the maximum leverage across studies.
+
+The diagonal entries of $\mathbf{H}_{jj}$ measure how much influence study $j$ exerts on the fitted values.
+When $\max_j h_j > 0.5$, the function emits a warning because the CR2 adjustment may be numerically unstable for high-leverage studies.
+
+### The Symmetrized Hat Matrix
+
+For the CR2 eigendecomposition, we need a symmetric version of $\mathbf{I} - \mathbf{H}_{jj}$.
+The symmetrization uses the weight square root from @sec-wsqrt:
+
+$$
+\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2},
+$$ {#eq-hat-sym}
+
+which is symmetric by construction.
+The matrix $\mathbf{I} - \tilde{\mathbf{H}}_{jj}$ then has a well-defined matrix square root via eigendecomposition, which is the foundation of the CR2 adjustment.
+
+
+## CR2 Bias Correction {#sec-cr2}
+
+### The Bias Equation
+
+The HC0 sandwich @eq-hc0-sandwich uses residuals $\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}}$ in the meat.
+Because $\hat{\boldsymbol{\beta}}$ is fitted to the data, the residuals systematically underestimate the true errors.
+To see the exact form of this bias, decompose the WLS residual.
+
+The WLS estimator is $\hat{\boldsymbol{\beta}} = \mathbf{Q}\,\mathbf{X}'\mathbf{W}\,\mathbf{y}$, so the residual for study $j$ is
+
+$$
+\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}} = \mathbf{y}_j - \mathbf{X}_j\mathbf{Q}\sum_{l=1}^{J}\mathbf{X}_l'\mathbf{W}_l\mathbf{y}_l.
+$$ {#eq-residual-expand}
+
+Writing $\mathbf{y}_l = \mathbf{X}_l\boldsymbol{\beta} + \boldsymbol{\varepsilon}_l$ and using $\mathbf{X}_j\mathbf{Q}\mathbf{X}'\mathbf{W}\mathbf{X}\boldsymbol{\beta} = \mathbf{X}_j\boldsymbol{\beta}$:
+
+$$
+\hat{\mathbf{e}}_j = \boldsymbol{\varepsilon}_j - \sum_{l=1}^{J} \mathbf{X}_j\mathbf{Q}\mathbf{X}_l'\mathbf{W}_l\boldsymbol{\varepsilon}_l = (\mathbf{I}_{n_j} - \mathbf{H}_{jj})\boldsymbol{\varepsilon}_j - \sum_{l \neq j}\mathbf{H}_{jl}\boldsymbol{\varepsilon}_l,
+$$ {#eq-residual-decompose}
+
+where $\mathbf{H}_{jl} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_l'\mathbf{W}_l$ and $\mathbf{H}_{jj} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j$ is the $j$-th diagonal block of the hat matrix.
+
+Under between-study independence ($\mathrm{Cov}(\boldsymbol{\varepsilon}_j, \boldsymbol{\varepsilon}_l) = \mathbf{0}$ for $j \neq l$), the expected outer product is
+
+\begin{align}
+\mathrm{E}[\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j']
+&= (\mathbf{I} - \mathbf{H}_{jj})\,\boldsymbol{\Sigma}_j\,(\mathbf{I} - \mathbf{H}_{jj})' + \sum_{l \neq j}\mathbf{H}_{jl}\,\boldsymbol{\Sigma}_l\,\mathbf{H}_{jl}'. \tag{3.B1}
+\end{align}
+
+The first term dominates and is strictly smaller than $\boldsymbol{\Sigma}_j$ (since $\mathbf{I} - \mathbf{H}_{jj}$ is a contraction).
+The second (cross-study) term is $O(1/J)$ and vanishes asymptotically.
+The net effect is that the HC0 meat is downward-biased:
+
+$$
+\mathrm{E}[\hat{\mathbf{e}}_j\hat{\mathbf{e}}_j'] \neq \boldsymbol{\Sigma}_j,
+$$ {#eq-residual-bias}
+
+and the deficit grows with leverage.
+
+The scalar corrections HC1 ($J/(J-K)$), HC2 ($(1-h_j)^{-1}$), and HC3 ($(1-h_j)^{-2}$) address this for univariate observations.
+For clustered data, the bias correction must be matrix-valued: each study $j$ requires an $n_j \times n_j$ adjustment that accounts for the full hat matrix block $\mathbf{H}_{jj}$, not merely its trace or diagonal.
+
+
+### The CR2 Goal
+
+The CR2 correction of @bell2002, adapted for meta-analysis by @tipton2015, seeks adjustment matrices $\mathbf{A}_j$ such that the sandwich variance estimator is unbiased:
+
+$$
+\mathrm{E}[\mathbf{V}_{\text{CR2}}] = \text{Var}(\hat{\boldsymbol{\beta}}) = \mathbf{Q}.
+$$ {#eq-cr2-unbiased}
+
+This aggregate target is achieved by choosing each $\mathbf{A}_j$ to solve a per-study sufficient condition. Focusing on the dominant within-study contribution (the cross-study terms are $O(1/J)$ and vanish under study independence), the design equation for $\mathbf{A}_j$ is
+
+$$
+\mathbf{A}_j\,(\mathbf{I} - \mathbf{H}_{jj})\,\boldsymbol{\Sigma}_j\,(\mathbf{I} - \mathbf{H}_{jj})'\,\mathbf{A}_j' = \boldsymbol{\Sigma}_j.
+$$ {#eq-cr2-goal}
+
+
+### Symmetrization via $\mathbf{W}^{1/2}$
+
+A complication arises because $\mathbf{H}_{jj} = \mathbf{X}_j\mathbf{Q}\mathbf{X}_j'\mathbf{W}_j$ is generally **not symmetric** (the right multiplication by $\mathbf{W}_j$ breaks symmetry whenever $\mathbf{W}_j$ has off-diagonal elements).
+The matrix $\mathbf{I} - \mathbf{H}_{jj}$ is therefore not symmetric, and a matrix square root is not uniquely defined without additional structure.
+
+@bell2002 resolved this by conjugating with $\mathbf{W}_j^{1/2}$.
+Define the symmetrized hat block
+
+$$
+\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}.
+$$ {#eq-hat-sym-cr2}
+
+This is symmetric because it has the form $\mathbf{B}\mathbf{Q}\mathbf{B}'$ with $\mathbf{B} = \mathbf{W}_j^{1/2}\mathbf{X}_j$.
+The relationship to the original hat block is a similarity transform:
+
+$$
+\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{H}_{jj}\,\mathbf{W}_j^{-1/2},
+$$ {#eq-hat-similarity}
+
+so $\tilde{\mathbf{H}}_{jj}$ and $\mathbf{H}_{jj}$ have the same eigenvalues.
+
+
+### Derivation of $\mathbf{A}_j$
+
+The derivation proceeds by conjugating the bias equation @eq-cr2-goal with $\mathbf{W}_j^{1/2}$ to work in a symmetrized space, solving for the adjustment in that space, and back-transforming. The full step-by-step proof is given in @sec-proof-cr2. The result is:
+
+$$
+\boxed{
+\mathbf{A}_j = \mathbf{W}_j^{-1/2}\,(\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj})^{-1/2}\,\mathbf{W}_j^{1/2}.
+}
+$$ {#eq-aj-backtransform}
+
+The three computational stages are: (1) form the symmetrized hat matrix $\tilde{\mathbf{H}}_{jj}$ using the analytical $\mathbf{W}_j^{1/2}$ from @eq-wsqrt-che; (2) eigendecompose $\mathbf{I}_{n_j} - \tilde{\mathbf{H}}_{jj}$ and take the inverse square root of each eigenvalue; (3) sandwich between $\mathbf{W}_j^{-1/2}$ and $\mathbf{W}_j^{1/2}$.
+In the implementation (`.compute_cr2_adjustments()`), eigenvalues of $\mathbf{I} - \tilde{\mathbf{H}}_{jj}$ below $10^{-10}$ are truncated for numerical stability, with a warning.
+
+
+### The Scalar Case
+
+When $n_j = 1$ or at the study level, all matrices reduce to scalars.
+The hat block becomes $H_{jj} = h_j = \bar{\mathbf{x}}_j'\mathbf{Q}\bar{\mathbf{x}}_j \cdot w_j$, and the CR2 adjustment simplifies to
+
+$$
+A_j = (1 - h_j)^{-1/2},
+$$ {#eq-aj-scalar}
+
+the familiar HC2-type correction (MacKinnon and White, 1985) applied at the cluster level.
+
+This three-step procedure (symmetrize, eigendecompose, back-transform) is implemented in `.compute_cr2_adjustments()`.
+When a study's leverage $h_j$ exceeds 0.999, it is capped to prevent numerical overflow, with a warning.
+
+
+### The CR2 Sandwich
+
+With the adjustment matrices in hand, the CR2-adjusted scores are
+
+$$
+\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{A}_j\,\hat{\mathbf{e}}_j,
+$$ {#eq-cr2-score}
+
+and the CR2 sandwich variance estimator is
+
+$$
+\boxed{
+\mathbf{V}_{\text{CR2}} = \mathbf{Q}\left(\sum_{j=1}^{J} \tilde{\mathbf{s}}_j\,\tilde{\mathbf{s}}_j'\right)\mathbf{Q}.
+}
+$$ {#eq-vcr2}
+
+The bread is the WLS bread $\mathbf{Q}$ (@eq-wls-bread), not the posterior Hessian.
+This is computed in `.compute_vcr2()`.
+In the study-level path, each adjusted score is a $K$-vector:
+
+```r
+s_tilde_j <- x_bar[j, ] * w_j * a_j * r_j
+M_CR2 <- M_CR2 + tcrossprod(s_tilde_j)
+```
+
+Decision D12, finalized in v0.5.0, mandates that $\mathbf{V}_{\text{CR2}}$ (not $c_\beta \cdot \mathbf{V}_{\text{HC0}}$) is the CCC target.
+This is because CR2 provides study-specific, matrix-valued corrections that a scalar multiplier cannot replicate, particularly in designs with heterogeneous study sizes or unbalanced moderators.
+
+The key properties of CR2 that distinguish it from simpler corrections are:
+
+1. **Bias removal.** $\mathrm{E}[\mathbf{V}_{\text{CR2}}] \approx \mathrm{Var}_{\text{freq}}(\hat{\boldsymbol{\beta}})$ under the working model [@bell2002], with the approximation becoming exact when cross-study hat matrix blocks are negligible.
+2. **Matrix-valued adjustment.** Each $\mathbf{A}_j$ is an $n_j \times n_j$ matrix, capturing the full influence structure within each cluster.
+3. **Exact recovery.** When all $n_j = 1$ and leverage is uniform, CR2 reduces to the classical $J/(J-K)$ correction.
+
+
+## Satterthwaite Degrees of Freedom {#sec-satterthwaite}
+
+### The Reference Distribution Problem
+
+Even with the bias-reduced $\mathbf{V}_{\text{CR2}}$, inference requires a reference distribution for the test statistic
+
+$$
+T_k = \frac{\hat{\beta}_k}{\operatorname{SE}_{\text{CR2}}(\hat{\beta}_k)} = \frac{\hat{\beta}_k}{\sqrt{[\mathbf{V}_{\text{CR2}}]_{kk}}}.
+$$ {#eq-test-stat}
+
+Under $H_0: \beta_k = 0$, the numerator $\hat{\beta}_k$ is approximately normal, but the denominator $\operatorname{SE}_{\text{CR2}}$ is itself a random variable (it depends on the data through the residuals and variance component estimates).
+Using $T_k \sim \mathcal{N}(0,1)$ treats $\operatorname{SE}_{\text{CR2}}$ as if it were known, ignoring its sampling variability and leading to undercoverage when $J$ is small.
+The simulation study sim3 confirmed this: CCC intervals using posterior quantiles (CCC-q, implicitly $z$-based) achieved only 91--94\% coverage at the nominal 95\% level when $J \leq 20$, while CCC-$t$ with Satterthwaite degrees of freedom achieved 94.5--95.3\%.
+
+The classical solution is to model $T_k^2 \approx F(1, \nu_k)$ under $H_0$, or equivalently $T_k \sim t_{\nu_k}$, where the degrees of freedom $\nu_k$ quantify how precisely $\operatorname{SE}_{\text{CR2}}$ estimates the true standard error.
+Larger $\nu_k$ means the variance estimate is more precise, producing a reference distribution closer to the normal; smaller $\nu_k$ yields heavier tails and wider intervals.
+
+### The Satterthwaite Moment-Matching Principle
+
+@satterthwaite1946 proposed approximating the distribution of a positive quadratic form in normal variables by a scaled chi-squared distribution, with the scale and degrees of freedom determined by matching the first two moments.
+
+Suppose $\hat{V}$ is a variance estimator with $\mathrm{E}[\hat{V}] = V$ and $\mathrm{Var}(\hat{V}) = \sigma^2_V$.
+We seek $c$ and $\nu$ such that $\hat{V} \approx c\,\chi^2_\nu$, which has $\mathrm{E}[c\chi^2_\nu] = c\nu$ and $\mathrm{Var}(c\chi^2_\nu) = 2c^2\nu$.
+Setting $c\nu = V$ and $2c^2\nu = \sigma^2_V$ and eliminating $c$:
+
+$$
+\nu = \frac{2V^2}{\sigma^2_V} = \frac{2\,[\mathrm{E}(\hat{V})]^2}{\mathrm{Var}(\hat{V})}.
+$$ {#eq-satt-general}
+
+If $\hat{V}$ is an equally-weighted average of $m$ independent $\chi^2_1$ variables (all with the same scale), the formula gives $\nu = m$---the exact result.
+When the weights are unequal, $\nu < m$, reflecting the reduced effective sample size.
+
+
+### Derivation of $\nu_k$ for the CR2 Estimator
+
+We now derive the Satterthwaite degrees of freedom for the $k$-th diagonal element of $\mathbf{V}_{\text{CR2}}$, following @bell2002 and the generalization by @imbens2016.
+
+**Step 1: Express $\hat{V}_k$ as a sum of squared linear forms.**
+
+Let $\mathbf{c}_k \in \mathbb{R}^K$ be the $k$-th standard basis vector.
+The variance estimate for coefficient $k$ is
+
+$$
+\hat{V}_k = \mathbf{c}_k'\,\mathbf{V}_{\text{CR2}}\,\mathbf{c}_k
+= \mathbf{c}_k'\mathbf{Q}\left(\sum_{j=1}^J \tilde{\mathbf{s}}_j\tilde{\mathbf{s}}_j'\right)\mathbf{Q}\,\mathbf{c}_k
+= \sum_{j=1}^J \bigl(\mathbf{c}_k'\mathbf{Q}\,\tilde{\mathbf{s}}_j\bigr)^2.
+$$ {#eq-vk-quadratic}
+
+Each term $\mathbf{c}_k'\mathbf{Q}\,\tilde{\mathbf{s}}_j$ is a scalar that depends on the $j$-th cluster's adjusted score.
+
+**Step 2: Linearize in the errors.**
+
+Expanding the adjusted score $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\hat{\mathbf{e}}_j$ and the residual $\hat{\mathbf{e}}_j = (\mathbf{I} - \mathbf{H}_{jj})\boldsymbol{\varepsilon}_j - \sum_{l \neq j}\mathbf{H}_{jl}\boldsymbol{\varepsilon}_l$:
+
+$$
+\mathbf{c}_k'\mathbf{Q}\,\tilde{\mathbf{s}}_j = \mathbf{c}_k'\mathbf{Q}\,\mathbf{X}_j'\mathbf{W}_j\mathbf{A}_j\left[(\mathbf{I} - \mathbf{H}_{jj})\boldsymbol{\varepsilon}_j - \sum_{l \neq j}\mathbf{H}_{jl}\boldsymbol{\varepsilon}_l\right].
+$$
+
+This is a linear function of the full error vector $\boldsymbol{\varepsilon} = (\boldsymbol{\varepsilon}_1', \ldots, \boldsymbol{\varepsilon}_J')'$.
+Therefore $\hat{V}_k$ is a quadratic form in Gaussian errors, and the Satterthwaite approximation applies.
+
+**Step 3: Define the deterministic $\mathbf{g}_{jk}$ vectors.**
+
+For each study $j$ and coefficient $k$, define the $n_j$-vector
+
+$$
+\mathbf{g}_{jk} = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{c}_k.
+$$ {#eq-gjk}
+
+This vector is deterministic conditional on the plug-in variance components ($\hat{\tau}^2$, $\hat{\omega}^2$)---it depends on the design matrices $\mathbf{X}_j$, the weights $\mathbf{W}_j$, the bread $\mathbf{Q}$, and the CR2 adjustments $\mathbf{A}_j$, but not directly on the outcome vector $\mathbf{y}$.
+The inner product $\mathbf{g}_{jk}'\boldsymbol{\varepsilon}_l$ captures how the errors from study $l$ contribute to the $k$-th variance estimate through study $j$'s adjusted score.
+
+**Step 4: Compute $\mathrm{Var}(\hat{V}_k)$ via the $J \times J$ matrix $\mathbf{P}_k$.**
+
+Because $\hat{V}_k$ is a quadratic form in the Gaussian vector $\boldsymbol{\varepsilon}$, its variance is determined by the trace of the square of an associated matrix.
+Define the symmetric $J \times J$ matrix $\mathbf{P}_k$ as follows.
+
+The contribution of cluster $j$'s errors to $\hat{V}_k$ (through both its own residual and its influence on other clusters' residuals via the hat matrix) gives rise to the $(i,j)$ element of $\mathbf{P}_k$.
+
+*Diagonal elements:* The term $[\mathbf{P}_k]_{jj}$ measures the variance contribution of study $j$ alone:
+
+$$
+[\mathbf{P}_k]_{jj} = \mathbf{g}_{jk}'\,\boldsymbol{\Sigma}_j\,\mathbf{g}_{jk} - \mathbf{g}_{jk}'\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{g}_{jk}.
+$$ {#eq-pk-diag}
+
+The first term is $\mathbf{g}_{jk}'\mathbf{W}_j^{-1}\mathbf{g}_{jk}$ (since $\boldsymbol{\Sigma}_j = \mathbf{W}_j^{-1}$), which is the variance of $\mathbf{g}_{jk}'\boldsymbol{\varepsilon}_j$.
+The second term is a leverage correction that accounts for the fact that $\hat{\boldsymbol{\beta}}$ absorbs some of the signal from study $j$.
+
+*Off-diagonal elements:* The cross-cluster terms arise from the hat matrix coupling:
+
+$$
+[\mathbf{P}_k]_{ij} = -\mathbf{g}_{ik}'\,\mathbf{X}_i\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{g}_{jk}, \qquad i \neq j.
+$$ {#eq-pk-offdiag}
+
+This can be rewritten efficiently using the $K$-vector $\mathbf{X}_j'\mathbf{g}_{jk}$:
+
+$$
+[\mathbf{P}_k]_{ij} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\,\mathbf{Q}\,(\mathbf{X}_j'\mathbf{g}_{jk}),
+$$ {#eq-pk-offdiag-efficient}
+
+requiring only a $K$-dimensional inner product per pair $(i, j)$.
+
+The matrix $\mathbf{P}_k$ is symmetric by construction (the off-diagonal formula is symmetric in $i$ and $j$).
+
+**Step 5: Apply the moment-matching formula.**
+
+Under normality, it can be shown that $\mathrm{E}[\hat{V}_k] = \operatorname{tr}(\mathbf{P}_k)$ and $\mathrm{Var}(\hat{V}_k) = 2\operatorname{tr}(\mathbf{P}_k^2)$ [@bell2002, Lemma 1].
+Substituting into @eq-satt-general:
+
+$$
+\boxed{
+\nu_k = \frac{[\operatorname{tr}(\mathbf{P}_k)]^2}{\operatorname{tr}(\mathbf{P}_k^2)}.
+}
+$$ {#eq-satt-df}
+
+The traces are computed as:
+
+$$
+\operatorname{tr}(\mathbf{P}_k) = \sum_{j=1}^J [\mathbf{P}_k]_{jj}, \qquad
+\operatorname{tr}(\mathbf{P}_k^2) = \sum_{i=1}^J \sum_{j=1}^J [\mathbf{P}_k]_{ij}^2,
+$$ {#eq-traces}
+
+where the second equality uses $\operatorname{tr}(\mathbf{P}^2) = \|\mathbf{P}\|_F^2$ for symmetric matrices.
+
+
+### Connection to @imbens2016
+
+@imbens2016 generalized the Bell--McCaffrey framework to arbitrary linear contrasts $\mathbf{c}'\boldsymbol{\beta}$.
+Their Theorem 1 shows that under normality of $\boldsymbol{\varepsilon}$, the random variable $\hat{V}_{\mathbf{c}} / \mathrm{E}[\hat{V}_{\mathbf{c}}]$ is exactly distributed as a weighted sum of independent $\chi^2_1$ variables:
+
+$$
+\frac{\hat{V}_{\mathbf{c}}}{\mathrm{E}[\hat{V}_{\mathbf{c}}]} \sim \sum_{i=1}^J \frac{\lambda_i}{\sum_l \lambda_l}\,\chi^2_{1,i},
+$$
+
+where $\lambda_1, \ldots, \lambda_J$ are the eigenvalues of $\mathbf{P}_{\mathbf{c}}$.
+The Satterthwaite approximation $\nu = (\sum \lambda_i)^2 / (\sum \lambda_i^2)$ matches the first two moments of this distribution exactly.
+This provides a rigorous theoretical justification for @eq-satt-df beyond the heuristic moment-matching argument.
+
+
+### Computational Implementation
+
+The computation is implemented in `.satterthwaite_df()`.
+For efficiency, the function precomputes $\mathbf{G}_j = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}$ (an $n_j \times K$ matrix) for each study, so that $\mathbf{g}_{jk} = \mathbf{G}_j[\,,\,k]$.
+The computation proceeds as:
+
+1. Precompute $\mathbf{Q}\mathbf{X}_j'$ for each $j$ (used in the off-diagonal terms).
+2. Precompute $\mathbf{G}_j = \mathbf{A}_j'\mathbf{W}_j\mathbf{X}_j\mathbf{Q}$ for each $j$ (one matrix product).
+3. For each coefficient $k$:
+   a. Extract $\mathbf{g}_{jk} = \mathbf{G}_j[\,,\,k]$ for all $j$.
+   b. Precompute $\mathbf{X}_j'\mathbf{g}_{jk}$ for all $j$ ($K$-vectors).
+   c. Build the $J \times J$ matrix $\mathbf{P}_k$ using @eq-pk-diag and @eq-pk-offdiag-efficient.
+   d. Compute $\nu_k = (\operatorname{tr}\mathbf{P}_k)^2 / \operatorname{tr}(\mathbf{P}_k^2)$.
+
+The total cost per coefficient is $O(J^2 K)$ for the off-diagonal elements.
+
+
+### Interpretation and Edge Cases
+
+**Per-coefficient degrees of freedom.**
+Each $\beta_k$ has its own $\nu_k$, reflecting the fact that different coefficients may be estimated with different effective sample sizes.
+A coefficient that correlates strongly with high-leverage studies will have smaller $\nu_k$.
+
+**Upper bound.** When all studies contribute equally (balanced design, equal $n_j$), $\mathbf{P}_k$ approaches a scalar multiple of $\mathbf{I}_J$, and $\nu_k \to J$.
+
+**Deterministic property.** The $\mathbf{g}_{jk}$ vectors (@eq-gjk) depend only on $\mathbf{X}$, $\mathbf{W}$, $\mathbf{Q}$, and $\mathbf{A}$---not on the data $\mathbf{y}$.
+Therefore $\nu_k$ is a fixed property of the design and variance components, not a random variable.
+
+**Small $\mathrm{df}_k$.**
+When a few studies have high leverage (e.g., one study with many effect sizes and a unique moderator value), those studies dominate the variance estimate.
+The $t$ distribution has heavier tails, producing wider intervals.
+@tipton2015 reported that with $J = 28$, a single coefficient could have $\mathrm{df}_k = 2.8$, resulting in a critical value of $t_{2.8, 0.025} = 3.28$ versus $z_{0.025} = 1.96$---a 67\% wider interval.
+
+**Fallback logic.**
+When the Satterthwaite computation fails for a coefficient (e.g., $\operatorname{tr}(\mathbf{P}_k^2) \approx 0$ or numerical overflow), the function returns `NA` and the caller substitutes the naive degrees of freedom $\mathrm{df}_{\text{naive}} = \max(J - K, 1)$.
+When $\mathrm{df}_k < 1$, the value is also replaced with $\mathrm{df}_{\text{naive}}$.
+When $\mathrm{df}_k < 4$, a warning is emitted following @tipton2015's recommendation that inference is unreliable in this regime.
+The `df_source` vector in the `bm_sandwich` object records whether each coefficient used the Satterthwaite or naive value.
+
+
+## Within-Study Varying Moderators {#sec-varying-moderators}
+
+When the design matrix $\mathbf{X}$ contains predictors that vary within studies (e.g., outcome type, measurement instrument), the study-level aggregation $\bar{\mathbf{x}}_j = n_j^{-1}\sum_i \mathbf{x}_{ij}$ is no longer sufficient.
+The scores must be computed at the observation level.
+
+**Auto-detection.**
+The function `.is_cluster_constant()` in `data-prep.R` checks whether all predictors are constant within each study during data preparation.
+The result is stored in `bm_data$cluster_constant` and queried by `sandwich.bm_fit()` to select the computation path.
+
+**Observation-level scores.**
+When within-study varying predictors are detected, the $\boldsymbol{\beta}$-score for study $j$ is computed as
+
+$$
+\mathbf{s}_j^{(\beta)} = \mathbf{X}_j'\,\boldsymbol{\Sigma}_j^{-1}\,\mathbf{r}_j
+= \sum_{i=1}^{n_j} \left[\frac{r_{ij}}{\bar{s}_j^2} - \frac{\tau^2\,\bar{r}_j}{\bar{s}_j^2\,v_j}\right] \mathbf{x}_{ij},
+$$ {#eq-obs-level-score}
+
+using the Woodbury form of $\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j$ (@eq-woodbury-residual).
+The $\tau^2$-score remains a study-level quantity because the marginal likelihood for $\tau^2$ depends only on $\bar{r}_j$.
+
+**Impact on dimensions.**
+In the observation-level path, $\mathbf{W}_j$ is $n_j \times n_j$ (not $1 \times 1$), $\mathbf{X}_j$ is $n_j \times K$ (not $1 \times K$), and the hat matrix block $\mathbf{H}_{jj}$ is $n_j \times n_j$.
+All downstream CR2 computations---the symmetrized hat matrix, the $\mathbf{A}_j$ adjustment, and the Satterthwaite $\mathbf{g}_{jk}$ vectors---operate at observation level without modification to their mathematical form, only to their dimensions.
+
+In `.compute_wls_bread()`, the observation-level path is
+
+```r
+X_list[[j]] <- X_obs[idx, , drop = FALSE]    # n_j x K
+W_list[[j]] <- .compute_W_j(s_bar2[j], tau2_hat, nj)
+XtWX <- XtWX + crossprod(X_list[[j]], W_list[[j]] %*% X_list[[j]])
+```
+
+
+## The CHE Overlay Pattern {#sec-che-overlay}
+
+### The Substitution Principle
+
+The central insight of the v0.6.0 implementation is that the CHE model requires no new mathematical machinery for sandwich estimation.
+The CHE marginal covariance (@eq-che-sigma) has the same algebraic structure as the CE covariance (@eq-sigma-j) with the substitution $\bar{s}_j^2 \to a_j = \bar{s}_j^2 + \hat{\omega}^2$.
+Every formula in @sec-weight-matrices through @sec-satterthwaite carries over with this single parameter change.
+
+The plug-in estimator for $\omega^2$ is
+
+$$
+\hat{\omega}^2 = \frac{1}{S}\sum_{s=1}^{S} \omega^{(s)2},
+$$ {#eq-omega2-hat}
+
+the posterior mean of $\omega^2$ (Decision D20).
+This is the mean of the squared draws, not the square of the mean draw.
+The distinction matters because $\mathrm{E}[\omega^2] \neq (\mathrm{E}[\omega])^2$ by Jensen's inequality; using $(\bar{\omega})^2$ would underestimate the true posterior mean of the variance component.
+This convention is consistent with the CE treatment: $\hat{\tau}^2 = S^{-1}\sum_s \tau^{(s)2}$.
+
+
+### Implementation: A Single Parameter
+
+In `.compute_W_j()`, the CHE overlay is a single line:
+
+```r
+a_j <- s_bar2_j + omega2_hat
+```
+
+In `.compute_wls_bread()`, it flows through as the `omega2_hat` argument:
+
+```r
+bread_info <- .compute_wls_bread(bm_data, tau2_hat, K, J,
+                                  omega2_hat = omega2_hat)
+```
+
+All downstream functions---`.compute_hat_blocks()`, `.compute_cr2_adjustments()`, `.compute_vcr2()`, `.satterthwaite_df()`---are reused without modification.
+The CHE dispatch in `sandwich.bm_fit()` delegates to `.che_sandwich()`, which calls the same shared infrastructure.
+
+
+### Gate 1: CE--CHE Equivalence
+
+When $\omega^2 = 0$, the CHE weights reduce to CE weights at machine precision.
+This is verified by the Gate 1 test: fitting a CHE model to data generated with $\omega^2 = 0$ and confirming that all sandwich outputs (V_CR2, Satterthwaite df) match the CE result to within floating-point tolerance.
+This gate ensures that the CHE overlay introduces no regressions for the CE special case.
+
+
+### Singleton Non-Identifiability
+
+When a study has $n_j = 1$, the within-study variance $\omega^2$ and between-study variance $\tau^2$ are not separately identified from the data; separation relies entirely on the prior.
+Decision D22 mandates warnings in `.che_sandwich()`:
+
+- If **all** studies are singletons ($n_j = 1$ for all $j$): a warning that $\tau^2$ and $\omega^2$ are "not separately identified."
+- If **more than 50\%** of studies are singletons: a warning that the parameters may be "weakly identified."
+
+These warnings do not block computation but alert the user that CR2 benchmarks from a frequentist multilevel analysis may diverge from the Bayesian results in this regime.
+
+
+### The Plug-In Parity Test (Decision D25)
+
+To validate the linear-algebra pathway independently of MCMC noise, Decision D25 specifies a plug-in parity test: inject the REML estimates of $\tau^2$ and $\omega^2$ (from `metafor::rma.mv`) into the bayesRVE sandwich machinery and verify that $\mathbf{V}_{\text{CR2}}$ matches the `clubSandwich::vcovCR(type = "CR2")` result to within $10^{-6}$.
+This test isolates the CR2 computation from posterior estimation, confirming that the shared CE/CHE infrastructure produces numerically identical results to the reference implementation.
+The plug-in parity test passes for both CE and CHE models across all test scenarios in the v0.6.0 validation suite.

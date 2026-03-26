@@ -1,0 +1,13 @@
+# Quarto build cache
+*_cache/
+*_files/
+.quarto/
+
+# R
+.Rhistory
+.RData
+.Rproj.user
+
+# OS
+.DS_Store
+Thumbs.db

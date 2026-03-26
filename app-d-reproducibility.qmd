@@ -1,0 +1,188 @@
+---
+title: "Reproducibility"
+---
+
+# Reproducibility {#sec-appendix-reproducibility}
+
+This appendix documents the software environment, configuration parameters, data processing steps, and analysis scripts required to reproduce all results presented in this report.
+
+## Software Environment {#sec-repro-env}
+
+All analyses were conducted using bayesRVE version 0.6.0 running on the following platform.
+
+**Operating system.** macOS (ARM64, Apple Silicon).
+
+**R and core packages.** @tbl-repro-env lists the R packages and minimum versions used throughout the report.
+
+| Package | Min. Version | Role |
+|:--------|:-------------|:-----|
+| R | 4.5.1 | Base language |
+| bayesRVE | 0.6.0 | Bayesian RVE via CCC |
+| cmdstanr | 0.8.0 | Stan backend for MCMC sampling |
+| metafor [@viechtbauer2010] | 4.0.0 | Frequentist meta-analysis (REML, CHE) |
+| clubSandwich | 0.5.10 | CR2 sandwich variance reference implementation |
+| robumeta | --- | CE robust variance estimation [@hedges2010] |
+| checkmate | 2.1.0 | Input validation |
+| cli | 3.4.0 | User-facing messages and warnings |
+| rlang | 1.1.0 | Non-standard evaluation infrastructure |
+| Matrix | 1.5.0 | Sparse matrix operations |
+| digest | 0.6.29 | Provenance fingerprinting |
+| posterior | 1.4.0 | Posterior draws manipulation |
+| bayesplot | 1.10.0 | MCMC diagnostics and trace plots |
+| loo | 2.6.0 | Leave-one-out cross-validation |
+| ggplot2 | 3.4.0 | Visualization |
+| patchwork | 1.1.0 | Multi-panel figure composition |
+| testthat | 3.0.0 | Unit testing framework |
+
+: Software environment for bayesRVE analyses. {#tbl-repro-env}
+
+**CmdStan.** All Stan models were compiled and sampled via CmdStan (development version installed from `stan-dev/cmdstanr`). Three Stan programs ship with the package:
+
+- `bm_ce_ncp.stan` --- Correlated-effects model, non-centered parameterization (default).
+- `bm_ce_cp.stan` --- Correlated-effects model, centered parameterization.
+- `bm_che_ncp.stan` --- Correlated-hierarchical-effects model, non-centered parameterization.
+
+Stan models are located in `bayesRVE/inst/stan/` and are compiled at first use via `cmdstanr::cmdstan_model()`.
+
+
+## Random Seeds and MCMC Configuration {#sec-repro-seeds}
+
+All MCMC analyses used the following configuration, set explicitly in every analysis script.
+
+| Parameter | Value |
+|:----------|:------|
+| Random seed | `20260324` |
+| Chains | 4 |
+| Warmup iterations (per chain) | 2,000 |
+| Sampling iterations (per chain) | 2,000 |
+| Total posterior draws | 8,000 (4 chains $\times$ 2,000) |
+| `adapt_delta` | 0.95 |
+| `max_treedepth` | 12 |
+| Working correlation ($\rho$) | 0.6 |
+
+: MCMC configuration for all bayesRVE analyses. {#tbl-repro-mcmc}
+
+Seeds are passed to `bm_fit()` via the `seed` argument, which forwards to `cmdstanr::sample()`. No implicit random number generation occurs outside of Stan sampling. The elevated `adapt_delta` (0.95, versus the Stan default of 0.80) reduces the risk of divergent transitions in hierarchical models.
+
+**Priors.** All analyses used the following weakly informative priors:
+
+- Regression coefficients: $\beta_k \sim \text{Normal}(0, 10)$
+- Between-study SD (CE and CHE): $\tau \sim \text{half-Cauchy}(0, 0.5)$
+- Within-study SD (CHE only): $\omega \sim \text{half-Cauchy}(0, 0.5)$
+
+These priors are set via `bm_prior()` and passed to `bm_fit()`.
+
+
+## Data Processing Notes {#sec-repro-data}
+
+**Source dataset.** The empirical application uses the @tannersmith2015 dataset of brief alcohol interventions for adolescents and young adults, as reanalyzed by @pustejovsky2022. The dataset is stored as an RDS file at:
+
+```
+dev/manuscript/data/Tanner-Smith-Lipsey-2015-subset.rds
+```
+
+**Analytic subset.** Records with missing values on `percoll`, `attrition_all`, or `permale` are excluded, yielding:
+
+- $J = 107$ studies
+- $N = 1{,}198$ effect sizes
+
+**Effect size metric.** Standardized mean difference (Hedges' $g$), with sampling variances reported in the original dataset (variable `V`).
+
+**Imputed covariance matrix.** The block-diagonal working variance-covariance matrix is constructed via `metafor::impute_covariance_matrix()` with $\rho = 0.6$ and `smooth_vi = TRUE`.
+
+**Moderator centering.** All continuous moderators are centered prior to model fitting. @tbl-repro-center documents the transformations applied.
+
+| Variable | Centering |
+|:---------|:----------|
+| `postwks_c` | $\min(\texttt{postwks}, 26) - 12$ |
+| `postwks_long` | Indicator: $\texttt{postwks} > 26$ |
+| `percoll_c` | $\texttt{percoll} - 1$ |
+| `permale_c` | $\texttt{permale} - 0.5$ |
+| `attrition_c` | $\texttt{attrition\_all} - \text{median}(\texttt{attrition\_all})$ |
+
+: Moderator centering transformations applied to the TSL15 dataset. {#tbl-repro-center}
+
+**Categorical moderators.** `dv_cat` (6 outcome categories) and `Ctype` (4 control-group types) are converted to unordered factors. All models use cell-mean coding (no intercept; formula prefix `0 +`).
+
+
+## Chapter-to-Script Map {#sec-repro-scripts}
+
+@tbl-repro-scripts maps each chapter of the report to the analysis scripts and key output files that produced its results.
+
+| Chapter | Content | Analysis Script | Key Output |
+|:--------|:--------|:---------------|:-----------|
+| Ch 7 | Stan model specification | `bayesRVE/inst/stan/bm_ce_ncp.stan`, `bm_ce_cp.stan`, `bm_che_ncp.stan` | Compiled Stan executables |
+| Ch 10 | Validation and testing | `bayesRVE/tests/testthat/test-*.R` (39 files) | 2,701+ passing tests |
+| Ch 11 | CE empirical application | `dev/log/201_real-data-v060/00_full_analysis.R` | `v060_results.rds` |
+| Ch 12 | CHE empirical application | `dev/log/201_real-data-v060/00_full_analysis.R` | `v060_results.rds` |
+| Ch 13 | SE ratio analysis | `dev/log/201_real-data-v060/00_full_analysis.R` | `v060_results.rds` |
+
+: Mapping from report chapters to analysis scripts and output files. {#tbl-repro-scripts}
+
+The primary results object `v060_results.rds` (607 MB) contains all fitted model objects, sandwich variance objects, CCC calibration objects, MCMC draws for variance components, and pre-computed summary tables. This file is generated by running `00_full_analysis.R` end-to-end with the MCMC settings documented in @tbl-repro-mcmc.
+
+**Reproduction procedure.** To reproduce the empirical results from a clean state:
+
+1. Install bayesRVE v0.6.0 and all dependencies listed in @tbl-repro-env.
+2. Ensure CmdStan is installed and accessible via `cmdstanr::cmdstan_path()`.
+3. Place the TSL15 dataset at the path specified above.
+4. Execute `00_full_analysis.R`. Runtime is approximately 20--40 minutes depending on hardware (ARM64 Mac: ~25 minutes).
+5. The script writes `v060_results.rds` and CSV summary tables to the output directory.
+
+
+## Test Suite Summary {#sec-repro-tests}
+
+The bayesRVE package includes a comprehensive test suite executed via `testthat` (edition 3). @tbl-repro-tests summarizes the current results as of v0.6.0.
+
+| Metric | Value |
+|:-------|:------|
+| Test files | 39 |
+| Total tests | 2,701 |
+| Passing | 2,701 |
+| Failures | 0 |
+| Warnings | 81 (Stan sampling; expected) |
+| Skips | 4 (clubSandwich not installed) |
+
+: Test suite summary for bayesRVE v0.6.0. {#tbl-repro-tests}
+
+Tests are organized into groups targeting distinct validation layers. @tbl-repro-test-groups documents the major groups.
+
+| Test Group | Approx. Tests | What It Validates |
+|:-----------|------:|:------------------|
+| Gate 1 ($\omega = 0$) | 75 | CHE reduces to CE at machine precision |
+| CE CR2 contract | 240 | CE sandwich object structure and invariants |
+| CHE CR2 contract | 205 | CHE sandwich object structure and invariants |
+| CHE CR2 edge cases | 304 | $K=1$, $K=3$, unbalanced clusters, backward compatibility |
+| D25 plug-in parity | -- | REML-injected estimates match clubSandwich at $10^{-6}$ |
+| Tier 0 (algebraic) | 150 | CCC matrix algebra on synthetic data (machine precision) |
+| Tier 1 (unit) | 200 | Individual helper functions |
+| Tier 2 (benchmark) | 100 | Live-fit SE and df within 10--15% of clubSandwich |
+| Tier 3 (integration) | 50 | Full pipeline on TSL15 ($J = 107$, $N = 1{,}198$) |
+
+: Test groups and validation targets. {#tbl-repro-test-groups}
+
+Tests can be executed from the package root with:
+
+```r
+devtools::test("bayesRVE")
+```
+
+The D25 plug-in parity tests inject REML point estimates for $\hat\tau^2$ (and $\hat\omega^2$ for CHE) into the bayesRVE sandwich machinery and verify that the resulting $V_\text{CR2}$ matrix matches the clubSandwich reference implementation at a tolerance of $10^{-6}$. This isolates the linear algebra from MCMC sampling noise and confirms correctness of the CR2 implementation.
+
+
+## Version History {#sec-repro-versions}
+
+@tbl-repro-versions documents the development milestones of bayesRVE from initial release through the version used in this report.
+
+| Version | Date | Key Feature | Tests |
+|:--------|:-----|:------------|------:|
+| v0.1.0 | 2026-03-10 | Initial release: `bm_fit()` + `sandwich()` + `ccc()` | 394 |
+| v0.2.0 | 2026-03-15 | Small-sample corrections ($c_\beta$, leverage, fallback) | 394 |
+| v0.3.0 | 2026-03-19 | Observation-level sandwich (within-study varying moderators) | 1,072 |
+| v0.4.0 | 2026-03-22 | CHE model ($\tau^2 + \omega^2$, `bm_che_ncp.stan`) | 1,159 |
+| v0.5.0 | 2026-03-23 | CE Three-Layer Calibration (CR2 + Satterthwaite) | 1,191 |
+| v0.6.0 | 2026-03-25 | CHE Three-Layer Calibration + API hardening | 2,701 |
+
+: bayesRVE version history. {#tbl-repro-versions}
+
+All results in this report were produced with v0.6.0. The version can be verified at runtime with `packageVersion("bayesRVE")`.

@@ -1,0 +1,643 @@
+---
+title: "API Quick Reference"
+---
+
+# API Quick Reference {#sec-api}
+
+This appendix provides a concise reference for all inference-relevant exported
+functions and S3 methods in bayesRVE v0.6.0.  For each function we show the
+actual signature from source, key arguments, return type, and a minimal usage
+example.  Internal helpers (prefixed with `.`) are omitted.
+
+
+## Core Pipeline Functions {#sec-api-core}
+
+The bayesRVE analysis pipeline consists of three stages: (1) Bayesian model
+fitting via `bm_fit()`, (2) cluster-robust sandwich variance estimation via
+`sandwich()`, and (3) Cholesky Calibration Correction via `ccc()`.  Each stage
+produces a dedicated S3 object that feeds into the next.
+
+
+### `bm_fit()` --- Bayesian Model Fitting {#sec-api-bm-fit}
+
+```r
+bm_fit(formula,
+       data,
+       study,
+       prior            = NULL,
+       model            = c("ce", "che"),
+       es_type          = c("smd", "log_or", "fisher_z", "generic"),
+       parameterization = c("ncp", "cp"),
+       chains           = 4L,
+       iter_warmup      = 1000L,
+       iter_sampling    = 1000L,
+       adapt_delta      = 0.95,
+       max_treedepth    = 12L,
+       seed             = NULL,
+       refresh          = NULL,
+       ...)
+```
+
+**Key arguments:**
+
+- **`formula`:**
+  Two-sided formula with special LHS syntax: `yi | se(vi) ~ predictors`.
+  The `se()` wrapper accepts a sampling *variance* column; `sd()` accepts a
+  standard error column.  The RHS specifies fixed-effect moderators
+  (`~ 1` for intercept-only).
+
+- **`data`:**
+  A `data.frame` containing effect sizes, sampling variances (or SEs),
+  moderator variables, and the study identifier.
+
+- **`study`:**
+  A one-sided formula (`~ studyid`) or character string (`"studyid"`)
+  identifying the clustering (study) variable.
+
+- **`prior`:**
+  A `bm_prior` object (see @sec-api-priors).  If `NULL`, `default_prior(es_type)`
+  is used automatically.
+
+- **`model`:**
+  `"ce"` (correlated-effects: single $\tau^2$) or `"che"`
+  (correlated-and-hierarchical effects: $\tau^2 + \omega^2$).
+
+- **`es_type`:**
+  Effect size metric (`"smd"`, `"log_or"`, `"fisher_z"`, `"generic"`).
+  Used only for selecting scale-appropriate default priors.
+
+- **`parameterization`:**
+  `"ncp"` (non-centered, default) or `"cp"` (centered).  NCP is preferred for
+  most meta-analyses (Decision D3).
+
+- **`chains`, `iter_warmup`, `iter_sampling`:**
+  MCMC configuration.  Total posterior draws = `chains * iter_sampling`.
+
+- **`adapt_delta`, `max_treedepth`:**
+  NUTS sampler tuning.  Higher `adapt_delta` (default 0.95) reduces divergent
+  transitions at the cost of slower sampling.
+
+- **`seed`:**
+  Integer for reproducibility.  Passed directly to CmdStan.
+
+- **`...`:**
+  Additional arguments forwarded to `CmdStanModel$sample()` (e.g.,
+  `parallel_chains`, `init`).
+
+**Returns:** An S3 object of class `"bm_fit"` containing the `CmdStanMCMC`
+fit object, preprocessed data (`bm_data`), prior specification, dimension
+metadata ($K$, $J$), model type, parameterization, and wall-clock time.
+
+**Example:**
+
+```r
+# Intercept-only CE model
+fit <- bm_fit(yi | se(vi) ~ 1, data = dat, study = ~ studyid)
+
+# Meta-regression with CHE model
+fit_che <- bm_fit(yi | se(vi) ~ intervention + dosage,
+                  data = dat, study = ~ studyid,
+                  model = "che", seed = 42)
+```
+
+
+### `sandwich()` --- CR2 Sandwich Variance {#sec-api-sandwich}
+
+```r
+sandwich(x, ...)
+
+# Method for bm_fit:
+sandwich.bm_fit(x, rho = 0.8,
+                small_sample = c("CR2", "scalar", "none"), ...)
+```
+
+**Key arguments:**
+
+- **`x`:** A `bm_fit` object.
+
+- **`rho`:**
+  Within-study working correlation, numeric in $[0, 1]$.  Default `0.8`.
+  In the CE model, `rho` does not enter the marginal sandwich computation
+  (study-level scores are rho-invariant) but is stored for `compare_with_cr2()`
+  and sensitivity analyses.
+
+- **`small_sample`:**
+  Small-sample correction method.  `"CR2"` (default) applies the
+  bias-corrected CR2 adjustment with Satterthwaite degrees of freedom.
+  `"scalar"` applies a scalar correction $c_\beta = J / (J - p_\text{eff})$.
+  `"none"` skips corrections entirely.
+
+**Returns:** An S3 object of class `"bm_sandwich"` containing:
+
+| Slot | Description |
+|:-----|:------------|
+| `V_sand_marg` | $K \times K$ CR2 beta-block sandwich (CCC target) |
+| `V_sand_marg_raw` | $K \times K$ uncorrected sandwich |
+| `V_sand_cond` | $J$-vector of per-study conditional variances |
+| `df_satt` | $K$-vector of Satterthwaite degrees of freedom |
+| `c_beta` | Scalar small-sample correction factor |
+| `rho`, `K`, `J` | Metadata |
+
+**Example:**
+
+```r
+sw <- sandwich(fit, rho = 0.8, small_sample = "CR2")
+print(sw)
+```
+
+
+### `ccc()` --- Cholesky Calibration Correction {#sec-api-ccc}
+
+```r
+ccc(x, ...)
+
+# Method for bm_fit:
+ccc.bm_fit(x, sandwich_obj = NULL, rho = 0.8,
+           center = c("posterior_mean", "posterior_median"), ...)
+```
+
+**Key arguments:**
+
+- **`x`:** A `bm_fit` object.
+
+- **`sandwich_obj`:**
+  A pre-computed `bm_sandwich` object, or `NULL`.  If `NULL`, `sandwich(x, rho)`
+  is called internally.  Named `sandwich_obj` to avoid shadowing the generic.
+
+- **`rho`:**
+  Working correlation, used only when `sandwich_obj = NULL`.
+
+- **`center`:**
+  Centering point for the affine transformation.  `"posterior_mean"` (default)
+  is the unique center preserved exactly by CCC (Theorem 1 in @sec-ccc-theorems).
+
+**Returns:** An S3 object of class `"bm_ccc"` containing:
+
+| Slot | Description |
+|:-----|:------------|
+| `draws_star` | $S \times (K+J)$ calibrated posterior draws |
+| `draws_orig` | $S \times (K+J)$ original draws |
+| `A_beta` | $K \times K$ transformation matrix |
+| `r_theta` | $J$-vector of diagonal rescaling factors |
+| `r_k` | $(K+J)$-vector of per-parameter SD ratios |
+| `method` | `"ccc"`, `"ccc_partial"`, or `"fallback_raw"` |
+| `model` | `"ce"` or `"che"` |
+| `sandwich` | The `bm_sandwich` object used |
+| `K`, `J` | Dimension metadata |
+
+**Example:**
+
+```r
+# Two-step (recommended for inspection)
+sw  <- sandwich(fit, rho = 0.8)
+cal <- ccc(fit, sandwich_obj = sw)
+
+# One-step (sandwich computed internally)
+cal <- ccc(fit, rho = 0.8)
+```
+
+
+## Prior Specification {#sec-api-priors}
+
+bayesRVE uses a compositional prior system: distribution constructors create
+individual prior components, and `bm_prior()` bundles them into a single
+specification object.
+
+
+### Distribution Constructors
+
+```r
+normal(mean = 0, sd = 1)
+```
+
+Creates a Normal distribution for fixed-effect ($\beta$) priors.
+Returns an object of class `c("bm_dist_normal", "bm_dist")`.
+
+```r
+half_t(df = 3, location = 0, scale = 1)
+```
+
+Creates a Half-$t$ distribution for variance component priors ($\tau$, $\omega$).
+Returns class `c("bm_dist_half_t", "bm_dist")`.  Special cases:
+
+- `half_cauchy(location = 0, scale = 1)` --- wrapper with `df = 1`
+- `half_normal(location = 0, scale = 1)` --- wrapper with `df = Inf`
+
+
+### `bm_prior()` --- Bundle Priors
+
+```r
+bm_prior(beta = normal(0, 1),
+         tau = half_t(3, 0, 0.5),
+         omega = NULL)
+```
+
+- **`beta`:** A `bm_dist_normal` object for fixed-effect coefficients.
+- **`tau`:** A `bm_dist_half_t` object for the between-study SD.
+- **`omega`:** A `bm_dist_half_t` object for the within-study SD (CHE only),
+  or `NULL` for CE models.
+
+**Returns:** An object of class `"bm_prior"`.
+
+
+### `default_prior()` --- Scale-Aware Defaults
+
+```r
+default_prior(es_type = c("smd", "log_or", "fisher_z", "generic"))
+```
+
+Returns a `bm_prior` with scale-appropriate hyperparameters:
+
+| `es_type` | `beta` prior | `tau` prior |
+|:----------|:-------------|:------------|
+| `"smd"` | $\text{Normal}(0, 1)$ | $\text{Half-}t(3, 0, 0.5)$ |
+| `"log_or"` | $\text{Normal}(0, 1.5)$ | $\text{Half-}t(3, 0, 0.5)$ |
+| `"fisher_z"` | $\text{Normal}(0, 1)$ | $\text{Half-}t(3, 0, 0.3)$ |
+| `"generic"` | $\text{Normal}(0, 10)$ | $\text{Half-}t(3, 0, 1)$ |
+
+**Example:**
+
+```r
+# Custom prior for SMD meta-analysis
+my_prior <- bm_prior(
+  beta  = normal(0, 2),
+  tau   = half_cauchy(0, 1)
+)
+
+# CHE model with omega prior
+che_prior <- bm_prior(
+  beta  = normal(0, 1),
+  tau   = half_t(3, 0, 0.5),
+  omega = half_t(3, 0, 0.3)
+)
+
+# Inspect default priors
+summary(default_prior("smd"))
+```
+
+
+## S3 Methods for `bm_ccc` {#sec-api-methods}
+
+The `bm_ccc` object is the primary inference endpoint.  Its S3 methods
+implement the Three-Layer Calibration framework: Layer 1 (posterior mean
+centering), Layer 2 (CR2 sandwich variance), and Layer 3 (Satterthwaite
+$t$-distribution).
+
+
+### `coef.bm_ccc()`
+
+```r
+coef.bm_ccc(object, type = c("beta", "theta", "all"), ...)
+```
+
+Returns calibrated posterior means as a named numeric vector.
+
+- `type = "beta"` (default): $K$-vector of fixed effects.
+- `type = "theta"`: $J$-vector of study random effects.
+- `type = "all"`: concatenated $(K+J)$-vector.
+
+For CHE models, `type = "theta"` returns `NULL` with a warning because
+study-level effects are analytically marginalized; `type = "all"` returns
+beta only with an informative message.
+
+
+### `vcov.bm_ccc()`
+
+```r
+vcov.bm_ccc(object, ...)
+```
+
+Returns the $K \times K$ covariance matrix of the calibrated beta posterior
+draws.  This is `cov(draws_star[, 1:K])`, which equals `V_CR2` up to MCMC
+sampling noise.
+
+
+### `confint.bm_ccc()`
+
+```r
+confint.bm_ccc(object, parm = NULL, level = 0.95,
+               df = c("satterthwaite", "naive", "normal"), ...)
+```
+
+Computes CCC-$t$ confidence intervals (Three-Layer Calibration).
+
+- **`parm`:** Parameter names or indices to include.  Default (`NULL`) returns
+  all $K$ beta coefficients.
+- **`level`:** Confidence level (default 0.95).
+- **`df`:** Degrees of freedom method.
+    - `"satterthwaite"` (default): CR2-based Satterthwaite df (requires
+      `small_sample = "CR2"` in the sandwich step).
+    - `"naive"`: $J - p_\text{eff}$ residual df.
+    - `"normal"`: $z$-based intervals (df = $\infty$).
+
+**Returns:** A matrix with columns `lower`, `upper`, `df`, and `method`.
+The `df` attribute stores the per-parameter degrees of freedom vector.
+
+**Example:**
+
+```r
+confint(cal)                                   # CCC-t, 95%, Satterthwaite
+confint(cal, level = 0.90, df = "normal")      # CCC-z, 90%
+confint(cal, parm = "(Intercept)")             # Single coefficient
+```
+
+
+### `summary.bm_ccc()`
+
+```r
+summary.bm_ccc(object, level = 0.95, ...)
+```
+
+Produces a full calibration report as a `summary.bm_ccc` object.  The printed
+output includes:
+
+- Model information (CE/CHE, number of studies, observations)
+- CCC method and centering type
+- Beta coefficient table: estimate, CCC SE, df, CCC-$t$ CI, $R_k$ ratio
+- Variance component summaries ($\hat\tau$, $\hat\omega$ for CHE)
+- Diagnostic flags (fallback, singleton warnings)
+
+**Example:**
+
+```r
+summary(cal)
+summary(cal, level = 0.90)
+```
+
+
+### `print.bm_ccc()`
+
+```r
+print.bm_ccc(x, digits = 4L, ...)
+```
+
+Compact console display showing the CCC method, centering point, Frobenius
+norm $\|A_\beta - I_K\|_F$, and per-parameter SD ratios ($R_k$).
+
+
+### `plot.bm_ccc()`
+
+```r
+plot.bm_ccc(x, type = c("forest", "caterpillar", "r_k"),
+            level = 0.95, max_studies = 50L, ...)
+```
+
+Visualization dispatcher for CCC calibration results. Requires ggplot2.
+
+| `type` | Description |
+|:-------|:------------|
+| `"forest"` | Overlays original and CCC-calibrated beta intervals for direct comparison |
+| `"caterpillar"` | Study-level random effects (theta) ordered by estimate with CCC-calibrated credible intervals. `max_studies` caps display for large $J$ |
+| `"r_k"` | Per-parameter calibration ratios $R_k = \text{SD}^*/\text{SD}_{\text{orig}}$, showing which parameters CCC widened or narrowed |
+
+
+## S3 Methods for `bm_fit` and `bm_sandwich` {#sec-api-fit-sw}
+
+### Methods on `bm_fit`
+
+```r
+nobs.bm_fit(object, ...)
+```
+
+Returns the total number of effect-size observations (integer).
+
+```r
+coef.bm_fit(object, type = c("beta", "theta", "all"), ...)
+```
+
+Extracts uncalibrated posterior means.  Same `type` dispatch as `coef.bm_ccc()`.
+
+```r
+vcov.bm_fit(object, sandwich_obj = NULL, ...)
+```
+
+If `sandwich_obj` is provided, returns the $K \times K$ sandwich variance
+`V_sand_marg`.  Otherwise, returns the MCMC posterior covariance of beta draws.
+
+```r
+confint.bm_fit(object, parm = NULL, level = 0.95, ccc_obj = NULL, ...)
+```
+
+Without `ccc_obj`: equal-tailed posterior credible intervals from raw MCMC draws.
+With `ccc_obj`: equal-tailed credible intervals from CCC-calibrated draws (quantile-based CCC-$q$, *not* CCC-$t$). For CCC-$t$ intervals with Satterthwaite degrees of freedom, use `confint(cal)` directly on the `bm_ccc` object.
+
+```r
+summary.bm_fit(object, ccc_obj = NULL, sandwich_obj = NULL,
+               level = 0.95,
+               center = c("posterior_mean", "posterior_median"), ...)
+```
+
+Produces an MCMC summary table.  If `ccc_obj` and/or `sandwich_obj` are
+supplied, the summary includes calibrated estimates and sandwich SEs alongside
+the raw posterior quantities.
+
+```r
+print.bm_fit(x, ...)
+```
+
+Compact display: model type, dimensions, parameterization, elapsed time.
+
+```r
+plot.bm_fit(x, ...)
+```
+
+Plot dispatcher supporting three types: `"forest"` (default), `"trace"`, and `"density"`. Requires ggplot2. When `ccc_obj` and/or `sandwich_obj` are supplied, the forest plot overlays calibrated and/or sandwich-based intervals.
+
+
+### Methods on `bm_sandwich`
+
+```r
+coef.bm_sandwich(object, ...)
+```
+
+Returns the $K$-vector of sandwich standard errors (square root of
+`diag(V_sand_marg)`).
+
+```r
+vcov.bm_sandwich(object, ...)
+```
+
+Returns the $K \times K$ sandwich variance-covariance matrix `V_sand_marg`.
+
+```r
+print.bm_sandwich(x, ...)
+```
+
+Formatted summary: correction method, $c_\beta$, working correlation,
+beta-block SEs, and fallback status.
+
+
+## Diagnostic and Sensitivity Functions {#sec-api-diagnostics}
+
+
+### `bm_diagnose()` --- Stage-Specific Diagnostics
+
+```r
+bm_diagnose(object, ...)
+```
+
+S3 generic dispatching on `bm_fit`, `bm_sandwich`, or `bm_ccc`:
+
+| Input class | Output class | Content |
+|:------------|:-------------|:--------|
+| `bm_fit` | `bm_diagnostics_fit` | Rhat, ESS, divergences, tree depth |
+| `bm_sandwich` | `bm_diagnostics_sandwich` | Condition number, leverage, fallback |
+| `bm_ccc` | `bm_diagnostics_ccc` | Frobenius norm, $R_k$ range, PD checks |
+
+
+### `bm_diagnose_all()` --- Combined Diagnostics
+
+```r
+bm_diagnose_all(fit, sandwich = NULL, ccc = NULL)
+```
+
+Convenience wrapper that runs `bm_diagnose()` on all provided pipeline objects
+and returns a combined `bm_diagnostics_all` object.
+
+
+### `bm_sensitivity_rho()` --- Rho Sensitivity Analysis
+
+```r
+bm_sensitivity_rho(fit,
+                   sandwich_obj = NULL,
+                   rho_grid = c(0, 0.2, 0.5, 0.8, 1.0))
+```
+
+Sweeps over a grid of working correlation values and computes the
+Design Effect Ratio (DER) decomposition at each point.  Returns a
+`bm_sensitivity_rho` object (a `data.frame` subclass) with `print()` and
+`plot()` methods.
+
+**Related functions:**
+
+```r
+bm_sensitivity_rho_table(x, digits = 4)          # Manuscript-ready table
+bm_sensitivity_rho_study(fit,
+                         sandwich_obj = NULL,
+                         rho = 0.5)               # Per-study detail at one rho
+bm_find_rho_implied(fit, sandwich_obj = NULL)     # Closed-form implied rho*
+```
+
+
+### `compare_with_cr2()` --- Frequentist Benchmark
+
+```r
+compare_with_cr2(fit,
+                 sandwich_obj = NULL,
+                 rho = 0.8,
+                 type = "CR2")
+```
+
+Compares bayesRVE sandwich estimates against metafor/clubSandwich CR2 output.
+Requires the `metafor` and `clubSandwich` packages (soft dependencies).
+Returns a `bm_cr2_comparison` object with a `print()` method showing the
+SE ratio and df comparison.
+
+
+### `from_metafor()` --- Import from metafor
+
+```r
+from_metafor(rma_obj, study = NULL)
+```
+
+Extracts effect sizes, variances, and moderators from a fitted `rma` object
+(metafor package) into a format suitable for `bm_fit()`.
+
+
+### Stan Model Management
+
+```r
+bm_compile(model_name = NULL, force = FALSE, quiet = FALSE)
+```
+
+Pre-compiles Stan models and caches them for reuse.  If `model_name` is `NULL`,
+all three models (CE NCP, CE CP, CHE NCP) are compiled.
+
+```r
+bm_clear_cache()
+```
+
+Removes all compiled models from both the in-memory session cache and the
+persistent disk cache.
+
+
+## Quick Reference Table {#sec-api-table}
+
+| Function | Input | Output | Purpose |
+|:---------|:------|:-------|:--------|
+| `bm_fit()` | formula + data | `bm_fit` | Bayesian model fitting (CE or CHE) |
+| `sandwich()` | `bm_fit` | `bm_sandwich` | CR2 sandwich variance estimation |
+| `ccc()` | `bm_fit` [+ `bm_sandwich`] | `bm_ccc` | Cholesky Calibration Correction |
+| `coef()` | `bm_ccc` | named numeric | Calibrated posterior means |
+| `vcov()` | `bm_ccc` | $K \times K$ matrix | Calibrated covariance |
+| `confint()` | `bm_ccc` | matrix + df attr | CCC-$t$ confidence intervals |
+| `summary()` | `bm_ccc` | `summary.bm_ccc` | Full calibration report |
+| `bm_diagnose()` | any pipeline object | diagnostics | Stage-specific diagnostics |
+| `bm_diagnose_all()` | fit [+ sw + ccc] | `bm_diagnostics_all` | Combined diagnostics |
+| `bm_sensitivity_rho()` | `bm_fit` | `bm_sensitivity_rho` | Rho sensitivity sweep |
+| `bm_find_rho_implied()` | `bm_fit` | numeric | Closed-form implied $\rho^*$ |
+| `compare_with_cr2()` | `bm_fit` | `bm_cr2_comparison` | Frequentist benchmark |
+| `bm_prior()` | distributions | `bm_prior` | Prior specification bundle |
+| `default_prior()` | `es_type` string | `bm_prior` | Scale-aware default priors |
+| `bm_compile()` | model name | CmdStanModel | Pre-compile Stan models |
+| `from_metafor()` | `rma` object | list | Import data from metafor |
+
+
+### Utility and Print Methods
+
+The package exports several additional S3 methods that provide formatted console output. These follow standard R conventions and are not individually documented here.
+
+| Method | Purpose |
+|:-------|:--------|
+| `print.summary.bm_fit()` / `print.summary.bm_ccc()` | Pretty-print summary objects |
+| `summary.bm_prior()` / `print.bm_prior()` | Display prior specification details |
+| `print.bm_dist()` / `format_dist()` | Format distribution objects (e.g., `"Half-Cauchy(0, 1)"`) |
+| `plot.bm_sensitivity_rho()` / `print.bm_sensitivity_rho()` | Visualize and print rho sensitivity results |
+| `print.bm_cr2_comparison()` | Print CR2 comparison tables from `compare_with_cr2()` |
+| `print.bm_diagnostics_*()` | Print methods for stage-specific diagnostic objects |
+
+
+## End-to-End Example {#sec-api-example}
+
+```r
+library(bayesRVE)
+
+# --- Step 0: Compile Stan models (once per session) ---
+bm_compile()
+
+# --- Step 1: Fit the model ---
+fit <- bm_fit(
+  yi | se(vi) ~ outcome_type,
+  data   = tsl15,
+  study  = ~ studyid,
+  model  = "che",
+  prior  = bm_prior(
+    beta  = normal(0, 1),
+    tau   = half_t(3, 0, 0.5),
+    omega = half_t(3, 0, 0.3)
+  ),
+  chains = 4, seed = 2026
+)
+print(fit)
+
+# --- Step 2: Sandwich variance (CR2) ---
+sw <- sandwich(fit, rho = 0.8, small_sample = "CR2")
+print(sw)
+
+# --- Step 3: CCC calibration ---
+cal <- ccc(fit, sandwich_obj = sw)
+
+# --- Step 4: Inference ---
+summary(cal)
+confint(cal)                          # CCC-t intervals (Satterthwaite)
+coef(cal)                             # Calibrated point estimates
+vcov(cal)                             # Calibrated covariance
+
+# --- Step 5: Diagnostics ---
+bm_diagnose_all(fit, sandwich = sw, ccc = cal)
+
+# --- Step 6: Sensitivity ---
+sens <- bm_sensitivity_rho(fit, sandwich_obj = sw)
+print(sens)
+plot(sens)
+```

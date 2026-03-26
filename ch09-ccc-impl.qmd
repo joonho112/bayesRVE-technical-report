@@ -1,0 +1,244 @@
+---
+title: "CCC Implementation and Inferential Outputs"
+---
+
+## The CCC Affine Transformation {#sec-ccc-impl}
+
+The Cholesky Calibration Correction transforms raw MCMC posterior draws so that
+their covariance structure matches the CR2 sandwich variance target.
+The core equation is an affine map applied to each draw:
+
+$$
+\boldsymbol{\beta}^{*(s)} \;=\; \hat{\boldsymbol{\beta}} \;+\; A_{\beta} \bigl(\boldsymbol{\beta}^{(s)} - \hat{\boldsymbol{\beta}}\bigr),
+\qquad A_{\beta} = L_2\, L_1^{-1},
+$$ {#eq-ccc-affine}
+
+where $L_1 = \operatorname{chol}(\hat\Sigma_{\mathrm{MCMC}})$ and
+$L_2 = \operatorname{chol}(V_{\mathrm{CR2}})$ are lower-triangular Cholesky factors.
+This preserves the posterior mean exactly (Theorem 1, @sec-ccc) and re-scales the covariance from $\hat\Sigma_{\mathrm{MCMC}}$ to $V_{\mathrm{CR2}}$.
+
+### Step-by-step numerical trace
+
+Consider a concrete scenario with $S = 4{,}000$ draws, $K = 2$ fixed effects (intercept + one moderator), and $J = 20$ studies.
+
+| Step | Operation | Dimensions | Notes |
+|:-----|:----------|:-----------|:------|
+| 1 | Extract `draws_beta` from posterior | $4000 \times 2$ | Raw MCMC draws of $\boldsymbol{\beta}$ |
+| 2 | Compute $\hat\Sigma_{\mathrm{MCMC}} = \operatorname{cov}(\texttt{draws\_beta})$ | $2 \times 2$ | Sample covariance of the $S$ draws |
+| 3 | Cholesky factor $L_1 = \operatorname{chol}(\hat\Sigma_{\mathrm{MCMC}})$ | $2 \times 2$ | Lower-triangular; `.safe_chol()` applies nearPD fallback if needed |
+| 4 | Obtain $V_{\mathrm{CR2}}$ from the sandwich object | $2 \times 2$ | `sandwich_obj$V_sand_marg` |
+| 5 | Cholesky factor $L_2 = \operatorname{chol}(V_{\mathrm{CR2}})$ | $2 \times 2$ | Lower-triangular; **never** apply nearPD to the sandwich target |
+| 6 | Solve $L_1^{-1}$ via `forwardsolve(L1, diag(K))` | $2 \times 2$ | Numerically stable triangular solve |
+| 7 | Compute $A_{\beta} = L_2 \, L_1^{-1}$ | $2 \times 2$ | The full transformation matrix |
+| 8 | Center: $D = \texttt{draws\_beta} - \mathbf{1}_S \hat{\boldsymbol{\beta}}^T$ | $4000 \times 2$ | `sweep(draws_beta, 2, center)` |
+| 9 | Transform: $D^* = D \, A_{\beta}^T$ | $4000 \times 2$ | BLAS matrix multiply, $O(S \cdot K^2)$ |
+| 10 | Uncenter: $\texttt{draws\_star} = D^* + \mathbf{1}_S \hat{\boldsymbol{\beta}}^T$ | $4000 \times 2$ | CCC-calibrated draws |
+
+: Numerical trace of the beta-block Cholesky CCC. {#tbl-ccc-trace}
+
+After Step 10, $\operatorname{cov}(\texttt{draws\_star}) \approx V_{\mathrm{CR2}}$ by construction, with approximation error bounded by $O(1/S)$.
+The Frobenius norm $\|A_{\beta} - I_K\|_F$ measures how far the transformation departs from the identity.
+
+### The `.safe_chol()` asymmetry
+
+A critical design choice: `nearPD()` is applied to $\hat\Sigma_{\mathrm{MCMC}}$ (the source covariance) when it is not positive definite, but **never** to $V_{\mathrm{CR2}}$ (the target).
+The rationale is that the source is a sample covariance that may be non-PD due to MCMC issues (fixable by projection), while the target encodes the frequentist calibration guarantee (modifying it would corrupt the inference).
+If $V_{\mathrm{CR2}}$ is not PD, the beta-block CCC is skipped entirely.
+
+
+## CE vs CHE Dispatch {#sec-ccc-impl-dispatch}
+
+The `ccc.bm_fit()` method dispatches to one of two internal paths based on the model type stored in `x$model`:
+
+**CE path (blockwise hybrid, Decision D2).**
+
+1. **Beta-block** ($K \times K$ Cholesky CCC): Full affine transformation targeting $V_{\mathrm{CR2}}$.
+2. **Theta-block** ($J$-vector diagonal rescaling): $\theta_j^{*} = \hat\theta_j + r_j(\theta_j - \hat\theta_j)$ where $r_j = \sqrt{V^{\mathrm{cond}}_{\mathrm{sand},j} / \operatorname{Var}_{\mathrm{MCMC}}(\theta_j)}$.
+
+**CHE path (beta-block only).**
+Study effects $\theta_j$ are analytically integrated out. Only the beta-block Cholesky CCC is applied. A dummy theta matrix of zeros is appended for API compatibility.
+
+### Beta-block skip conditions
+
+| Condition | Action | `method` field |
+|:----------|:-------|:---------------|
+| $J < K$ | Unconditional skip (structural singularity) | `"fallback_raw"` |
+| $J = K$, $V_{\mathrm{CR2}}$ not PD | Skip with warning | `"fallback_raw"` |
+| $J = K$, $V_{\mathrm{CR2}}$ PD | Proceed with zero-excess-df warning | `"ccc"` |
+| $J > K$, $V_{\mathrm{CR2}}$ not PD | Skip with warning | `"fallback_raw"` |
+| $J > K$, $V_{\mathrm{CR2}}$ PD | Normal CCC | `"ccc"` |
+| Sandwich fallback (D7) | Beta skipped, theta proceeds | `"ccc_partial"` |
+
+: Beta-block CCC decision logic. {#tbl-beta-skip}
+
+
+## Object Assembly {#sec-ccc-impl-assembly}
+
+Both the CE assembler (`.assemble_bm_ccc()`) and the CHE path (`.ccc_che()`) construct a `bm_ccc` S3 object with a shared slot contract:
+
+| Slot | Type | Description |
+|:-----|:-----|:------------|
+| `draws_star` | $S \times (K + J)$ matrix | CCC-calibrated draws (CHE: theta columns are zeros) |
+| `draws_orig` | $S \times (K + J)$ matrix | Original MCMC draws (same convention for CHE) |
+| `A_beta` | $K \times K$ matrix | Transformation matrix ($I_K$ when beta skipped) |
+| `r_theta` | $J$-vector | Per-study diagonal rescaling factors (zeros for CHE) |
+| `r_k` | $(K + J)$-vector | Per-parameter SD ratios: $\mathrm{SD}_{\mathrm{star}} / \mathrm{SD}_{\mathrm{orig}}$ |
+| `frobenius_norm` | scalar | $\|A_{\beta} - I_K\|_F$ |
+| `method` | character | `"ccc"`, `"ccc_partial"`, or `"fallback_raw"` |
+| `model` | character | `"ce"` or `"che"` --- enables downstream CHE dispatch |
+| `sandwich` | `bm_sandwich` | The sandwich object used as calibration target |
+| `beta_skipped` | logical | `TRUE` if beta-block CCC was not applied |
+| `verification` | list | Results of 6 post-hoc verification checks |
+
+: Slot contract for the `bm_ccc` object. {#tbl-ccc-slots}
+
+The `model` field is the single dispatch token that all downstream methods use to decide whether theta output is meaningful.
+
+
+## Verification Checks {#sec-ccc-impl-verify}
+
+After assembly, `.verify_ccc()` runs six post-hoc checks:
+
+| Check | What it verifies | Tolerance |
+|:------|:-----------------|:----------|
+| V1 | Mean preservation: $\|\bar{\boldsymbol{\beta}}^* - \bar{\boldsymbol{\beta}}\| < \epsilon$ | $10^{-6}$ |
+| V2 | Beta variance: diagonal of $\operatorname{cov}(\boldsymbol{\beta}^*)$ vs $\operatorname{diag}(V_{\mathrm{CR2}})$ | 0.05 (5%) |
+| V3 | Theta variance: $\operatorname{Var}(\theta_j^*)$ vs $V^{\mathrm{cond}}_j$ | 0.05 (5%) |
+| V4 | Beta covariance: off-diagonal (relative Frobenius) | 0.05 (5%) |
+| V5 | Center preservation: centering point is correct | $10^{-6}$ |
+| V6 | Diagnostics: $\|A_\beta - I_K\|_F$ is finite and non-negative | structural |
+
+: CCC verification checks. Tolerances are relative to the target. {#tbl-ccc-verify}
+
+For CHE models, V3 is skipped (theta block is dummy zeros). The verification outcome is stored in `object$verification` and printed in summary output.
+
+::: {.callout-note}
+These are algebraic sanity checks, not hypothesis tests. A V2 failure at 5% indicates Monte Carlo noise from finite $S$, not a bug---but it signals that the user may want more posterior draws.
+:::
+
+
+## Inferential Methods {#sec-ccc-impl-methods}
+
+The `bm_ccc` object supports four S3 methods. Each checks the `model` field to handle the CHE theta quarantine.
+
+### `coef.bm_ccc()`
+
+Returns the posterior mean of CCC-calibrated fixed effects by default.
+
+```r
+coef(cal)
+#>    Intercept          x1
+#>       0.1342      0.0872
+```
+
+| `type` | CE model | CHE model |
+|:-------|:---------|:----------|
+| `"beta"` (default) | $K$-vector of calibrated beta means | Same |
+| `"theta"` | $J$-vector of calibrated theta means | Returns `NULL` with warning |
+| `"all"` | $(K+J)$-vector | Returns beta only |
+
+When `beta_skipped = TRUE`, returns original (uncalibrated) posterior means with a warning.
+
+### `vcov.bm_ccc()`
+
+Returns the $K \times K$ covariance of CCC-calibrated beta draws: `cov(draws_star[, 1:K])`.
+By Theorem 2, this equals $V_{\mathrm{CR2}}$ exactly (up to Monte Carlo noise).
+
+### `confint.bm_ccc()`
+
+Constructs confidence intervals:
+
+```r
+confint(cal)
+#>                 2.5%     97.5%
+#>   Intercept   0.0793    0.1891
+#>   x1         -0.0236    0.1980
+#>   attr(,"df")
+#>   [1] 76.7 76.5
+#>   attr(,"method")
+#>   [1] "CCC-t (Satterthwaite df, per-coefficient)"
+```
+
+| `df` option | Formula | Use case |
+|:------------|:--------|:---------|
+| `"satterthwaite"` (default) | $\hat\beta_k \pm t_{\alpha/2,\hat\nu_k} \cdot \mathrm{SD}_{\mathrm{CCC},k}$ | Standard Three-Layer Calibration |
+| `"naive"` | $\hat\beta_k \pm t_{\alpha/2,J-K} \cdot \mathrm{SD}_{\mathrm{CCC},k}$ | When Satterthwaite unavailable |
+| `"normal"` | Quantile-based from posterior draws | Legacy CCC-q (v0.4.0) |
+
+**Fallback chain.** `"satterthwaite"` → `"naive"` (if df unavailable) → `"normal"` (if beta skipped).
+
+### `summary.bm_ccc()`
+
+Produces the full calibration report:
+
+```r
+summary(cal)
+#> ── bayesRVE CCC Summary ──────────────────────────────────────────
+#>   K = 2 fixed effects, J = 20 studies, S = 4000 posterior draws
+#>   Sandwich: CR2  |  df: satterthwaite  |  Inference: CCC-t
+#>   Center: posterior_mean  |  Level: 0.95
+#> ── Beta Block (Cholesky CCC) ─────────────────────────────────────
+#>   Frobenius ||A - I||_F: 0.142
+#>  Parameter Estimate    SE    df CI_lower CI_upper   r_k Direction
+#>  Intercept    0.134 0.028  76.7    0.079    0.189 0.943  narrower
+#>         x1    0.087 0.057  76.5   -0.024    0.198 0.917  narrower
+#> ── Verification ──────────────────────────────────────────────────
+#> ✔ All 6 verification checks passed.
+```
+
+For **CHE models**, the theta section prints: "Study effects analytically integrated out."
+
+| Return field | Content |
+|:-------------|:--------|
+| `$beta` | Data frame: Parameter, Estimate, SE, df, CI_lower, CI_upper, r_k, Direction |
+| `$theta` | Data frame (CE) or `NULL` (CHE) |
+| `$diagnostics` | List: frobenius_norm, beta_skipped, method, verification |
+| `$df_source` | `"satterthwaite"` or `"naive"` |
+| `$ci_method` | Human-readable interval description |
+| `$model` | `"ce"` or `"che"` |
+
+: Fields of the `summary.bm_ccc` return object. {#tbl-summary-fields}
+
+
+## Diagnostics and Troubleshooting {#sec-ccc-impl-diagnostics}
+
+### Key diagnostic quantities
+
+**Frobenius norm** $\|A_\beta - I_K\|_F$: measures total CCC departure from identity.
+
+**Per-parameter SD ratio** $R_k = \mathrm{SD}_{\mathrm{CCC},k} / \mathrm{SD}_{\mathrm{MCMC},k}$:
+
+| $R_k$ Range | Interpretation | Typical Scenario |
+|:------------|:---------------|:----------------|
+| $0.95$--$1.05$ | Near-identity | Well-estimated (high df, many clusters) |
+| $1.05$--$1.30$ | Moderate expansion | Moderate df, CCC adjusting |
+| $> 1.30$ | Large expansion | Low df, prior dominates posterior |
+| $< 0.95$ | Shrinkage | Posterior wider than CR2 |
+
+: $R_k$ interpretation guide. {#tbl-rk-guide}
+
+**Direction field**: reported as `narrower` ($R_k < 0.99$), `wider` ($R_k > 1.01$), `~same` ($|R_k - 1| \le 0.01$), or `skipped`.
+
+### Troubleshooting guide
+
+::: {.callout-warning title="Troubleshooting Guide"}
+
+**"My $R_k > 1.5$ for a coefficient."**
+CCC is substantially expanding the posterior. Check `df_satt`: if $\hat\nu_k < 5$, the widening is expected. Consider reducing model complexity.
+
+**"`method = fallback_raw`" in the summary.****
+Beta-block CCC was skipped. Common causes: $V_{\mathrm{CR2}}$ not PD, or $J \le K$. See @sec-env-fallback.
+
+**"`beta_skipped = TRUE`".**
+Programmatic equivalent of `method = "fallback_raw"`. `coef()` returns uncalibrated means; `confint()` forced to `"normal"`. Remedy: reduce $K$ or increase $J$ to satisfy $J \ge 2K + 2$.
+
+**"Satterthwaite df not available" warning.**
+Sandwich was computed with `small_sample != "CR2"`. Recompute: `sandwich(fit, small_sample = "CR2")`.
+
+**CHE: "Study effects analytically integrated out."**
+Informational, not an error. Use `type = "beta"` for fixed effects.
+:::
+
+### Interpreting the verification block
+
+The six checks (V1--V6) are algebraic consistency checks. "PASS" means internal consistency; "FAIL" signals extreme Monte Carlo noise. If V2/V3 fail: increase $S$ via `iter_sampling`. If V1 fails: this is a hard error (mean-preservation should hold to machine precision).

@@ -1,0 +1,491 @@
+---
+title: "Sandwich Implementation"
+---
+
+# Sandwich Implementation {#sec-sandwich-impl}
+
+This chapter traces the implementation of the cluster-robust sandwich variance estimator in `bayesRVE`, covering the full pipeline from S3 dispatch through HC0 computation, CR2 bias correction, and Satterthwaite degrees of freedom.
+The theoretical foundations appear in @sec-sandwich; here we show how each formula translates into working R code inside `bayesRVE/R/sandwich.R`.
+
+The implementation serves two roles.
+First, the HC0 and scalar-corrected sandwich provide a fast classical benchmark for CCC calibration targets (@sec-ccc).
+Second, the CR2 sandwich with Satterthwaite degrees of freedom constitutes the Three-Layer Calibration target---the gold standard against which CCC inference is validated.
+
+
+## Entry Points and Dispatch Logic {#sec-sw-dispatch}
+
+The sandwich module exposes a single S3 generic:
+
+```r
+sandwich <- function(x, ...) UseMethod("sandwich")
+```
+
+The method `sandwich.bm_fit()` accepts three arguments beyond the fitted object: a working correlation `rho`, a `small_sample` correction selector, and dots reserved for future extensions.
+**The `rho` parameter is stored in the output object for provenance tracking but does not enter the CE or CHE marginal sandwich computation**---both models use the compound-symmetric working covariance $\boldsymbol{\Sigma}_j = a_j \mathbf{I} + \tau^2 \mathbf{1}\mathbf{1}'$, which fully determines the within-cluster correlation structure.
+The stored `rho` value is available to downstream consumers (e.g., sensitivity analyses) without affecting the sandwich estimate.
+
+```r
+sandwich.bm_fit <- function(x, rho = 0.8,
+                             small_sample = c("CR2", "scalar", "none"), ...) {
+  checkmate::assert_class(x, "bm_fit")
+  checkmate::assert_number(rho, lower = 0, upper = 1)
+  small_sample <- match.arg(small_sample)
+  ...
+}
+```
+
+The `small_sample` argument controls the correction hierarchy:
+
+| Value | Behavior |
+|:------|:---------|
+| `"CR2"` | @bell2002 CR2 adjustment matrices + Satterthwaite df (default since v0.5.0) |
+| `"scalar"` | Scalar inflation $c_\beta = J / (J - p_\text{eff})$ via Bayesian leverage |
+| `"none"` | Raw HC0 sandwich, no correction |
+
+### CE vs CHE Dispatch
+
+The first branching point is model type.
+The `bm_fit` object carries a `$model` field (`"ce"` or `"che"`); for backward compatibility with pre-v0.4.0 objects that lack this field, `NULL` defaults to `"ce"`:
+
+```r
+model_type <- x$model %||% "ce"
+if (model_type == "che") {
+  return(.che_sandwich(x, rho = rho, small_sample = small_sample))
+}
+```
+
+For CE models, the function continues with the operating-envelope check (Decision D7), moderator-scope dispatch (cluster-constant vs.\ observation-level), posterior draw extraction, and sequential computation of the marginal sandwich, CR2 upgrade, and conditional sandwich before assembly.
+
+### Operating Envelope
+
+Decision D7 defines the minimum number of studies for reliable sandwich estimation:
+
+$$
+J_\min = \max(8,\; 2K + 2)
+$$
+
+When $J < J_\min$, the beta-block sandwich is unreliable.
+Rather than aborting, bayesRVE enters a fallback mode where the beta-block CCC uses raw posterior draws and only the theta-block proceeds with sandwich calibration.
+The `fallback` flag propagates through the entire pipeline, skipping HC0 inversion, CR2 upgrade, and Satterthwaite computation for the beta block.
+
+### Moderator Scope
+
+The `obs_level` flag, derived from `bm_data$cluster_constant` (set during data preparation), controls whether score and Hessian computation uses study-level aggregated quantities or observation-level Woodbury expansions.
+When all predictors are cluster-constant---the common case in meta-analysis with study-level moderators---the study-level path provides an efficient closed-form computation.
+When within-study varying predictors are present (e.g., outcome-type moderators), the observation-level path handles the full $n_j \times K$ design matrices per study.
+
+
+## CE Sandwich Path {#sec-sw-ce}
+
+The CE sandwich decomposes into two independent blocks: a marginal sandwich for $\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2)$ and a conditional sandwich for $\boldsymbol{\theta} \mid \hat{\boldsymbol{\beta}}$.
+This blockwise structure (Decision D2) allows the CCC to apply different calibration strategies to each parameter group.
+
+### Marginal Sandwich: HC0 Computation
+
+The function `.marginal_sandwich()` computes the HC0 sandwich at the posterior mean $(\hat{\boldsymbol{\beta}}, \hat\tau^2)$.
+For the study-level path, the computation follows the classical sandwich formula.
+
+**Residuals and scores.**
+The marginal variance of the study mean is $v_j = \bar{s}_j^2 / n_j + \hat\tau^2$.
+Study-level residuals are $r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}$.
+The likelihood score matrix $\mathbf{S}$ has rows indexed by study $j$ and columns indexed by parameters $(\beta_1, \ldots, \beta_K, \tau^2)$:
+
+$$
+s_j^{(\beta)} = \frac{r_j}{v_j}\,\bar{\mathbf{x}}_j, \qquad
+s_j^{(\tau^2)} = -\frac{1}{2v_j} + \frac{r_j^2}{2v_j^2}
+$$
+
+In code:
+
+```r
+score_beta <- (r_j / v_j) * x_bar            # J x K
+score_tau2 <- -1 / (2 * v_j) + r_j^2 / (2 * v_j^2)
+S <- cbind(score_beta, score_tau2)            # J x (K+1)
+```
+
+**Meat.** The meat matrix accumulates outer products of the per-study score vectors:
+
+$$
+\mathbf{M} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j' = \mathbf{S}'\mathbf{S}
+$$
+
+The meat is a $(K{+}1) \times (K{+}1)$ matrix.
+Only likelihood scores contribute; prior scores are deliberately excluded from the meat to preserve the sandwich's frequentist robustness properties.
+
+**Bread.** The bread is the posterior Hessian $\mathbf{H}_\text{post} = \mathbf{H}_\text{lik} + \mathbf{H}_\text{prior}$.
+The likelihood Hessian `.build_marginal_hessian()` assembles the $(K{+}1) \times (K{+}1)$ matrix from the beta--beta, beta--$\tau^2$, and $\tau^2$--$\tau^2$ blocks using the study-level summaries.
+The stabilized prior Hessian `.build_prior_hessian()` adds precision from the beta and $\tau^2$ priors.
+
+**HC0 assembly.**
+
+$$
+\mathbf{V}_\text{HC0} = \mathbf{H}_\text{post}^{-1}\,\mathbf{M}\,\mathbf{H}_\text{post}^{-1}
+$$
+
+The beta-block is extracted as $\mathbf{V}_\beta = \mathbf{V}_\text{HC0}[1{:}K,\; 1{:}K]$.
+A positive-definiteness check is performed on $\mathbf{V}_\beta$; if it fails, the beta-block CCC is skipped (no `nearPD` correction is ever applied---see @sec-sw-safeguards).
+
+### Observation-Level Path
+
+When within-study varying predictors are detected (`obs_level = TRUE`), scores use the Woodbury expansion of $\boldsymbol{\Sigma}_j^{-1}$ applied to the observation-level residual vector $\mathbf{r}_j$:
+
+$$
+\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j = \frac{\mathbf{r}_j}{\bar{s}_j^2} - \frac{\tau^2\,\bar{r}_j}{\bar{s}_j^2\,v_j}\,\mathbf{1}_{n_j}
+$$
+
+The beta score for study $j$ becomes $\mathbf{s}_j^{(\beta)} = \mathbf{X}_j'\,\boldsymbol{\Sigma}_j^{-1}\mathbf{r}_j$, using the full $n_j \times K$ design matrix.
+The $\tau^2$ score collapses to the same study-mean expression regardless of path, since $\tau^2$ is a between-study parameter.
+
+### Conditional Sandwich: Theta Block
+
+The function `.conditional_sandwich()` computes per-study conditional variances $V_{\text{cond},j}$ for the CE theta parameters $\theta_j \mid \hat{\boldsymbol{\beta}}$.
+With beta fixed, each $\theta_j$ is conditionally independent:
+
+$$
+H_{\theta,j} = \frac{n_j}{\bar{s}_j^2} + \frac{1}{\hat\tau^2}, \qquad
+s_{\theta,j} = \frac{n_j}{\bar{s}_j^2}\,r_{\text{cond},j}, \qquad
+V_{\text{cond},j} = \frac{s_{\theta,j}^2}{H_{\theta,j}^2}
+$$
+
+where $r_{\text{cond},j} = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}} - \hat\theta_j$.
+These per-study scalar variances serve as the CCC theta-block calibration targets.
+
+### Scalar Small-Sample Correction
+
+The `small_sample = "scalar"` path inflates the HC0 beta-block by a scalar factor derived from Bayesian leverage.
+The effective degrees of freedom $p_\text{eff}$ are computed from the trace of the Bayesian hat matrix, yielding:
+
+$$
+c_\beta = \frac{J}{J - p_\text{eff}}, \qquad \mathbf{V}_\text{scalar} = c_\beta \cdot \mathbf{V}_\text{HC0}
+$$
+
+This provides a simple correction that improves coverage when $J$ is small relative to $K$, but lacks the per-study bias adjustment of CR2 and does not provide degrees of freedom for $t$-based inference.
+
+
+## CHE Sandwich Path {#sec-sw-che}
+
+The CHE model analytically integrates out the study-specific effects $\theta_j$, yielding a marginal parameter vector $\boldsymbol{\phi} = (\boldsymbol{\beta}, \tau^2, \omega^2)$ of dimension $K + 2$.
+The function `.che_sandwich()` handles this distinct pipeline.
+
+### Architectural Principle: Reuse via omega2_hat
+
+The central insight of the v0.6.0 implementation is that the CHE working covariance differs from CE only by a substitution in the within-study variance component.
+In the CE model, the marginal covariance for study $j$ is:
+
+$$
+\boldsymbol{\Sigma}_j^\text{CE} = \bar{s}_j^2\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+$$
+
+In the CHE model, integrating out $\theta_j$ with $\theta_j \sim N(\mathbf{x}_j'\boldsymbol{\beta},\, \omega^2)$ yields:
+
+$$
+\boldsymbol{\Sigma}_j^\text{CHE} = (\bar{s}_j^2 + \omega^2)\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+$$
+
+The substitution $a_j = \bar{s}_j^2 + \hat\omega^2$ (where $\hat\omega^2 = \text{E}[\omega^2 \mid \text{data}]$ per Decision D20) allows all CE CR2 infrastructure to be reused without modification.
+Every helper function---`.compute_W_j()`, `.compute_wls_bread()`, `.compute_hat_blocks()`, `.compute_cr2_adjustments()`, `.compute_vcr2()`, `.satterthwaite_df()`---accepts an `omega2_hat` parameter that defaults to 0 for CE.
+
+### CHE HC0 Sandwich
+
+The CHE HC0 path constructs the full $(K{+}2) \times (K{+}2)$ sandwich directly.
+Scores for $\boldsymbol{\beta}$, $\tau^2$, and $\omega^2$ are computed analytically at the posterior mean using the Woodbury-expanded covariance.
+The bread uses `.build_che_hessian()`, which assembles the full Hessian including the $\omega^2$ block.
+Unlike the CE path, which uses the observed likelihood Hessian (including residual-dependent terms), `.build_che_hessian()` uses **expected information**---the Hessian with residual terms dropped, retaining only trace-based curvature.
+This choice is deliberate: the observed information for the $(K{+}2)$-dimensional Hessian can produce negative diagonal entries for variance-component blocks, yielding a non-PD bread.
+Expected information is always PD for well-identified models and is standard practice in REML-type estimation.
+
+The expected-information Hessian has three nonzero block types:
+
+- **Beta--beta:** $\sum_j \mathbf{X}_j' \boldsymbol{\Sigma}_j^{-1} \mathbf{X}_j$ (identical to CE, with $a_j = \bar{s}_j^2 + \hat\omega^2$).
+- **Variance--variance:** $H_{\tau^2,\tau^2} = \tfrac{1}{2}\sum_j n_j^2 / c_j^2$; $H_{\omega^2,\omega^2} = \tfrac{1}{2}\sum_j [(n_j{-}1)/a_j^2 + 1/c_j^2]$; $H_{\tau^2,\omega^2} = \tfrac{1}{2}\sum_j n_j/c_j^2$.
+- **Beta--variance cross-blocks:** identically zero under expected information.
+
+The stabilized prior Hessian adds diagonal precision: $1/\sigma_\beta^2$ for each beta coefficient, and ridge-capped entries $\min(1/(2\hat\tau^4),\, 10^6)$ and $\min(1/(2\hat\omega^4),\, 10^6)$ for the variance components (see the analogous CE ridge in @sec-sandwich).
+If the resulting $\mathbf{H}_\text{post}$ is not positive definite despite expected information, a `nearPD` correction is applied---the only location in the sandwich module where this fallback is used, justified because the bread (unlike $\mathbf{V}_{\text{CR2}}$) is an auxiliary quantity whose slight perturbation does not mask a diagnostic signal (see also @sec-sw-safeguards).
+
+### CHE CR2 Upgrade
+
+When `small_sample = "CR2"`, the CHE path mirrors the CE CR2 pipeline with one difference: the `omega2_hat` parameter flows through:
+
+```r
+bread_info_cr2 <- .compute_wls_bread(bm_data, tau2_hat, K, J,
+                                      omega2_hat = omega2_hat)
+```
+
+All subsequent steps---hat blocks, CR2 adjustments, V_CR2, and Satterthwaite df---call the same generic functions as CE.
+The CHE V_CR2 replaces the HC0 beta-block as the CCC calibration target.
+
+### CHE Conditional Sandwich
+
+Since the CHE model integrates $\theta_j$ out analytically, there is no explicit theta parameter to calibrate.
+The CHE sandwich object sets `V_sand_cond = 0` for all $J$ studies, maintaining structural compatibility with downstream CCC and method dispatch while signaling that no theta-block calibration is needed.
+
+### Decision D22: Singleton Warning
+
+Before any computation, `.che_sandwich()` checks for singleton studies ($n_j = 1$), where $\tau^2$ and $\omega^2$ are not separately identified from the data.
+If all studies are singletons, a warning indicates that posterior separation relies entirely on the prior.
+If more than 50\% of studies are singletons, a weaker warning flags potential sensitivity.
+
+
+## Woodbury Linear Algebra and $\mathbf{W}^{1/2}$ {#sec-sw-woodbury}
+
+The Woodbury matrix identity is the computational backbone of the sandwich module.
+Two functions encapsulate the key linear algebra: `.compute_W_j()` for the weight matrix and `.compute_W_j_sqrt()` for its matrix square root.
+
+### Weight Matrix: `.compute_W_j()`
+
+The working covariance for study $j$ has compound-symmetric structure:
+
+$$
+\boldsymbol{\Sigma}_j = a_j\,\mathbf{I}_{n_j} + \tau^2\,\mathbf{1}\mathbf{1}'
+$$
+
+where $a_j = \bar{s}_j^2 + \hat\omega^2$ (reducing to $\bar{s}_j^2$ for CE when $\hat\omega^2 = 0$).
+The Woodbury inverse gives the weight matrix in closed form:
+
+$$
+\mathbf{W}_j = \boldsymbol{\Sigma}_j^{-1} = \frac{1}{a_j}\,\mathbf{I}_{n_j} - \frac{\tau^2}{a_j\,c_j}\,\mathbf{1}\mathbf{1}'
+$$
+
+where $c_j = a_j + n_j\tau^2$.
+For singletons ($n_j = 1$), this simplifies to the scalar $1/(a_j + \tau^2)$.
+
+The implementation:
+
+```r
+.compute_W_j <- function(s_bar2_j, tau2_hat, n_j, omega2_hat = 0) {
+  a_j <- s_bar2_j + omega2_hat
+  a_j <- max(a_j, .Machine$double.eps)
+  if (n_j == 1L) return(matrix(1 / (a_j + tau2_hat), 1L, 1L))
+
+  c_j <- a_j + n_j * tau2_hat
+  diag_val <- 1 / a_j
+  off_val  <- -tau2_hat / (a_j * c_j)
+  W_j <- matrix(off_val, n_j, n_j)
+  diag(W_j) <- diag_val + off_val
+  W_j
+}
+```
+
+The floor on $a_j$ guards against degenerate cases where both sampling variance and $\omega^2$ are near zero.
+
+### Matrix Square Root: `.compute_W_j_sqrt()` (Decision D24)
+
+The CR2 adjustment requires the symmetrization transform $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}$ (Decision D16).
+Rather than computing the general eigendecomposition of $\mathbf{W}_j$ at every study, Decision D24 exploits the compound-symmetric structure.
+
+The matrix $\mathbf{W}_j = a\,\mathbf{I} + b\,\mathbf{1}\mathbf{1}'$ (where $a = 1/a_j - \tau^2/(a_j c_j)$ and $b = -\tau^2/(a_j c_j)$) has exactly two distinct eigenvalues:
+
+$$
+\lambda_1 = a + n_j b \quad (\text{eigenvector: } \mathbf{1}/\sqrt{n_j}), \qquad
+\lambda_2 = a \quad (n_j - 1 \text{ times})
+$$
+
+The square root and inverse square root inherit the same rank-1 structure:
+
+$$
+\mathbf{W}_j^{1/2} = \sqrt{\lambda_2}\,\mathbf{I}_{n_j} + \frac{\sqrt{\lambda_1} - \sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'
+$$
+
+$$
+\mathbf{W}_j^{-1/2} = \frac{1}{\sqrt{\lambda_2}}\,\mathbf{I}_{n_j} + \frac{1/\sqrt{\lambda_1} - 1/\sqrt{\lambda_2}}{n_j}\,\mathbf{1}\mathbf{1}'
+$$
+
+This avoids the $O(n_j^3)$ eigendecomposition cost per study.
+The implementation constructs both matrices directly from the two eigenvalues:
+
+```r
+sa <- sqrt(lam2)                              # sqrt of repeated eigenvalue
+s1 <- sqrt(lam1)                              # sqrt of rank-1 eigenvalue
+W_sqrt <- matrix((s1 - sa) / n_j, n_j, n_j)
+diag(W_sqrt) <- sa + (s1 - sa) / n_j
+```
+
+A guard checks that both eigenvalues are positive; if not, the function falls back to a general eigendecomposition with eigenvalue flooring.
+
+
+## CR2 Assembly and Satterthwaite df {#sec-sw-cr2}
+
+The CR2 pipeline consists of four steps executed sequentially after the HC0 computation: WLS bread, hat matrix blocks, CR2 adjustment matrices, and V_CR2 assembly, followed by Satterthwaite degrees of freedom.
+
+### Step A.1: WLS Bread (Decision D15)
+
+Decision D15 mandates that CR2 uses the fixed-effect WLS bread $\mathbf{Q} = (\mathbf{X}'\mathbf{W}\mathbf{X})^{-1}$, not the posterior Hessian.
+The posterior Hessian includes prior precision, which is appropriate for the MCMC covariance used in CCC but would distort the frequentist leverage computations that CR2 relies on.
+
+The function `.compute_wls_bread()` handles both study-level and observation-level paths:
+
+**Study-level** (cluster-constant predictors): Each study contributes a scalar weight $w_j = 1/v_j$ where $v_j = (\bar{s}_j^2 + \hat\omega^2)/n_j + \hat\tau^2$:
+
+$$
+\mathbf{Q} = \left(\sum_{j=1}^{J} w_j\,\bar{\mathbf{x}}_j\,\bar{\mathbf{x}}_j'\right)^{-1}
+$$
+
+**Observation-level** (within-study varying predictors): Each study contributes the full Woodbury weight matrix:
+
+$$
+\mathbf{Q} = \left(\sum_{j=1}^{J} \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{X}_j\right)^{-1}
+$$
+
+The function returns $\mathbf{Q}$ along with the per-study lists $\mathbf{W}_j$ and $\mathbf{X}_j$, which are reused by all downstream CR2 functions.
+If $\mathbf{X}'\mathbf{W}\mathbf{X}$ is singular, a generalized inverse via `MASS::ginv()` is used with a diagnostic warning.
+
+### Step A.2a: Hat Matrix Blocks
+
+The function `.compute_hat_blocks()` computes the diagonal blocks of the hat matrix for each study:
+
+$$
+\mathbf{H}_{jj} = \mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j
+$$
+
+For the study-level path, this reduces to the scalar leverage $h_j = \bar{\mathbf{x}}_j'\,\mathbf{Q}\,\bar{\mathbf{x}}_j \cdot w_j$.
+A warning is issued if any $h_j > 0.5$, indicating a high-leverage study that may destabilize CR2.
+
+Note that $\mathbf{H}_{jj}$ is generally not symmetric for the observation-level path.
+The symmetrization needed for the CR2 eigendecomposition is handled in the next step via the $\mathbf{W}^{1/2}$ transform.
+
+### Step A.2b: CR2 Adjustment Matrices (Decision D16)
+
+The function `.compute_cr2_adjustments()` computes the @bell2002 adjustment matrices $\mathbf{A}_j$ using the $\mathbf{W}^{1/2}$ symmetrization approach (Decision D16).
+
+For the study-level or singleton case, the adjustment is a scalar:
+
+$$
+A_j = (1 - h_j)^{-1/2}
+$$
+
+For the observation-level case, the three-step procedure is:
+
+1. **Symmetrize:** $\tilde{\mathbf{H}}_{jj} = \mathbf{W}_j^{1/2}\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{X}_j'\,\mathbf{W}_j^{1/2}$
+2. **Eigendecompose:** $\mathbf{I} - \tilde{\mathbf{H}}_{jj} = \mathbf{V}\,\boldsymbol{\Lambda}\,\mathbf{V}'$, then $\tilde{\mathbf{A}}_j = (\mathbf{I} - \tilde{\mathbf{H}}_{jj})^{-1/2} = \mathbf{V}\,\boldsymbol{\Lambda}^{-1/2}\,\mathbf{V}'$
+3. **Back-transform:** $\mathbf{A}_j = \mathbf{W}_j^{-1/2}\,\tilde{\mathbf{A}}_j\,\mathbf{W}_j^{1/2}$
+
+Eigenvalues of $\mathbf{I} - \tilde{\mathbf{H}}_{jj}$ below $10^{-10}$ are truncated with a warning, preventing division by near-zero values in the inverse square root.
+Leverage values exceeding 0.999 are capped for the scalar path.
+
+### Step A.3: V_CR2 Assembly
+
+The function `.compute_vcr2()` assembles the CR2 variance estimator (Decision D12):
+
+$$
+\mathbf{V}_\text{CR2} = \mathbf{Q}\left(\sum_{j=1}^{J} \tilde{\mathbf{s}}_j\,\tilde{\mathbf{s}}_j'\right)\mathbf{Q}
+$$
+
+where $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\mathbf{A}_j\,\hat{\mathbf{e}}_j$ are the CR2-adjusted scores and $\hat{\mathbf{e}}_j$ are the WLS residuals.
+
+For the study-level path, the residual is the scalar $r_j = \bar{y}_j - \bar{\mathbf{x}}_j'\hat{\boldsymbol{\beta}}$, the adjustment is the scalar $A_j$, and the adjusted score simplifies to $\tilde{\mathbf{s}}_j = \bar{\mathbf{x}}_j \cdot w_j \cdot A_j \cdot r_j$.
+
+For the observation-level path, the full matrix computation applies: $\hat{\mathbf{e}}_j = \mathbf{y}_j - \mathbf{X}_j\hat{\boldsymbol{\beta}}$ (the $n_j$-vector of residuals), $\tilde{\mathbf{e}}_j = \mathbf{A}_j\hat{\mathbf{e}}_j$, and $\tilde{\mathbf{s}}_j = \mathbf{X}_j'\,\mathbf{W}_j\,\tilde{\mathbf{e}}_j$.
+
+The assembled V_CR2 replaces the HC0 beta-block as the CCC calibration target.
+This is the critical integration point identified during v0.5.0 development: `marg$V_beta` (not `V_sand_marg`) must be overwritten, since `.assemble_bm_sandwich()` exports `V_beta` as the final `V_sand_marg` field.
+
+### Step B.1: Satterthwaite Degrees of Freedom (Decision D17)
+
+The function `.satterthwaite_df()` computes per-coefficient degrees of freedom using the trace formula from @bell2002 and @tipton2015.
+
+For each coefficient $k$, define the $J \times J$ matrix $\mathbf{P}_k$ with elements:
+
+$$
+P_{k,ii} = \mathbf{g}_{ik}'\,\mathbf{W}_i^{-1}\,\mathbf{g}_{ik} - \mathbf{g}_{ik}'\,\mathbf{X}_i\,\mathbf{Q}\,\mathbf{X}_i'\,\mathbf{g}_{ik}
+$$
+
+$$
+P_{k,ij} = -(\mathbf{X}_i'\mathbf{g}_{ik})'\,\mathbf{Q}\,(\mathbf{X}_j'\mathbf{g}_{jk}), \quad i \neq j
+$$
+
+where $\mathbf{g}_{jk} = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}\,\mathbf{c}_k$ and $\mathbf{c}_k$ is the $k$-th standard basis vector.
+
+The Satterthwaite df is then:
+
+$$
+\text{df}_k = \frac{[\text{tr}(\mathbf{P}_k)]^2}{\text{tr}(\mathbf{P}_k^2)}
+$$
+
+The implementation pre-computes $\mathbf{G}_j = \mathbf{A}_j'\,\mathbf{W}_j\,\mathbf{X}_j\,\mathbf{Q}$ for all studies, then extracts column $k$ as $\mathbf{g}_{jk}$.
+The $J \times J$ matrix $\mathbf{P}_k$ is built with diagonal terms involving $\mathbf{W}_j^{-1}\mathbf{g}_{jk}$ (computed via `solve()` for numerical stability) and off-diagonal terms from the cross-products.
+
+The trace $\text{tr}(\mathbf{P}_k^2)$ is computed efficiently as `sum(P_k * P_k)` (the Frobenius inner product of $\mathbf{P}_k$ with itself, which equals the sum of squared elements for a symmetric matrix).
+
+Diagnostic safeguards handle three failure modes:
+
+1. Computation failure (singular $\mathbf{W}_j$): df set to `NA`, replaced by naive $\max(J - K, 1)$.
+2. $\text{df}_k < 1$: Replaced by naive df with a warning.
+3. $\text{df}_k < 4$: Retained but flagged following @tipton2015, who showed that $t$-based inference is unreliable below this threshold.
+
+### Decision D25: Plug-In Parity
+
+The plug-in parity test (Decision D25) validates the CR2 linear algebra by injecting REML estimates of $\hat\tau^2$ (and $\hat\omega^2$ for CHE) into the bayesRVE sandwich pipeline and comparing the resulting V_CR2 against `clubSandwich::vcovCR()` [@pustejovsky2022] applied to a `metafor::rma.mv()` [@viechtbauer2010] fit.
+Agreement at $10^{-6}$ tolerance isolates the linear algebra from MCMC noise, confirming that the Woodbury, CR2, and Satterthwaite implementations exactly match the reference.
+This test is a cornerstone of the verification strategy (@sec-verification).
+
+
+## Numerical Safeguards {#sec-sw-safeguards}
+
+The sandwich module incorporates multiple defensive measures to ensure numerical stability across the wide range of meta-analytic datasets encountered in practice.
+
+### Generalized Inverse Fallback
+
+When $\mathbf{X}'\mathbf{W}\mathbf{X}$ is singular or near-singular (e.g., due to collinear moderators or extreme weight imbalance), `solve()` will fail.
+The bread computation wraps the inversion in `tryCatch` and falls back to `MASS::ginv()`:
+
+```r
+Q <- tryCatch(
+  solve(XtWX),
+  error = function(e) {
+    cli::cli_warn("X'WX is singular; using generalized inverse.")
+    MASS::ginv(XtWX)
+  }
+)
+```
+
+### Positive-Definiteness Diagnostics
+
+The `beta_pd` flag records whether $\mathbf{V}_\beta$ is positive definite.
+This diagnostic propagates to the CCC: if `beta_pd = FALSE`, the beta-block CCC transformation is skipped because the Cholesky factorization $\mathbf{L}_2 = \text{chol}(\mathbf{V}_\text{CR2})$ would fail.
+The PD check is recomputed after each correction stage (HC0, scalar, CR2) so the flag reflects the final export target.
+
+### Score Balance Check
+
+The score sum norm $\|\sum_j \mathbf{s}_j\|$ is stored in `diagnostics$score_sum_norm`.
+At the posterior mean, the score equation $\sum_j \mathbf{s}_j + \mathbf{s}_\text{prior} = \mathbf{0}$ should hold approximately (exactly for MAP, approximately for posterior mean with informative priors).
+Large values indicate numerical issues in score computation.
+
+### Condition Number Monitoring
+
+The condition number $\kappa(\mathbf{H}_\text{post})$ is computed from the eigenvalue ratio and stored in diagnostics.
+Values exceeding $10^{12}$ trigger a warning suggesting stronger priors.
+For the CR2 path, $\kappa(\mathbf{Q})$ is similarly monitored via `diagnostics$H_condition`.
+
+### The nearPD Anti-Pattern
+
+A deliberate design choice: `nearPD()` is never applied to $\mathbf{V}_\text{CR2}$ or any sandwich variance output.
+If the sandwich estimate is not positive definite, this signals a genuine problem---insufficient studies, extreme leverage, or model misspecification---that should be reported to the user, not silently corrected.
+Applying `nearPD()` would mask the diagnostic signal and produce artificially smooth confidence intervals with no theoretical backing.
+Instead, non-PD beta-blocks cause the CCC to fall back to raw posterior draws, preserving valid Bayesian inference at the cost of losing the sandwich calibration.
+(The one exception is `.build_che_hessian()`, which applies `nearPD` to the posterior *bread* matrix $\mathbf{H}_\text{post}$---an auxiliary intermediate, not a sandwich variance estimate---to ensure a valid bread exists for the HC0 inversion.)
+
+
+## Design Decision Registry {#sec-sw-decisions}
+
+The following table summarizes all design decisions that directly affect the `sandwich()` module.
+Each decision is referenced by its identifier (D*n*) from the project development log.
+
+| Decision | Choice | Rationale |
+|:---------|:-------|:----------|
+| D2 | Blockwise hybrid CCC: beta-block marginal sandwich, theta-block diagonal rescaling | Avoids Neyman-Scott inconsistency for variance components |
+| D5 | `rho` handled in `sandwich()`, not in `bm_fit()` | User controls working correlation at analysis time |
+| D6 | Within-study varying moderators trigger obs-level scores | Auto-dispatch via `cluster_constant`; no user action needed |
+| D7 | Operating envelope $J_{\min} = \max(8, 2K+2)$; fallback to raw posterior | Prevents ill-conditioned sandwiches with too few clusters |
+| D11 | CR2 + Satterthwaite implemented independently | No clubSandwich runtime dependency; full numerical control |
+| D12 | CCC target = $V_{\text{CR2}}$ (not $V_{\text{HC0}} \cdot c_\beta$) | CR2 is less biased, especially for heterogeneous cluster sizes |
+| D13 | Default `small_sample = "CR2"`, default df = Satterthwaite | Best available finite-sample correction as package default |
+| D15 | WLS bread $(X'WX)^{-1}$, not posterior Hessian | Frequentist CR2 requires frequentist bread; prior precision distorts leverage |
+| D16 | $W^{1/2}$ symmetrization for hat matrix | Ensures real eigendecomposition for $A_j$ |
+| D17 | Satterthwaite df via $P_k$ trace formula | Deterministic, matches @tipton2015 |
+| D20 | $\hat\omega^2 = E[\omega^2]$ (Jensen-safe) | Correct variance plug-in; consistent with CE convention |
+| D22 | Singleton non-identifiability warning | Protects users from misleading CHE results |
+| D24 | Analytical $W^{1/2}$ via rank-1 structure | $O(n_j)$ closed form vs $O(n_j^3)$ eigendecomposition |
+| D25 | Plug-in parity: REML injection matches clubSandwich at $10^{-6}$ | Isolates linear algebra from MCMC noise |
+
+: Design decisions affecting the sandwich variance estimation module. {#tbl-sw-decisions}

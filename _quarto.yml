@@ -1,0 +1,61 @@
+project:
+  type: book
+  output-dir: docs
+
+book:
+  title: "bayesRVE: Cholesky Calibration Correction for Bayesian Meta-Analysis with Dependent Effect Sizes"
+  subtitle: "Technical Report — Theory, Implementation, and Empirical Validation"
+  author: "JoonHo Lee"
+  date: "2026-03-26"
+  chapters:
+    - index.qmd
+    - ch00-notation.qmd
+    - part: "Part I: Foundations"
+      chapters:
+        - ch01-introduction.qmd
+        - ch02-models.qmd
+        - ch03-sandwich.qmd
+        - ch04-ccc.qmd
+        - ch05-envelope.qmd
+    - part: "Part II: Software Realization and Verification"
+      chapters:
+        - ch06-architecture.qmd
+        - ch07-fitting.qmd
+        - ch08-sandwich-impl.qmd
+        - ch09-ccc-impl.qmd
+        - ch10-verification.qmd
+    - part: "Part III: Empirical Validation"
+      chapters:
+        - ch11-tsl15-design.qmd
+        - ch12-results.qmd
+        - ch13-mechanics.qmd
+  appendices:
+    - app-a-proofs.qmd
+    - app-b-decisions.qmd
+    - app-c-api.qmd
+    - app-d-reproducibility.qmd
+    - references.qmd
+
+format:
+  html:
+    theme:
+      light: cosmo
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    highlight-style: github
+    html-math-method: mathjax
+    fig-width: 8
+    fig-height: 5
+    fig-dpi: 300
+
+bibliography: references.bib
+csl: apa.csl
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true

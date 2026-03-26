@@ -1,0 +1,525 @@
+---
+title: "Cholesky Calibration Correction"
+---
+
+## Definition and Geometric Intuition {#sec-ccc}
+
+### The CCC Affine Transformation
+
+The Cholesky Calibration Correction (CCC) occupies the third stage of the bayesRVE inference pipeline:
+
+$$
+\texttt{bm\_fit()} \;\longrightarrow\; \texttt{sandwich()} \;\longrightarrow\; \texttt{ccc()} \;\longrightarrow\; \texttt{summary()}
+$$
+
+Given $S$ posterior draws $\psi^{(1)}, \ldots, \psi^{(S)}$ of a $d$-dimensional parameter vector $\psi$, with posterior mean $\hat{\psi} = S^{-1}\sum_{s=1}^{S}\psi^{(s)}$ and sample covariance $\hat{\Sigma}_{\text{MCMC}}$, and a symmetric positive definite target $\mathbf{V}_{\text{target}}$, CCC defines calibrated draws:
+
+$$
+\psi^{*(s)} = \hat{\psi} + \mathbf{A}\!\left(\psi^{(s)} - \hat{\psi}\right), \quad s = 1, \ldots, S
+$$ {#eq-ccc-general}
+
+where the transformation matrix is
+
+$$
+\mathbf{A} = L_2 \, L_1^{-1},
+$$ {#eq-ccc-A}
+
+with $L_1 = \operatorname{chol}(\hat{\Sigma}_{\text{MCMC}})$ and $L_2 = \operatorname{chol}(\mathbf{V}_{\text{target}})$ denoting lower-triangular Cholesky factors of the MCMC covariance and target covariance, respectively.
+
+In bayesRVE, $\mathbf{V}_{\text{target}}$ is the CR2 sandwich variance estimator from @sec-sandwich, making CCC the mechanism that bridges Bayesian posterior inference and frequentist robust variance estimation.
+
+
+### Geometric Interpretation {#sec-ccc-geometry}
+
+CCC admits a vivid geometric reading. Consider the posterior draws as a cloud of points in $\mathbb{R}^d$. Under a well-specified model, this cloud forms an ellipsoid whose shape and orientation are governed by the posterior covariance $\hat{\Sigma}_{\text{MCMC}}$. The sandwich variance $\mathbf{V}_{\text{target}}$ defines a second, "target" ellipsoid encoding the robust frequentist uncertainty.
+
+The Cholesky factorization decomposes each covariance into a sequence of elementary operations: $L_1$ maps the unit sphere to the MCMC ellipsoid, and $L_2$ maps it to the target ellipsoid. The transformation $\mathbf{A} = L_2 L_1^{-1}$ therefore:
+
+1. **Unstandardizes** the draws: $L_1^{-1}$ maps the MCMC ellipsoid back to a sphere, removing the posterior's shape and orientation.
+2. **Restandardizes** to the target: $L_2$ then maps the sphere to the target ellipsoid, imposing the sandwich covariance structure.
+
+The net effect is a rotation and scaling of the posterior draw cloud so that its covariance exactly matches the sandwich ellipsoid, while preserving its center at $\hat{\psi}$. When the two ellipsoids already coincide --- that is, when the working model is correctly specified --- $L_1 = L_2$ and $\mathbf{A} = \mathbf{I}_d$: the cloud passes through unchanged.
+
+This ellipsoid-matching perspective clarifies several features of CCC:
+
+- **Bidirectional calibration.** If the posterior ellipsoid is narrower than the sandwich ellipsoid along some axis, CCC stretches the draws along that axis. If it is wider, CCC compresses. Both directions are valid calibration.
+- **Correlation structure.** CCC does not merely rescale marginal variances; the full $\mathbf{A}$ matrix rotates the cloud to match off-diagonal covariances as well.
+- **Uniqueness.** The positive-diagonal Cholesky factorization of a positive definite matrix is unique, so $\mathbf{A}$ is uniquely determined by the pair $(\hat{\Sigma}_{\text{MCMC}}, \mathbf{V}_{\text{target}})$.
+
+
+### Scalar Special Case {#sec-ccc-scalar}
+
+When $d = 1$, CCC reduces to variance rescaling:
+
+$$
+\psi^{*(s)} = \hat{\psi} + r\,(\psi^{(s)} - \hat{\psi}), \quad r = \sqrt{\frac{V_{\text{target}}}{\hat{\Sigma}_{\text{MCMC}}}}
+$$ {#eq-ccc-scalar}
+
+Here $r > 1$ means the posterior is too narrow (CCC widens), $r < 1$ means too wide (CCC narrows), and $r = 1$ is identity. This scalar form is precisely the operation applied to each $\theta_j$ in the theta-block diagonal rescaling (@sec-ccc-theta).
+
+Note the relationship to the diagnostic ratio $R_k = \text{SD}(\psi_k^*) / \text{SD}(\psi_k)$ reported by bayesRVE: in the scalar case, $R_k = r$ exactly. In the multivariate case ($K > 1$), $R_k$ is the marginal SD ratio for coefficient $k$, which reflects the combined effect of the $K \times K$ Cholesky transformation including cross-coefficient correlations.
+
+
+## Core Theorems {#sec-ccc-theorems}
+
+Three theorems establish the algebraic properties of CCC. All three are finite-sample identities requiring no asymptotic arguments.
+
+
+### Theorem 1: Center Preservation
+
+**Theorem 1.** *CCC preserves the posterior mean:*
+
+$$
+\bar{\psi}^* \;=\; \frac{1}{S}\sum_{s=1}^{S} \psi^{*(s)} \;=\; \hat{\psi}.
+$$ {#eq-ccc-center}
+
+*Proof.* By linearity of the sample mean and @eq-ccc-general:
+
+$$
+\bar{\psi}^* = \frac{1}{S}\sum_{s=1}^{S}\left[\hat{\psi} + \mathbf{A}(\psi^{(s)} - \hat{\psi})\right] = \hat{\psi} + \mathbf{A}\!\left(\frac{1}{S}\sum_{s=1}^{S}\psi^{(s)} - \hat{\psi}\right) = \hat{\psi} + \mathbf{A}\cdot\mathbf{0} = \hat{\psi}.
+$$
+
+The cancellation $\bar{\psi} - \hat{\psi} = \mathbf{0}$ holds because $\hat{\psi}$ is defined as the posterior sample mean. $\square$
+
+Theorem 1 holds exactly (to machine precision) when the center is the posterior mean. For alternative centers such as the posterior median, the calibrated sample mean is $\hat{\psi}_{\text{med}} + \mathbf{A}(\bar{\psi} - \hat{\psi}_{\text{med}})$, which generally differs from both $\hat{\psi}_{\text{med}}$ and $\bar{\psi}$. This is the primary reason posterior mean is the default center in bayesRVE.
+
+#### Verification {#sec-ccc-thm1-verify}
+
+The `.verify_ccc()` function checks Theorem 1 as verification V1: it computes
+
+```r
+mean_dev <- max(abs(colMeans(draws_star) - center))
+```
+
+and asserts `mean_dev < 1e-6`. Because center preservation is an exact algebraic identity under posterior-mean centering, deviations exceeding this threshold indicate an implementation bug, and `.verify_ccc()` raises an error (not a warning). In all 2,701 passing tests at v0.6.0, this check passes with deviations at the level of $10^{-14}$ to $10^{-12}$, consistent with IEEE 754 double-precision arithmetic. See @sec-verification for full benchmark results.
+
+
+### Theorem 2: Exact Covariance Matching
+
+**Theorem 2.** *The sample covariance of the calibrated draws equals the target covariance:*
+
+$$
+\operatorname{Cov}(\psi^{*(1)}, \ldots, \psi^{*(S)}) = \mathbf{V}_{\text{target}}.
+$$ {#eq-ccc-covariance}
+
+*Proof.* Define centered draws $\tilde{\psi}^{(s)} = \psi^{(s)} - \hat{\psi}$. By Theorem 1, the calibrated draws satisfy $\psi^{*(s)} - \bar{\psi}^* = \mathbf{A}\tilde{\psi}^{(s)}$. The sample covariance is therefore:
+
+$$
+\operatorname{Cov}(\psi^*) = \frac{1}{S-1}\sum_{s=1}^{S} \mathbf{A}\tilde{\psi}^{(s)}\tilde{\psi}^{(s)\top}\mathbf{A}^\top = \mathbf{A}\,\hat{\Sigma}_{\text{MCMC}}\,\mathbf{A}^\top.
+$$
+
+Substituting $\mathbf{A} = L_2 L_1^{-1}$ and $\hat{\Sigma}_{\text{MCMC}} = L_1 L_1^\top$:
+
+$$
+\mathbf{A}\,\hat{\Sigma}_{\text{MCMC}}\,\mathbf{A}^\top = L_2 L_1^{-1} L_1 L_1^\top (L_1^{-1})^\top L_2^\top = L_2 L_2^\top = \mathbf{V}_{\text{target}}.
+$$
+
+$\square$
+
+This is an exact, finite-sample algebraic identity, not an asymptotic approximation. It holds regardless of the number of draws $S$, the distribution from which the original draws were generated, or the specific values of $\hat{\Sigma}_{\text{MCMC}}$ and $\mathbf{V}_{\text{target}}$.
+
+#### Verification {#sec-ccc-thm2-verify}
+
+The `.verify_ccc()` function checks Theorem 2 in two stages:
+
+- **V2 (diagonal):** For each $k$, the ratio $\operatorname{Var}(\beta_k^*) / [\mathbf{V}_{\text{sand,marg}}]_{kk}$ is computed and checked to be within 5% of unity.
+- **V4 (full covariance, $K \geq 2$):** The relative Frobenius norm $\|\operatorname{Cov}(\boldsymbol{\beta}^*) - \mathbf{V}_{\text{sand,marg}}\|_F / \|\mathbf{V}_{\text{sand,marg}}\|_F$ is checked against a 5% tolerance.
+
+Because CCC uses the sample covariance of the draws to construct $L_1$, the algebraic identity guarantees that these checks pass to machine precision for the beta-block (typically deviations of order $10^{-13}$). The 5% tolerance is set conservatively to accommodate the theta-block, where near-zero MCMC variances can introduce numerical noise. See @sec-verification for full benchmark results.
+
+
+### Theorem 3: Identity Under Correct Specification
+
+**Theorem 3.** *If the MCMC posterior covariance equals the target, CCC is the identity transformation:*
+
+$$
+\hat{\Sigma}_{\text{MCMC}} = \mathbf{V}_{\text{target}} \implies \mathbf{A} = \mathbf{I}_d \implies \psi^{*(s)} = \psi^{(s)} \;\;\forall\, s.
+$$ {#eq-ccc-identity}
+
+*Proof.* If $\hat{\Sigma}_{\text{MCMC}} = \mathbf{V}_{\text{target}}$, then $L_1 = L_2$ because the Cholesky factorization of a positive definite matrix with positive diagonal is unique. Therefore $\mathbf{A} = L_2 L_1^{-1} = L_1 L_1^{-1} = \mathbf{I}_d$, and $\psi^{*(s)} = \hat{\psi} + \mathbf{I}_d(\psi^{(s)} - \hat{\psi}) = \psi^{(s)}$. $\square$
+
+Theorem 3 is the theoretical foundation for the "always-on" CCC design in bayesRVE. When the working model is correctly specified, the Bayesian posterior already has the correct frequentist covariance, and CCC passes the draws through unchanged. This means applying CCC incurs no cost under correct specification --- the Frobenius norm $\|\mathbf{A} - \mathbf{I}\|_F$ is zero, and no draws are altered. There is therefore no need for a diagnostic gate (such as a design-effect ratio threshold) to decide whether to apply CCC; it is safe to apply unconditionally.
+
+#### Verification {#sec-ccc-thm3-verify}
+
+Theorem 3 is verified in the test suite by constructing synthetic scenarios where the MCMC covariance is set exactly equal to the sandwich target. In these tests:
+
+```r
+# Synthetic: V_target == cov(draws) by construction
+# => A_beta should be identity, frob_norm should be 0
+expect_equal(obj$frobenius_norm, 0, tolerance = 1e-10)
+expect_equal(obj$draws_star, obj$draws_orig, tolerance = 1e-10)
+```
+
+The identity is confirmed to machine precision ($\|\mathbf{A} - \mathbf{I}\|_F < 10^{-12}$). This is the Tier 0 algebraic gate that must pass before any MCMC-based benchmarks proceed. See @sec-verification for full benchmark results.
+
+
+## Blockwise Structure {#sec-ccc-blockwise}
+
+### Why Full-Joint CCC Is Impossible
+
+The full parameter vector $\boldsymbol{\phi} = (\boldsymbol{\beta}^\top, \theta_1, \ldots, \theta_J)^\top$ has dimension $d = K + J$. The full-joint sandwich meat matrix is a sum of $J$ rank-1 outer products:
+
+$$
+\mathbf{M}_{\text{full}} = \sum_{j=1}^{J} \mathbf{s}_j \mathbf{s}_j^\top, \quad \mathbf{s}_j \in \mathbb{R}^{K+J},
+$$
+
+so $\operatorname{rank}(\mathbf{M}_{\text{full}}) \leq J < K + J = d$ for any $K \geq 1$. The full-joint sandwich is therefore structurally singular, and its Cholesky factorization does not exist. Full-joint CCC is mathematically impossible.
+
+This rank deficiency is not a finite-sample artifact but an algebraic consequence of the incidental parameters structure: each study $j$ contributes exactly one independent observation unit (one score vector $\mathbf{s}_j$) to the meat, but the parameter vector has $K + J$ components. This is the sandwich-variance manifestation of the @neyman1948 incidental parameters problem.
+
+Applying `nearPD()` to the singular sandwich to force positive definiteness is explicitly rejected as an anti-pattern. Such an approach inflates eigenvalues artificially, breaking the exact covariance matching property of Theorem 2 and conferring false precision.
+
+
+### Block-Diagonal Target
+
+Decision D2 mandates blockwise hybrid CCC with a block-diagonal target:
+
+$$
+\mathbf{V}_{\text{CCC}} = \begin{pmatrix} \mathbf{V}_{\text{CCC}}^{(\beta)} & \mathbf{0}_{K \times J} \\ \mathbf{0}_{J \times K} & \mathbf{V}_{\text{CCC}}^{(\theta)} \end{pmatrix}
+$$ {#eq-ccc-target}
+
+The **beta-block** $\mathbf{V}_{\text{CCC}}^{(\beta)} = \mathbf{V}_{\text{sand,marg}}^{(\beta)}$ is the $K \times K$ marginal sandwich from @sec-sandwich, a full (generally non-diagonal) matrix that captures the correlation structure among fixed effects. The **theta-block** $\mathbf{V}_{\text{CCC}}^{(\theta)} = \operatorname{diag}(V_{\text{sand,cond}}^{(\theta_1)}, \ldots, V_{\text{sand,cond}}^{(\theta_J)})$ is a diagonal matrix of per-study conditional sandwich variances. The **cross-block** is zero --- not as a statistical claim that $\beta$-$\theta$ covariance is zero, but as a design decision that cross-block covariance is not targeted by CCC.
+
+This blockwise structure is justified on three grounds:
+
+1. **Different inferential targets.** $\boldsymbol{\beta}$ are population-level parameters and $\boldsymbol{\theta}$ are study-specific random effects, answering different research questions.
+2. **Different sandwich sources.** The beta-block target comes from the marginal sandwich and the theta-block target from the conditional sandwich --- two different statistical models.
+3. **Computational efficiency.** Full $(K+J) \times (K+J)$ Cholesky costs $O((K+J)^3)$; blockwise costs $O(K^3 + J)$. With $K \leq 10$ and $J$ potentially in the hundreds, this difference is substantial.
+
+A key consequence is block independence: the beta-block and theta-block CCC operations have no data dependency and can be computed independently. Each block achieves Theorem 2 within its own subspace:
+
+$$
+\operatorname{Cov}(\boldsymbol{\beta}^*) = \mathbf{V}_{\text{CCC}}^{(\beta)}, \quad \operatorname{diag}\!\left\{\operatorname{Cov}(\boldsymbol{\theta}^*)\right\} = \operatorname{diag}\!\left(\mathbf{V}_{\text{CCC}}^{(\theta)}\right).
+$$
+
+The assembled calibrated draws have cross-block covariance $\mathbf{A}_\beta \hat{\Sigma}_{\beta\theta} \mathbf{D}$ (where $\mathbf{D} = \operatorname{diag}(r_1, \ldots, r_J)$), which is generally nonzero but not targeted.
+
+
+## Beta-Block CCC Algorithm {#sec-ccc-beta}
+
+### Algorithm Steps
+
+The beta-block applies full Cholesky CCC to the $K$-dimensional fixed-effects posterior:
+
+**Step B1.** Extract posterior draws $\mathbf{B} = [\boldsymbol{\beta}^{(1)}, \ldots, \boldsymbol{\beta}^{(S)}]^\top \in \mathbb{R}^{S \times K}$.
+
+**Step B2.** Compute the centering point $\hat{\boldsymbol{\beta}} = S^{-1}\sum_{s=1}^{S}\boldsymbol{\beta}^{(s)}$.
+
+**Step B3.** Compute the MCMC sample covariance:
+
+$$
+\hat{\Sigma}_{\text{MCMC}}^{(\beta)} = \frac{1}{S-1}\sum_{s=1}^{S}(\boldsymbol{\beta}^{(s)} - \hat{\boldsymbol{\beta}})(\boldsymbol{\beta}^{(s)} - \hat{\boldsymbol{\beta}})^\top.
+$$ {#eq-sigma-mcmc-beta}
+
+**Step B4.** Obtain the marginal sandwich target $\mathbf{V}_{\text{sand,marg}}^{(\beta)}$ from the `bm_sandwich` object.
+
+**Step B5.** Compute Cholesky factors:
+
+$$
+L_1^{(\beta)} = \operatorname{chol}(\hat{\Sigma}_{\text{MCMC}}^{(\beta)}), \quad L_2^{(\beta)} = \operatorname{chol}(\mathbf{V}_{\text{sand,marg}}^{(\beta)}).
+$$ {#eq-chol-beta}
+
+**Step B6.** Form the transformation matrix $\mathbf{A}_\beta = L_2^{(\beta)} (L_1^{(\beta)})^{-1}$ and apply the affine transformation:
+
+$$
+\boldsymbol{\beta}^{*(s)} = \hat{\boldsymbol{\beta}} + \mathbf{A}_\beta(\boldsymbol{\beta}^{(s)} - \hat{\boldsymbol{\beta}}), \quad s = 1, \ldots, S.
+$$ {#eq-ccc-beta-apply}
+
+
+### Implementation Details
+
+R's `chol()` returns the upper-triangular factor $R$ satisfying $R^\top R = M$. The lower-triangular factor needed for CCC is obtained via `t(chol(M))`. The inverse $L_1^{-1}$ is computed via `forwardsolve(L1, diag(K))`, which exploits the triangular structure for $O(K^2)$-per-column numerical stability rather than general matrix inversion. The affine transformation is applied via vectorized BLAS operations:
+
+```r
+draws_centered <- sweep(draws_beta, 2L, center)         # S x K
+draws_star <- sweep(draws_centered %*% t(A_beta),
+                    2L, -center)                         # S x K
+```
+
+The MCMC covariance receives a `nearPD` fallback via `.safe_chol()` if it is not positive definite (possible due to floating-point noise). The sandwich target $\mathbf{V}_{\text{sand,marg}}$ never receives `nearPD` treatment: a non-PD sandwich indicates structural issues ($J \leq K$) that should trigger a beta-block skip, not artificial repair.
+
+
+### Diagnostics
+
+Two diagnostics quantify the calibration magnitude:
+
+- **Frobenius norm** $\|\mathbf{A}_\beta - \mathbf{I}_K\|_F$: measures overall departure from identity. Values below 0.1 indicate negligible calibration; values above 0.5 indicate substantial model misspecification.
+- **Per-parameter SD ratios** $r_k = \sqrt{[\mathbf{V}_{\text{sand,marg}}]_{kk} / [\hat{\Sigma}_{\text{MCMC}}]_{kk}}$: quantify marginal rescaling for each coefficient.
+
+The computational cost of the entire beta-block is $O(SK^2 + K^3)$. With typical values $S = 4000$ and $K \leq 10$, this amounts to sub-millisecond computation.
+
+
+## Theta-Block CCC Algorithm {#sec-ccc-theta}
+
+### Diagonal Rescaling
+
+Because the conditional sandwich target $\mathbf{V}_{\text{sand,cond}}^{(\theta)}$ is itself diagonal---reflecting the conditional independence of $\theta_j$ given $\boldsymbol{\beta}$ and $\tau^2$ in the working model---the theta-block CCC reduces to $J$ independent scalar rescalings, each an instance of @eq-ccc-scalar:
+
+$$
+\theta_j^{*(s)} = \hat{\theta}_j + r_j(\theta_j^{(s)} - \hat{\theta}_j), \quad r_j = \sqrt{\frac{V_{\text{sand,cond}}^{(\theta_j)}}{\hat{\Sigma}_{\text{MCMC},jj}^{(\theta)}}}, \quad j = 1, \ldots, J.
+$$ {#eq-ccc-theta-apply}
+
+The rescaling factor $r_j$ admits the same interpretation as the scalar case: $r_j > 1$ means the posterior is too narrow for study $j$ (CCC widens); $r_j < 1$ means too wide (CCC narrows); $r_j = 1$ means no correction needed.
+
+The implementation is fully vectorized via `sweep()` operations, requiring no loops or matrix factorizations:
+
+```r
+draws_centered <- sweep(draws_theta, 2L, center)                   # S x J
+draws_star_centered <- sweep(draws_centered, 2L, r_theta, `*`)     # S x J
+draws_star <- sweep(draws_star_centered, 2L, -center)              # S x J
+```
+
+Computational cost is $O(SJ)$ --- a single pass over the $S \times J$ draw matrix.
+
+
+### Off-Diagonal Covariance
+
+Diagonal rescaling calibrates each $\operatorname{Var}(\theta_j^*)$ individually but does not target the off-diagonal covariances $\operatorname{Cov}(\theta_j^*, \theta_{j'}^*)$. After CCC:
+
+$$
+\operatorname{Cov}(\theta_j^*, \theta_{j'}^*) = r_j \, r_{j'} \cdot \hat{\Sigma}_{\text{MCMC},jj'}^{(\theta)}.
+$$
+
+This is a consequence of the diagonal target design, not a defect. The conditional sandwich target $\mathbf{V}_{\text{CCC}}^{(\theta)}$ is itself diagonal because $\theta_j \perp \theta_{j'} \mid \boldsymbol{\beta}, \tau^2$ under the working model, so no off-diagonal sandwich target exists. The off-diagonal covariances reflect the posterior's borrowing-of-strength structure, scaled by the CCC factors.
+
+The $r_j$ distribution provides a diagnostic summary of study-level calibration heterogeneity: if all $r_j \approx 1$, the working model is well-specified; if $r_j \approx c \neq 1$ uniformly, there is systematic miscalibration in the variance component; if $r_j$ values are highly heterogeneous, study-level characteristics drive differential miscalibration.
+
+
+### Worked Example: Blockwise CCC ($K=2$, $J=3$) {#sec-ccc-worked-example}
+
+A minimal numerical example makes the blockwise mechanics concrete. We use exact algebraic verification (Theorem 2 is a finite-sample identity, not an approximation).
+
+```{r}
+#| echo: true
+#| code-fold: false
+#| label: worked-example-blockwise
+
+# ── Inputs ──────────────────────────────────────────────
+# Beta-block: K = 2
+Sigma_MCMC_beta <- matrix(c(4, 1,
+                             1, 2), nrow = 2)   # MCMC covariance
+V_CR2_beta      <- matrix(c(9, 3,
+                             3, 4), nrow = 2)   # CR2 sandwich target
+
+# Theta-block: J = 3 (scalar variance pairs per study)
+sigma2_MCMC_theta <- c(1.0, 0.5, 2.0)           # MCMC variances
+V_sand_theta      <- c(1.5, 1.0, 1.0)           # conditional sandwich targets
+
+# ── Beta-block: Cholesky CCC ───────────────────────────
+L1 <- t(chol(Sigma_MCMC_beta))                   # lower-triangular
+L2 <- t(chol(V_CR2_beta))
+A_beta <- L2 %*% solve(L1)
+cat("A_beta:\n"); print(round(A_beta, 4))
+
+# Theorem 2 verification: A Sigma A' == V_CR2 (exact)
+V_check <- A_beta %*% Sigma_MCMC_beta %*% t(A_beta)
+cat("\nA * Sigma_MCMC * A' =\n"); print(round(V_check, 10))
+cat("V_CR2 target       =\n"); print(V_CR2_beta)
+cat("Max error:", max(abs(V_check - V_CR2_beta)), "\n")
+
+# ── Theta-block: diagonal rescaling ────────────────────
+r_j <- sqrt(V_sand_theta / sigma2_MCMC_theta)
+cat("\nTheta rescaling r_j:", round(r_j, 4), "\n")
+cat("r_j^2 * sigma2_MCMC:", r_j^2 * sigma2_MCMC_theta,
+    "== V_sand_theta:", V_sand_theta, "\n")
+
+# ── Full 5x5 blockwise target ──────────────────────────
+V_CCC <- matrix(0, 5, 5)
+V_CCC[1:2, 1:2] <- V_CR2_beta                   # beta-block (full 2x2)
+diag(V_CCC)[3:5] <- V_sand_theta                 # theta-block (diagonal)
+cat("\nFull blockwise CCC target V_CCC:\n"); print(V_CCC)
+```
+
+Three features of this example:
+
+1. **Beta-block** uses full Cholesky, matching all four entries of $\mathbf{V}_{\text{CR2}}^{(\beta)}$---including the off-diagonal covariance---at machine precision ($< 10^{-14}$).
+2. **Theta-block** uses scalar rescaling per study. Study 1 has $r_1 = `r round(sqrt(1.5/1.0), 3)` > 1$ (posterior too narrow, CCC widens); study 3 has $r_3 = `r round(sqrt(1.0/2.0), 3)` < 1$ (posterior too wide, CCC shrinks).
+3. **Cross-block** entries in $\mathbf{V}_{\text{CCC}}$ are zero *by design* (Decision D2). This does not imply that $\operatorname{Cov}(\boldsymbol{\beta}^*, \boldsymbol{\theta}^*)$ vanishes in the calibrated draws: the block-independent transformations preserve whatever correlations exist in the original posterior through the shared draw index $s$.
+
+
+## CE vs. CHE Model Dispatch {#sec-ccc-dispatch}
+
+### CE Model: Blockwise Hybrid
+
+For the CE (Correlated Effects) model, CCC applies the full blockwise hybrid: beta-block Cholesky CCC followed by theta-block diagonal rescaling. The theta draws $\theta_j^{(s)}$ are explicitly sampled in the MCMC, and both blocks are calibrated independently.
+
+### CHE Model: Beta-Block Only
+
+For the CHE (Correlated-Hierarchical Effects) model, the study-specific effects $\theta_j$ are analytically integrated out of the marginal likelihood. The MCMC therefore does not produce theta draws. CCC applies only to the beta-block, with no theta-block.
+
+The dispatch logic in `ccc.bm_fit()` is:
+
+```r
+model_type <- x$model %||% "ce"
+
+if (model_type == "che") {
+  # Lightweight provenance check (fingerprint check cannot use
+  # .extract_draws(x, "theta") because CHE has no theta draws)
+  .assert_che_sandwich_matches_fit(x, sandwich_obj,
+                                    arg_name = "sandwich_obj")
+  return(.ccc_che(x, sandwich_obj, center, K, J))
+}
+
+# CE path: full blockwise hybrid
+.assert_sandwich_matches_fit(x, sandwich_obj, arg_name = "sandwich_obj")
+```
+
+Inside `.ccc_che()`, the implementation:
+
+1. Extracts beta draws only ($S \times K$ matrix).
+2. Applies the standard `.ccc_beta_block()` to the beta draws with the sandwich's `V_sand_marg` as target.
+3. Creates dummy theta draws (zeros) and dummy `r_theta` (zeros) for API compatibility, so that downstream methods (`summary()`, `confint()`, `print()`) can operate uniformly on `bm_ccc` objects regardless of model type.
+4. Sets `model = "che"` on the returned `bm_ccc` object, enabling clean downstream CHE/CE dispatch.
+
+The dummy theta values are quarantined: all downstream methods check the `model` field and suppress theta output for CHE objects. This design ensures a single `bm_ccc` class serves both model types without requiring separate class hierarchies.
+
+The CHE provenance check uses a lightweight comparison of $K$, $J$, study IDs, and model type, rather than the full fingerprint check used for CE models. The full fingerprint requires `.extract_draws(x, "theta")`, which fails for CHE because theta is integrated out. This is a known design constraint documented in the v0.6.0 post-review (Issue \#2).
+
+
+## Three-Layer Calibration: CCC-t Intervals {#sec-ccc-t}
+
+### The Three Layers
+
+The CCC-t interval implements Three-Layer Calibration, combining three independent sources of frequentist robustness:
+
+- **Layer 1 (Point Estimate):** The Bayesian posterior mean, which under BvM conditions is asymptotically equivalent to the MLE.
+- **Layer 2 (Standard Error):** The CCC-calibrated posterior SD, which by Theorem 2 equals the CR2 sandwich standard error.
+- **Layer 3 (Reference Distribution):** The $t(df_k)$ distribution with Satterthwaite degrees of freedom, accounting for the finite number of clusters (studies).
+
+The CCC-t interval for coefficient $\beta_k$ is:
+
+$$
+\hat{\beta}_k \;\pm\; t_{1-\alpha/2}(df_k) \times \operatorname{SD}_{\text{CCC}}(\beta_k),
+$$ {#eq-ccc-t-interval}
+
+where $\operatorname{SD}_{\text{CCC}}(\beta_k) = \operatorname{SD}(\beta_k^{*(1)}, \ldots, \beta_k^{*(S)})$ is the standard deviation of the CCC-calibrated draws, and $df_k$ is the Satterthwaite degrees of freedom from the CR2 sandwich estimator.
+
+The alternative CCC-q (quantile-based) interval uses quantiles of the calibrated draws directly:
+
+$$
+\left[\operatorname{quantile}_{\alpha/2}(\beta_k^{*(\cdot)}), \;\operatorname{quantile}_{1-\alpha/2}(\beta_k^{*(\cdot)})\right].
+$$ {#eq-ccc-q-interval}
+
+CCC-q uses a normal reference distribution implicitly (posterior draws are approximately normal under BvM), while CCC-t uses a heavier-tailed $t$ reference that accounts for sandwich estimation uncertainty.
+
+
+### Worked Numerical Example {#sec-ccc-t-example}
+
+Consider an intercept-only meta-analysis with $K = 1$ fixed effect.
+
+**Scenario A: Large degrees of freedom ($df = 47$).**
+
+Suppose $\hat{\beta} = 0.15$, $\operatorname{SD}_{\text{CCC}} = 0.028$, and the Satterthwaite degrees of freedom are $df = 47$ (from a meta-analysis with $J = 50$ studies).
+
+- CCC-t critical value: $t_{0.975}(47) = 2.012$
+- CCC-t interval: $0.15 \pm 2.012 \times 0.028 = (0.094, 0.206)$
+- CCC-q critical value: $z_{0.975} = 1.960$
+- CCC-q interval: $0.15 \pm 1.960 \times 0.028 = (0.095, 0.205)$
+
+The difference is small: CCC-t is 2.7% wider than CCC-q. At $df = 47$, the $t$ distribution is very close to the standard normal.
+
+**Scenario B: Small degrees of freedom ($df = 6$).**
+
+Now consider a meta-analysis with only $J = 8$ studies and $K = 2$ moderators, yielding $df = 6$.
+
+- CCC-t critical value: $t_{0.975}(6) = 2.447$
+- CCC-t interval: $0.15 \pm 2.447 \times 0.028 = (0.081, 0.219)$
+- CCC-q critical value: $z_{0.975} = 1.960$
+- CCC-q interval: $0.15 \pm 1.960 \times 0.028 = (0.095, 0.205)$
+
+The difference is now substantial: CCC-t is 24.9% wider than CCC-q. The half-width grows from 0.055 (CCC-q) to 0.069 (CCC-t), reflecting the heavier tails of $t(6)$. This is precisely the regime where Layer 3 matters most --- few studies means high sandwich estimation uncertainty, and the $t$ reference distribution prevents under-coverage.
+
+Simulation results in @sec-results confirm this pattern empirically: CCC-q shows under-coverage (91--94%) at $J \leq 20$, while CCC-t maintains nominal 95% coverage (94.5--95.3%) across all conditions in sim3.
+
+
+### Implementation in `confint.bm_ccc()`
+
+The `confint()` method for `bm_ccc` objects accepts a `df` argument with three options:
+
+- `"satterthwaite"` (default): Per-coefficient Satterthwaite df from the CR2 sandwich. Falls back to `"naive"` if unavailable.
+- `"naive"`: Scalar $df = J - K$ for all coefficients.
+- `"normal"`: Quantile-based (CCC-q), equivalent to $df = \infty$.
+
+For beta parameters, the interval is computed as:
+
+```r
+est_i <- mean(all_draws[, i])
+sd_i  <- sd(all_draws[, i])
+crit_i <- qt(1 - alpha / 2, df = nu_i)
+ci <- c(est_i - crit_i * sd_i, est_i + crit_i * sd_i)
+```
+
+Theta-block intervals are always quantile-based, regardless of the `df` argument, because study-specific effects do not have meaningful Satterthwaite degrees of freedom.
+
+
+## Edge Cases and Boundary Behavior {#sec-ccc-edge-cases}
+
+### Edge Case Decision Table
+
+| Edge Case | Detection | CCC Action | User Notification |
+|:----------|:----------|:-----------|:------------------|
+| $\tau^2 \approx 0$ | `median(tau_draws) < 0.01` | Apply ($r_j \to 0$); warning | `cli::cli_warn()` |
+| $\mathbf{V}_{\text{sand,marg}}$ not PD | PD eigenvalue check | Skip beta-block | `cli::cli_warn()` |
+| $r_j < 1$ (posterior over-dispersed) | `r_theta[j] < 1` | Apply (always-on) | Info in `summary()` |
+| $K = 1$ (intercept-only) | `ncol(draws_beta) == 1` | Scalar CCC (automatic) | None |
+| $J < K$ | Structural check | Skip beta-block | `cli::cli_warn()` |
+| $J = K$ and PD | Boundary check | Proceed with warning | `cli::cli_warn()` |
+| Sandwich fallback (D7) | `sandwich_obj$fallback` | Skip beta-block | `cli::cli_inform()` |
+
+: Edge case decision table for CCC. {#tbl-ccc-edge-decision}
+
+
+### Boundary Posterior ($\tau \approx 0$)
+
+When $\tau^2$ concentrates near zero, the theta-block MCMC variance $\hat{\Sigma}_{\text{MCMC},jj}^{(\theta)} = O(\tau^2)$, while the conditional sandwich variance $V_{\text{sand,cond}}^{(\theta_j)} = O(\tau^4)$. The rescaling factor therefore $r_j = O(\tau) \to 0$, shrinking theta draws toward their center. This is not a failure mode: it reflects the sandwich's assessment that $\theta_j$ has very little conditional variability. CCC is still applied (always-on design), and `.check_tau_boundary()` issues a diagnostic warning when more than 10% of tau draws fall below 0.01. No clamping of $r_j$ values is performed, as clamping would break the exact variance matching of Theorem 2.
+
+
+### Positive Definiteness Requirements
+
+The beta-block CCC requires both $\hat{\Sigma}_{\text{MCMC}}^{(\beta)}$ and $\mathbf{V}_{\text{sand,marg}}^{(\beta)}$ to be positive definite. The implementation handles four cases:
+
+1. **$J < K$ (structural singularity):** The marginal sandwich meat has rank at most $J < K$, so $\mathbf{V}_{\text{sand,marg}}$ is singular. Beta-block CCC is unconditionally skipped.
+2. **$J = K$ and sandwich not PD:** Skipped.
+3. **$J = K$ and sandwich PD:** Proceeds with a zero-excess-degrees-of-freedom warning (the sandwich is PD but barely so).
+4. **$J > K$ and sandwich not PD:** Skipped (near-collinearity or numerical issue).
+
+For the MCMC covariance, `.safe_chol()` applies a `nearPD` fallback (preserving diagonal) if floating-point noise causes marginal non-PD. For the sandwich, `nearPD` is never applied.
+
+In all skip cases, the theta-block CCC proceeds normally --- theta-block rescaling has no rank requirement.
+
+
+### Over-Dispersed Posterior ($r_j < 1$)
+
+When $r_j < 1$, the MCMC posterior is wider than the sandwich target, and CCC narrows the credible interval. This is valid calibration: the working model may produce an overly conservative posterior, and CCC corrects it. bayesRVE applies CCC unconditionally for $r_j$ in any range, eliminating the DER-based gating present in earlier implementations.
+
+
+## Summary: Standard Bayesian vs. CCC-Calibrated Inference {#sec-ccc-comparison}
+
+### Comparison Table
+
+| Property | Standard Bayesian | CCC-Calibrated Bayesian |
+|:---------|:-----------------|:------------------------|
+| Point estimate | Posterior mean | Same (Theorem 1) |
+| Standard error | Posterior SD | CCC SD = CR2 SE (Theorem 2) |
+| Reference distribution | Normal (implicit) | $t(df_k)$ via Satterthwaite |
+| Coverage guarantee | Model-dependent | Sandwich-robust |
+| Interval type | Credible interval | CCC-t confidence interval |
+| Under correct specification | Nominal coverage | Same coverage (Theorem 3) |
+| Under misspecification | Potentially anti-conservative | Calibrated to nominal |
+| Sensitivity to $\rho$ | N/A (model-based) | Robust via sandwich |
+| Computational overhead | None | $< 10$ ms additional |
+
+: Comparison of standard Bayesian and CCC-calibrated Bayesian inference. {#tbl-ccc-comparison}
+
+
+### Interpretation
+
+The CCC-calibrated Bayesian framework preserves what is useful about both paradigms:
+
+- **From the Bayesian side:** The posterior mean as the point estimate, the full posterior distribution for visualization and diagnostics, and the ability to incorporate prior information.
+- **From the frequentist side:** Sandwich-robust standard errors that do not depend on correct specification of the within-study correlation structure, small-sample corrections via CR2, and appropriate degrees of freedom via Satterthwaite.
+
+CCC does not choose between Bayesian and frequentist inference. It recalibrates the Bayesian posterior so that its spread matches the frequentist sandwich standard error, then uses the frequentist $t$-distribution for interval construction. The result is a posterior distribution whose marginal credible intervals have correct frequentist coverage under working-model misspecification.
+
+This hybrid property is not unconditional: it requires the four coverage conditions (BvM regularity, sandwich consistency, positive definiteness, and adequate degrees of freedom) detailed in @sec-envelope. When these conditions are satisfied, CCC-t delivers coverage rates empirically indistinguishable from the gold-standard CR2 intervals, as demonstrated in @sec-results. The sim3 comprehensive simulation (24 conditions, 11,600 fits) confirms CCC-t coverage of 94.5--95.3% across all conditions, matching CR2 coverage of 94.8--95.3%.
