@@ -1,7 +1,10 @@
-# Quarto build cache
+# Quarto build cache (source directory only, not docs/)
 *_cache/
-*_files/
+/*_files/
 .quarto/
+
+# Keep all docs/ output (including figure subdirectories)
+!docs/
 
 # R
 .Rhistory
